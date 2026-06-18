@@ -31,8 +31,12 @@ export interface InstallmentRow {
 
 /** Cronograma completo de amortizacion con totales agregados. */
 export interface AmortizationSchedule {
-  /** Cuota fija periodica (antes de ajustes de redondeo en la ultima cuota). */
-  readonly fixedPayment: number;
+  /**
+   * Cuota fija periodica, solo aplica al sistema frances (cuota constante).
+   * En aleman (abono constante) y americano (interes + capital al final) la
+   * cuota varia, por lo que este campo queda indefinido.
+   */
+  readonly fixedPayment?: number;
   /** Filas del cronograma, una por cuota. */
   readonly rows: readonly InstallmentRow[];
   /** Suma total de intereses pagados a lo largo del credito. */

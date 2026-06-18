@@ -4,6 +4,7 @@ import {
   AmortizationSchedule,
   InstallmentRow,
 } from './amortization.types';
+import { validateAmortizationInput } from './amortization.validation';
 
 /**
  * Motor de amortizacion por sistema frances (cuota fija).
@@ -15,24 +16,6 @@ import {
  *   donde P = capital, i = tasa mensual, n = numero de cuotas.
  * Si i = 0, la cuota es simplemente P / n.
  */
-
-/**
- * Valida los parametros de entrada del cronograma.
- * @param input - Parametros de amortizacion.
- * @throws Error si el capital, la tasa o el numero de cuotas son invalidos.
- */
-function validateInput(input: AmortizationInput): void {
-  const { principal, monthlyRate, numberOfInstallments } = input;
-  if (principal <= 0) {
-    throw new Error('El capital (principal) debe ser mayor que cero.');
-  }
-  if (monthlyRate < 0) {
-    throw new Error('La tasa mensual no puede ser negativa.');
-  }
-  if (!Number.isInteger(numberOfInstallments) || numberOfInstallments <= 0) {
-    throw new Error('El numero de cuotas debe ser un entero mayor que cero.');
-  }
-}
 
 /**
  * Calcula la cuota fija del sistema frances.
@@ -83,7 +66,7 @@ function buildRow(
 export function generateFrenchSchedule(
   input: AmortizationInput,
 ): AmortizationSchedule {
-  validateInput(input);
+  validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
 
   const fixedPayment = calculateFixedPayment(principal, monthlyRate, n);
