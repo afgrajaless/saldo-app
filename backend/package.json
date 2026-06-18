@@ -1,0 +1,19 @@
+{
+  "name": "saldo-backend",
+  "version": "0.1.0",
+  "description": "API y motor de dominio de Saldo — gestor de deuda y credito (Colombia)",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.5.4"
+  }
+}
