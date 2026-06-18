@@ -24,7 +24,7 @@ import { validateAmortizationInput } from './amortization.validation';
  * @param n - Numero de cuotas.
  * @returns La cuota periodica fija, redondeada a centavos.
  */
-function calculateFixedPayment(
+export function calculateFixedPayment(
   principal: number,
   monthlyRate: number,
   n: number,
@@ -82,6 +82,54 @@ export function generateFrenchSchedule(
     const row = buildRow(period, payment, interest, balance);
     rows.push(row);
     balance = row.balance;
+  }
+
+  return {
+    fixedPayment,
+    rows,
+    totalInterest: roundMoney(rows.reduce((sum, r) => sum + r.interest, 0)),
+    totalPaid: roundMoney(rows.reduce((sum, r) => sum + r.payment, 0)),
+  };
+}
+
+/** Tope de seguridad de periodos para evitar bucles infinitos en el amortizador. */
+const MAX_PERIODS = 1200;
+
+/**
+ * Amortiza un saldo con una cuota fija dada hasta cancelarlo por completo.
+ *
+ * A diferencia de `generateFrenchSchedule` (que calcula la cuota a partir del
+ * plazo), aqui la cuota es el dato de entrada y el numero de periodos se deduce.
+ * Se usa al reducir plazo tras un abono a capital: se conserva la cuota previa
+ * y el credito se salda en menos cuotas. La ultima cuota cierra el saldo en 0.
+ * @param principal - Saldo a amortizar.
+ * @param monthlyRate - Tasa mensual efectiva como fraccion decimal.
+ * @param fixedPayment - Cuota fija que se mantendra cada periodo.
+ * @returns El cronograma resultante con sus filas y totales.
+ * @throws Error si la cuota no cubre el interes del primer periodo.
+ */
+export function amortizeWithPayment(
+  principal: number,
+  monthlyRate: number,
+  fixedPayment: number,
+): AmortizationSchedule {
+  const firstInterest = principal * monthlyRate;
+  if (monthlyRate > 0 && fixedPayment <= firstInterest) {
+    throw new Error('La cuota no cubre el interes: el saldo nunca se amortizaria.');
+  }
+
+  const rows: InstallmentRow[] = [];
+  let balance = principal;
+  let period = 1;
+
+  while (balance > 0 && period <= MAX_PERIODS) {
+    const interest = roundMoney(balance * monthlyRate);
+    const isLast = fixedPayment >= balance + interest;
+    const payment = isLast ? roundMoney(balance + interest) : fixedPayment;
+    const row = buildRow(period, payment, interest, balance);
+    rows.push(row);
+    balance = row.balance;
+    period += 1;
   }
 
   return {
