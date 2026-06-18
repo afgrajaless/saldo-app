@@ -1,0 +1,90 @@
+# ─────────────────────────────────────────────
+# Secretos y archivos sensibles (NUNCA subir)
+# ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.mobileprovision
+*.cer
+secrets/
+google-services.json
+GoogleService-Info.plist
+**/key.properties
+
+# ─────────────────────────────────────────────
+# Backend — Node / NestJS
+# ─────────────────────────────────────────────
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.eslintcache
+
+# ─────────────────────────────────────────────
+# Frontend — Flutter / Dart
+# ─────────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/build/
+*.iml
+*.ipr
+*.iws
+.fvm/
+.metadata
+**/generated_plugin_registrant.dart
+**/*.g.dart.bak
+
+# iOS / macOS (Flutter)
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated.xcconfig
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Pods/
+
+# Android (Flutter)
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# ─────────────────────────────────────────────
+# Sistema operativo / Editores
+# ─────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─────────────────────────────────────────────
+# Archivos locales, temporales y privados
+# ─────────────────────────────────────────────
+_local/
+*.log
+tmp/
+temp/
+.claude/
+CLAUDE.md
