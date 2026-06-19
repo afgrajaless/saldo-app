@@ -13,6 +13,7 @@ class Debt {
     required this.startDate,
     required this.insuranceMode,
     required this.insuranceValue,
+    required this.interestMode,
     required this.status,
   });
 
@@ -32,5 +33,8 @@ class Debt {
 
   /// Valor del seguro (tasa o monto fijo); null si no tiene.
   final double? insuranceValue;
+
+  /// Modo de causacion del interes: 'monthly' o 'daily'.
+  final String interestMode;
   final String status;
 }

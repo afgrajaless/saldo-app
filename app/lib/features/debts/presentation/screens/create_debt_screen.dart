@@ -27,6 +27,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   String _rateType = 'mv';
   String _amortizationSystem = 'frances';
   String _insuranceMode = 'none';
+  bool _dailyInterest = false;
   late DateTime _startDate;
   bool _submitting = false;
 
@@ -86,6 +87,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
       amortizationSystem: _amortizationSystem,
       termMonths: int.parse(_termController.text),
       startDate: _formatDate(_startDate),
+      interestMode: _dailyInterest ? 'daily' : 'monthly',
       insuranceMode: _insuranceMode,
       insuranceValue: insuranceValue,
     );
@@ -216,7 +218,19 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                   child: Text(_formatDate(_startDate)),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _dailyInterest,
+                onChanged: (v) => setState(() => _dailyInterest = v),
+                title: const Text('Interes por dia'),
+                subtitle: Text(
+                  'Causa el interes por dias reales entre cuotas (efectivo diario base 365).',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 12),
               Text('Seguro de vida deudor', style: theme.textTheme.labelLarge),
               const SizedBox(height: 8),
               SegmentedButton<String>(

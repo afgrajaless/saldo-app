@@ -23,6 +23,7 @@ Debt debtFromJson(Map<String, dynamic> json) {
     insuranceMode: json['insuranceMode'] as String,
     insuranceValue:
         json['insuranceValue'] == null ? null : (json['insuranceValue'] as num).toDouble(),
+    interestMode: json['interestMode'] as String,
     status: json['status'] as String,
   );
 }

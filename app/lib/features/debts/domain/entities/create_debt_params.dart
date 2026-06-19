@@ -11,6 +11,7 @@ class CreateDebtParams {
     required this.startDate,
     this.insuranceMode = 'none',
     this.insuranceValue,
+    this.interestMode = 'monthly',
   });
 
   final String creditor;
@@ -32,6 +33,9 @@ class CreateDebtParams {
   /// Valor del seguro (tasa o monto fijo); null si no aplica.
   final double? insuranceValue;
 
+  /// Modo de causacion del interes: 'monthly' o 'daily'.
+  final String interestMode;
+
   /// Convierte los parametros al cuerpo JSON que espera el backend.
   /// @return El mapa JSON para el POST /debts.
   Map<String, dynamic> toJson() => {
@@ -43,6 +47,7 @@ class CreateDebtParams {
         'amortizationSystem': amortizationSystem,
         'termMonths': termMonths,
         'startDate': startDate,
+        'interestMode': interestMode,
         'insuranceMode': insuranceMode,
         if (insuranceMode != 'none' && insuranceValue != null)
           'insuranceValue': insuranceValue,
