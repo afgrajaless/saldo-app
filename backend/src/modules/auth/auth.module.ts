@@ -15,6 +15,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   imports: [JwtModule.register({}), UsersModule],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, JwtAuthGuard],
-  exports: [JwtAuthGuard],
+  // Se exporta JwtModule para que JwtAuthGuard pueda inyectar JwtService en los
+  // modulos que reusan el guard (p. ej. DebtsModule).
+  exports: [JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}
