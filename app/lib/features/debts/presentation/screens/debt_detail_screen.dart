@@ -7,6 +7,7 @@ import '../../../../shared/money_format.dart';
 import '../../../payments/domain/entities/register_payment_params.dart';
 import '../../../payments/presentation/providers/payments_controller.dart';
 import '../../../payments/presentation/screens/abono_capital_screen.dart';
+import '../../../usury/presentation/widgets/usury_badge.dart';
 import '../../domain/entities/debt_detail.dart';
 import '../../domain/entities/installment.dart';
 import '../providers/debt_detail_provider.dart';
@@ -108,6 +109,8 @@ class _DetailBody extends ConsumerWidget {
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 16),
         _SummaryGrid(detail: detail),
+        const SizedBox(height: 16),
+        UsuryBadge(debtId: debtId),
         const SizedBox(height: 16),
         if (canAbonar)
           FilledButton.tonalIcon(
