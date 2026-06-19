@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 
 /**
  * Modulo raiz de la aplicacion. Carga la configuracion validada, la conexion a
@@ -16,6 +18,8 @@ import { HealthModule } from './health/health.module';
     }),
     DatabaseModule,
     HealthModule,
+    UsersModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

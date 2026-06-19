@@ -1,4 +1,4 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -26,6 +26,7 @@ export class EnvironmentVariables {
   @IsOptional()
   NODE_ENV: Environment = Environment.Development;
 
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(65535)
