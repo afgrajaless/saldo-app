@@ -88,5 +88,25 @@ void main() {
     // De vuelta en la lista, debe aparecer la deuda creada.
     await pumpUntil(tester, find.text('BBVA'));
     expect(find.text('BBVA'), findsOneWidget);
+
+    // Abrir el detalle y aplicar un abono a capital.
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+    await pumpUntil(tester, find.text('Detalle de la deuda'));
+    await pumpUntil(tester, find.text('Abono a capital'));
+    await tapVisible(tester, find.text('Abono a capital'));
+    await tester.pumpAndSettle();
+
+    await pumpUntil(tester, find.text('Aplicar abono'));
+    await tester.enterText(find.byType(TextFormField).first, '3000000');
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Aplicar abono'));
+
+    // El dialogo de resultado debe mostrar el ahorro de intereses.
+    await pumpUntil(tester, find.text('Abono aplicado'));
+    expect(find.text('Intereses ahorrados'), findsOneWidget);
+    await tester.tap(find.text('Entendido'));
+    await tester.pumpAndSettle();
   });
 }

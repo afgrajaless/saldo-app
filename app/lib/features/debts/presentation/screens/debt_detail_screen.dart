@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/error/api_exception.dart';
 import '../../../../shared/enum_labels.dart';
 import '../../../../shared/money_format.dart';
+import '../../../payments/domain/entities/register_payment_params.dart';
+import '../../../payments/presentation/providers/payments_controller.dart';
+import '../../../payments/presentation/screens/abono_capital_screen.dart';
 import '../../domain/entities/debt_detail.dart';
 import '../../domain/entities/installment.dart';
 import '../providers/debt_detail_provider.dart';
 
-/// Detalle de una deuda: resumen, distribucion capital/interes y cronograma.
+/// Detalle de una deuda: resumen, distribucion capital/interes y cronograma,
+/// con acciones de pago de cuota y abono a capital.
 class DebtDetailScreen extends ConsumerWidget {
   const DebtDetailScreen({super.key, required this.debtId});
 
@@ -27,22 +32,72 @@ class DebtDetailScreen extends ConsumerWidget {
             child: Text('$error', textAlign: TextAlign.center),
           ),
         ),
-        data: (detail) => _DetailBody(detail: detail),
+        data: (detail) => _DetailBody(debtId: debtId, detail: detail),
       ),
     );
   }
 }
 
-/// Cuerpo del detalle con resumen, barra capital/interes y lista de cuotas.
-class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.detail});
+/// Cuerpo del detalle con resumen, acciones y lista de cuotas.
+class _DetailBody extends ConsumerWidget {
+  const _DetailBody({required this.debtId, required this.detail});
 
+  final String debtId;
   final DebtDetail detail;
 
+  /// Registra el pago de una cuota tras confirmar.
+  /// @param context - Contexto de la pantalla.
+  /// @param ref - Referencia de Riverpod.
+  /// @param installment - Cuota a pagar.
+  Future<void> _payInstallment(
+    BuildContext context,
+    WidgetRef ref,
+    Installment installment,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Pagar cuota #${installment.number}'),
+        content: Text('Registrar el pago de ${formatCop(installment.totalAmount)}?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Pagar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(paymentsControllerProvider.notifier).register(
+            debtId,
+            RegisterPaymentParams(
+              type: 'regular',
+              amount: installment.totalAmount,
+              paymentDate: DateTime.now().toIso8601String().substring(0, 10),
+              installmentId: installment.id,
+            ),
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Pago registrado.')));
+      }
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final debt = detail.debt;
     final theme = Theme.of(context);
+    final canAbonar = detail.installments.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -53,6 +108,18 @@ class _DetailBody extends StatelessWidget {
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 16),
         _SummaryGrid(detail: detail),
+        const SizedBox(height: 16),
+        if (canAbonar)
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => AbonoCapitalScreen(debtId: debtId),
+              ),
+            ),
+            icon: const Icon(Icons.savings_outlined),
+            label: const Text('Abono a capital'),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          ),
         const SizedBox(height: 20),
         Text('Capital vs. interes', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -63,8 +130,20 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: 24),
         Text('Cronograma (${detail.installments.length} cuotas)',
             style: theme.textTheme.titleMedium),
+        const SizedBox(height: 4),
+        if (detail.installments.isNotEmpty)
+          Text('Toca una cuota pendiente para registrar su pago.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 8),
-        ...detail.installments.map((i) => _InstallmentTile(installment: i)),
+        ...detail.installments.map(
+          (i) => _InstallmentTile(
+            installment: i,
+            onPay: i.status == 'pendiente'
+                ? () => _payInstallment(context, ref, i)
+                : null,
+          ),
+        ),
       ],
     );
   }
@@ -196,19 +275,29 @@ class _Legend extends StatelessWidget {
   }
 }
 
-/// Fila de una cuota del cronograma.
+/// Fila de una cuota del cronograma; pulsable si esta pendiente.
 class _InstallmentTile extends StatelessWidget {
-  const _InstallmentTile({required this.installment});
+  const _InstallmentTile({required this.installment, this.onPay});
 
   final Installment installment;
+  final VoidCallback? onPay;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isPaid = installment.status == 'pagada';
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        leading: CircleAvatar(child: Text('${installment.number}')),
+        onTap: onPay,
+        leading: CircleAvatar(
+          backgroundColor: isPaid
+              ? theme.colorScheme.secondaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
+          child: isPaid
+              ? Icon(Icons.check, color: theme.colorScheme.onSecondaryContainer)
+              : Text('${installment.number}'),
+        ),
         title: Text(formatCop(installment.totalAmount),
             style: theme.textTheme.titleSmall),
         subtitle: Text(
@@ -216,8 +305,11 @@ class _InstallmentTile extends StatelessWidget {
           'Capital ${formatCop(installment.principalPortion)} · Interes ${formatCop(installment.interestPortion)}',
         ),
         isThreeLine: true,
-        trailing: Text('Saldo\n${formatCop(installment.remainingBalance)}',
-            textAlign: TextAlign.right, style: theme.textTheme.bodySmall),
+        trailing: Text(
+          isPaid ? 'Pagada' : 'Saldo\n${formatCop(installment.remainingBalance)}',
+          textAlign: TextAlign.right,
+          style: theme.textTheme.bodySmall,
+        ),
       ),
     );
   }

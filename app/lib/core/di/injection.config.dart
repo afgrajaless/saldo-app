@@ -32,6 +32,12 @@ import 'package:saldo/features/debts/data/repositories/debts_repository_impl.dar
     as _i331;
 import 'package:saldo/features/debts/domain/repositories/debts_repository.dart'
     as _i409;
+import 'package:saldo/features/payments/data/datasources/payments_remote_datasource.dart'
+    as _i54;
+import 'package:saldo/features/payments/data/repositories/payments_repository_impl.dart'
+    as _i286;
+import 'package:saldo/features/payments/domain/repositories/payments_repository.dart'
+    as _i54;
 
 extension GetItInjectableX on _i174.GetIt {
 // initializes the registration of main-scope dependencies inside of GetIt
@@ -48,10 +54,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i558.FlutterSecureStorage>(
         () => registerModule.secureStorage);
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
-    gh.lazySingleton<_i523.AuthRemoteDataSource>(
-        () => _i523.AuthRemoteDataSource(gh<_i361.Dio>()));
     gh.lazySingleton<_i394.DebtsRemoteDataSource>(
         () => _i394.DebtsRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i54.PaymentsRemoteDataSource>(
+        () => _i54.PaymentsRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i523.AuthRemoteDataSource>(
+        () => _i523.AuthRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i54.PaymentsRepository>(() =>
+        _i286.PaymentsRepositoryImpl(gh<_i54.PaymentsRemoteDataSource>()));
     gh.lazySingleton<_i409.DebtsRepository>(
         () => _i331.DebtsRepositoryImpl(gh<_i394.DebtsRemoteDataSource>()));
     gh.lazySingleton<_i390.TokenStorage>(
