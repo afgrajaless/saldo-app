@@ -11,6 +11,8 @@ class Debt {
     required this.amortizationSystem,
     required this.termMonths,
     required this.startDate,
+    required this.insuranceMode,
+    required this.insuranceValue,
     required this.status,
   });
 
@@ -24,5 +26,11 @@ class Debt {
   final String amortizationSystem;
   final int termMonths;
   final String startDate;
+
+  /// Modalidad del seguro: 'none', 'rate' o 'fixed'.
+  final String insuranceMode;
+
+  /// Valor del seguro (tasa o monto fijo); null si no tiene.
+  final double? insuranceValue;
   final String status;
 }

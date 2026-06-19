@@ -6,6 +6,7 @@ class Installment {
     required this.dueDate,
     required this.principalPortion,
     required this.interestPortion,
+    required this.insurancePortion,
     required this.totalAmount,
     required this.remainingBalance,
     required this.status,
@@ -16,6 +17,9 @@ class Installment {
   final String dueDate;
   final double principalPortion;
   final double interestPortion;
+
+  /// Porcion de seguro de la cuota (0 si no aplica).
+  final double insurancePortion;
   final double totalAmount;
   final double remainingBalance;
   final String status;

@@ -20,6 +20,9 @@ Debt debtFromJson(Map<String, dynamic> json) {
     amortizationSystem: json['amortizationSystem'] as String,
     termMonths: json['termMonths'] as int,
     startDate: json['startDate'] as String,
+    insuranceMode: json['insuranceMode'] as String,
+    insuranceValue:
+        json['insuranceValue'] == null ? null : (json['insuranceValue'] as num).toDouble(),
     status: json['status'] as String,
   );
 }
@@ -34,6 +37,7 @@ Installment installmentFromJson(Map<String, dynamic> json) {
     dueDate: json['dueDate'] as String,
     principalPortion: _toDouble(json['principalPortion']),
     interestPortion: _toDouble(json['interestPortion']),
+    insurancePortion: _toDouble(json['insurancePortion']),
     totalAmount: _toDouble(json['totalAmount']),
     remainingBalance: _toDouble(json['remainingBalance']),
     status: json['status'] as String,
@@ -51,6 +55,7 @@ DebtDetail debtDetailFromJson(Map<String, dynamic> json) {
     debt: debtFromJson(json),
     installments: installments,
     totalInterest: _toDouble(json['totalInterest']),
+    totalInsurance: _toDouble(json['totalInsurance']),
     totalPaid: _toDouble(json['totalPaid']),
   );
 }

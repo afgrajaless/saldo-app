@@ -167,6 +167,7 @@ class _SummaryGrid extends StatelessWidget {
       ('Sistema', labelOf(amortizationSystemLabels, debt.amortizationSystem)),
       ('Plazo', '${debt.termMonths} meses'),
       ('Total interes', formatCop(detail.totalInterest)),
+      if (detail.totalInsurance > 0) ('Total seguro', formatCop(detail.totalInsurance)),
       ('Total a pagar', formatCop(detail.totalPaid)),
     ];
     return Wrap(
@@ -305,7 +306,8 @@ class _InstallmentTile extends StatelessWidget {
             style: theme.textTheme.titleSmall),
         subtitle: Text(
           'Vence ${installment.dueDate}\n'
-          'Capital ${formatCop(installment.principalPortion)} · Interes ${formatCop(installment.interestPortion)}',
+          'Capital ${formatCop(installment.principalPortion)} · Interes ${formatCop(installment.interestPortion)}'
+          '${installment.insurancePortion > 0 ? ' · Seguro ${formatCop(installment.insurancePortion)}' : ''}',
         ),
         isThreeLine: true,
         trailing: Text(

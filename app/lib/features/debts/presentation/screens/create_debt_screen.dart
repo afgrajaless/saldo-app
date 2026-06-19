@@ -21,10 +21,12 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   final _principalController = TextEditingController();
   final _rateController = TextEditingController();
   final _termController = TextEditingController();
+  final _insuranceController = TextEditingController();
 
   String _debtType = 'libre_inversion';
   String _rateType = 'mv';
   String _amortizationSystem = 'frances';
+  String _insuranceMode = 'none';
   late DateTime _startDate;
   bool _submitting = false;
 
@@ -40,6 +42,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
     _principalController.dispose();
     _rateController.dispose();
     _termController.dispose();
+    _insuranceController.dispose();
     super.dispose();
   }
 
@@ -64,6 +67,12 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   /// Valida y envia el formulario al backend.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final insuranceValue = _resolveInsuranceValue();
+    if (_insuranceMode != 'none' && insuranceValue == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Ingresa el valor del seguro.')));
+      return;
+    }
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
 
@@ -77,6 +86,8 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
       amortizationSystem: _amortizationSystem,
       termMonths: int.parse(_termController.text),
       startDate: _formatDate(_startDate),
+      insuranceMode: _insuranceMode,
+      insuranceValue: insuranceValue,
     );
 
     try {
@@ -98,6 +109,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva deuda')),
       body: SafeArea(
@@ -204,6 +216,37 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                   child: Text(_formatDate(_startDate)),
                 ),
               ),
+              const SizedBox(height: 20),
+              Text('Seguro de vida deudor', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'none', label: Text('Sin seguro')),
+                  ButtonSegment(value: 'fixed', label: Text('Monto fijo')),
+                  ButtonSegment(value: 'rate', label: Text('Tasa')),
+                ],
+                selected: {_insuranceMode},
+                onSelectionChanged: (s) => setState(() => _insuranceMode = s.first),
+              ),
+              if (_insuranceMode != 'none') ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _insuranceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                  decoration: InputDecoration(
+                    labelText: _insuranceMode == 'fixed'
+                        ? 'Monto mensual del seguro'
+                        : 'Tasa mensual del seguro',
+                    prefixText: _insuranceMode == 'fixed' ? '\$ ' : null,
+                    suffixText: _insuranceMode == 'rate' ? '%' : null,
+                    border: const OutlineInputBorder(),
+                    helperText: _insuranceMode == 'fixed'
+                        ? 'Se suma a cada cuota (ej. 1811)'
+                        : 'Porcentaje del saldo cada mes',
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _submitting ? null : _submit,
@@ -222,6 +265,15 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
         ),
       ),
     );
+  }
+
+  /// Resuelve el valor del seguro segun la modalidad (tasa en fraccion, monto fijo).
+  /// @return El valor, o null si no aplica o es invalido.
+  double? _resolveInsuranceValue() {
+    if (_insuranceMode == 'none') return null;
+    final parsed = double.tryParse(_insuranceController.text.replaceAll(',', '.'));
+    if (parsed == null || parsed <= 0) return null;
+    return _insuranceMode == 'rate' ? parsed / 100 : parsed;
   }
 
   /// Valida que el texto sea un numero positivo.
