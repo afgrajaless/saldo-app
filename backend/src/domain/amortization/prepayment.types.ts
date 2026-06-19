@@ -1,3 +1,4 @@
+import { InsuranceConfig } from '../insurance/insurance';
 import { AmortizationSchedule } from './amortization.types';
 
 /**
@@ -23,6 +24,8 @@ export interface PrepaymentInput {
   readonly extraPayment: number;
   /** Modalidad elegida: reducir plazo o reducir cuota. */
   readonly mode: PrepaymentMode;
+  /** Configuracion del seguro a conservar en el cronograma recalculado. */
+  readonly insurance?: InsuranceConfig;
 }
 
 /** Resultado del recalculo tras aplicar un abono a capital. */

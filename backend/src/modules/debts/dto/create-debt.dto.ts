@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
   IsISO8601,
@@ -10,10 +10,12 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import {
   amortizationSystemEnum,
   debtTypeEnum,
+  insuranceModeEnum,
   rateTypeEnum,
 } from '../../../db/schema';
 
@@ -73,4 +75,25 @@ export class CreateDebtDto {
   @ApiProperty({ description: 'Fecha de inicio del credito (YYYY-MM-DD).', example: '2026-01-15' })
   @IsISO8601({ strict: true })
   startDate!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Modalidad del seguro de vida deudor: none (sin seguro), rate (tasa sobre el saldo) o fixed (monto fijo mensual).',
+    enum: insuranceModeEnum.enumValues,
+    default: 'none',
+  })
+  @IsOptional()
+  @IsIn(insuranceModeEnum.enumValues)
+  insuranceMode?: (typeof insuranceModeEnum.enumValues)[number];
+
+  @ApiPropertyOptional({
+    description:
+      'Valor del seguro: si mode=rate es la tasa mensual (fraccion); si mode=fixed es el monto fijo. Requerido si mode != none.',
+    example: 1811,
+  })
+  @ValidateIf((dto: CreateDebtDto) => dto.insuranceMode === 'rate' || dto.insuranceMode === 'fixed')
+  @IsNumber({ maxDecimalPlaces: 8 })
+  @IsPositive({ message: 'El valor del seguro debe ser mayor que cero.' })
+  insuranceValue?: number;
 }
+

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Representacion de una deuda en las respuestas de la API. */
 export class DebtResponseDto {
@@ -32,6 +32,16 @@ export class DebtResponseDto {
   @ApiProperty({ example: '2026-01-15' })
   startDate!: string;
 
+  @ApiProperty({ description: 'Modalidad del seguro: none, rate o fixed.', example: 'fixed' })
+  insuranceMode!: string;
+
+  @ApiPropertyOptional({
+    description: 'Valor del seguro (tasa si rate, monto si fixed).',
+    example: 1811,
+    nullable: true,
+  })
+  insuranceValue!: number | null;
+
   @ApiProperty({ example: 'activa' })
   status!: string;
 
@@ -56,7 +66,10 @@ export class InstallmentResponseDto {
   @ApiProperty({ description: 'Interes de la cuota.', example: 150000 })
   interestPortion!: number;
 
-  @ApiProperty({ description: 'Valor total de la cuota.', example: 400000 })
+  @ApiProperty({ description: 'Seguro de la cuota (0 si no aplica).', example: 1811 })
+  insurancePortion!: number;
+
+  @ApiProperty({ description: 'Valor total de la cuota (capital + interes + seguro).', example: 401811 })
   totalAmount!: number;
 
   @ApiProperty({ description: 'Saldo de capital tras la cuota.', example: 9750000 })
@@ -74,6 +87,9 @@ export class DebtDetailDto extends DebtResponseDto {
   @ApiProperty({ description: 'Total de intereses del credito.', example: 4400000 })
   totalInterest!: number;
 
-  @ApiProperty({ description: 'Total a pagar (capital + intereses).', example: 14400000 })
+  @ApiProperty({ description: 'Total de seguro del credito.', example: 65196 })
+  totalInsurance!: number;
+
+  @ApiProperty({ description: 'Total a pagar (capital + intereses + seguro).', example: 14465196 })
   totalPaid!: number;
 }

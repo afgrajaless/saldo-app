@@ -1,3 +1,4 @@
+import { computeInsurance, NO_INSURANCE } from '../insurance/insurance';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -12,6 +13,8 @@ import { validateAmortizationInput } from './amortization.validation';
  * En el sistema aleman el abono a capital es el mismo en cada cuota (P / n) y
  * el interes se calcula sobre el saldo, que decrece de forma lineal. Resultado:
  * la cuota total es decreciente (alta al inicio, baja al final).
+ *
+ * El seguro (si lo hay) se suma a la cuota sin alterar la amortizacion.
  */
 
 /**
@@ -20,6 +23,7 @@ import { validateAmortizationInput } from './amortization.validation';
  * @param principalPaid - Abono a capital del periodo.
  * @param interest - Interes del periodo.
  * @param balanceBefore - Saldo de capital antes del pago.
+ * @param insurance - Valor del seguro del periodo.
  * @returns La fila con su desglose y el saldo resultante.
  */
 function buildRow(
@@ -27,10 +31,11 @@ function buildRow(
   principalPaid: number,
   interest: number,
   balanceBefore: number,
+  insurance: number,
 ): InstallmentRow {
   const payment = roundMoney(principalPaid + interest);
   const balance = roundMoney(balanceBefore - principalPaid);
-  return { number, payment, interest, principal: principalPaid, balance };
+  return { number, payment, interest, principal: principalPaid, insurance, balance };
 }
 
 /**
@@ -38,7 +43,7 @@ function buildRow(
  *
  * El abono a capital es constante (P / n); el residuo de redondeo se reconcilia
  * en la ultima cuota para que el saldo cierre exactamente en cero.
- * @param input - Capital, tasa mensual y numero de cuotas.
+ * @param input - Capital, tasa mensual, numero de cuotas y seguro opcional.
  * @returns El cronograma con sus filas y totales agregados.
  */
 export function generateGermanSchedule(
@@ -46,6 +51,7 @@ export function generateGermanSchedule(
 ): AmortizationSchedule {
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
+  const insurance = input.insurance ?? NO_INSURANCE;
 
   const constantPrincipal = roundMoney(principal / n);
   const rows: InstallmentRow[] = [];
@@ -56,7 +62,7 @@ export function generateGermanSchedule(
     const interest = roundMoney(balance * monthlyRate);
     // En la ultima cuota se abona el saldo restante para cerrar en 0.
     const principalPaid = isLast ? balance : constantPrincipal;
-    const row = buildRow(period, principalPaid, interest, balance);
+    const row = buildRow(period, principalPaid, interest, balance, computeInsurance(insurance, balance));
     rows.push(row);
     balance = row.balance;
   }
@@ -64,6 +70,7 @@ export function generateGermanSchedule(
   return {
     rows,
     totalInterest: roundMoney(rows.reduce((sum, r) => sum + r.interest, 0)),
+    totalInsurance: roundMoney(rows.reduce((sum, r) => sum + r.insurance, 0)),
     totalPaid: roundMoney(rows.reduce((sum, r) => sum + r.payment, 0)),
   };
 }

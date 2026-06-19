@@ -4,6 +4,7 @@ import {
   normalizeToMonthly,
 } from '../../domain/rates/rate-conversion';
 import { RateType } from '../../domain/rates/rate-type';
+import { InsuranceConfig, InsuranceMode, NO_INSURANCE } from '../../domain/insurance/insurance';
 import {
   DebtDetailDto,
   DebtResponseDto,
@@ -45,6 +46,7 @@ export class DebtsService {
     const monthlyRate = normalizeToMonthly(dto.nominalRate, rateType);
     const effectiveAnnualRate = normalizeToEffectiveAnnual(dto.nominalRate, rateType);
     const system = dto.amortizationSystem ?? 'frances';
+    const insurance = this.buildInsurance(dto);
 
     const { rows } = buildSchedule(
       system,
@@ -52,6 +54,7 @@ export class DebtsService {
       monthlyRate,
       dto.termMonths,
       dto.startDate,
+      insurance,
     );
 
     const debt = await this.debtsRepository.createWithSchedule(
@@ -66,11 +69,26 @@ export class DebtsService {
         amortizationSystem: system,
         termMonths: dto.termMonths,
         startDate: dto.startDate,
+        insuranceMode: insurance.mode,
+        insuranceValue: insurance.mode === InsuranceMode.NONE ? null : insurance.value.toFixed(8),
         status: 'activa',
       },
       rows,
     );
     return this.toDebtResponse(debt);
+  }
+
+  /**
+   * Construye la configuracion de seguro a partir del DTO.
+   * @param dto - Datos de la deuda.
+   * @returns La configuracion de seguro del dominio.
+   */
+  private buildInsurance(dto: CreateDebtDto): InsuranceConfig {
+    const mode = dto.insuranceMode ?? 'none';
+    if (mode === 'none' || dto.insuranceValue === undefined) {
+      return NO_INSURANCE;
+    }
+    return { mode: mode as InsuranceMode, value: dto.insuranceValue };
   }
 
   /**
@@ -98,6 +116,7 @@ export class DebtsService {
       ...this.toDebtResponse(debt),
       installments: installmentDtos,
       totalInterest: this.sumBy(installmentDtos, (i) => i.interestPortion),
+      totalInsurance: this.sumBy(installmentDtos, (i) => i.insurancePortion),
       totalPaid: this.sumBy(installmentDtos, (i) => i.totalAmount),
     };
   }
@@ -177,6 +196,8 @@ export class DebtsService {
       amortizationSystem: debt.amortizationSystem,
       termMonths: debt.termMonths,
       startDate: debt.startDate,
+      insuranceMode: debt.insuranceMode,
+      insuranceValue: debt.insuranceValue === null ? null : Number(debt.insuranceValue),
       status: debt.status,
       createdAt: debt.createdAt,
     };
@@ -194,6 +215,7 @@ export class DebtsService {
       dueDate: row.dueDate,
       principalPortion: Number(row.principalPortion),
       interestPortion: Number(row.interestPortion),
+      insurancePortion: Number(row.insurancePortion),
       totalAmount: Number(row.totalAmount),
       remainingBalance: Number(row.remainingBalance),
       status: row.status,

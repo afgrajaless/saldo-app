@@ -15,6 +15,13 @@
       "when": 1781892353415,
       "tag": "0001_huge_blockbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781909385706,
+      "tag": "0002_shocking_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

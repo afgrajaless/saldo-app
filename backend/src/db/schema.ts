@@ -63,6 +63,8 @@ export const usuryModalityEnum = pgEnum('usury_modality', [
 ]);
 // Presupuesto: una categoria es de ingreso o de egreso.
 export const categoryTypeEnum = pgEnum('category_type', ['income', 'expense']);
+// Modalidad del seguro de vida deudor: sin seguro, tasa sobre saldo o monto fijo.
+export const insuranceModeEnum = pgEnum('insurance_mode', ['none', 'rate', 'fixed']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -120,6 +122,9 @@ export const debts = pgTable(
       .default('frances'),
     termMonths: integer('term_months').notNull(),
     startDate: date('start_date').notNull(),
+    // Seguro de vida deudor (aditivo a la cuota).
+    insuranceMode: insuranceModeEnum('insurance_mode').notNull().default('none'),
+    insuranceValue: numeric('insurance_value', { precision: 18, scale: 8 }),
     status: debtStatusEnum('status').notNull().default('activa'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -155,6 +160,10 @@ export const installments = pgTable(
     dueDate: date('due_date').notNull(),
     principalPortion: numeric('principal_portion', { precision: 15, scale: 2 }).notNull(),
     interestPortion: numeric('interest_portion', { precision: 15, scale: 2 }).notNull(),
+    // Porcion de seguro de la cuota (0 si la deuda no tiene seguro).
+    insurancePortion: numeric('insurance_portion', { precision: 15, scale: 2 })
+      .notNull()
+      .default('0'),
     totalAmount: numeric('total_amount', { precision: 15, scale: 2 }).notNull(),
     remainingBalance: numeric('remaining_balance', { precision: 15, scale: 2 }).notNull(),
     status: installmentStatusEnum('status').notNull().default('pendiente'),

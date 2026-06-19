@@ -1,3 +1,4 @@
+import { computeInsurance, NO_INSURANCE } from '../insurance/insurance';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -12,13 +13,15 @@ import { validateAmortizationInput } from './amortization.validation';
  * En el sistema americano solo se pagan intereses durante el plazo y el capital
  * completo se abona en la ultima cuota. El saldo permanece constante hasta el
  * final, por lo que el interes periodico es el mismo en cada cuota.
+ *
+ * El seguro (si lo hay) se suma a la cuota sin alterar la amortizacion.
  */
 
 /**
  * Genera el cronograma de amortizacion completo por sistema americano.
  *
  * Cuotas 1..n-1: solo interes (capital = 0). Cuota n: interes + capital total.
- * @param input - Capital, tasa mensual y numero de cuotas.
+ * @param input - Capital, tasa mensual, numero de cuotas y seguro opcional.
  * @returns El cronograma con sus filas y totales agregados.
  */
 export function generateAmericanSchedule(
@@ -26,6 +29,7 @@ export function generateAmericanSchedule(
 ): AmortizationSchedule {
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
+  const insurance = input.insurance ?? NO_INSURANCE;
 
   const periodicInterest = roundMoney(principal * monthlyRate);
   const rows: InstallmentRow[] = [];
@@ -35,11 +39,13 @@ export function generateAmericanSchedule(
     const principalPaid = isLast ? principal : 0;
     const payment = roundMoney(periodicInterest + principalPaid);
     const balance = isLast ? 0 : principal;
+    // El saldo es constante (= principal) hasta la ultima cuota.
     rows.push({
       number: period,
       payment,
       interest: periodicInterest,
       principal: principalPaid,
+      insurance: computeInsurance(insurance, principal),
       balance,
     });
   }
@@ -47,6 +53,7 @@ export function generateAmericanSchedule(
   return {
     rows,
     totalInterest: roundMoney(rows.reduce((sum, r) => sum + r.interest, 0)),
+    totalInsurance: roundMoney(rows.reduce((sum, r) => sum + r.insurance, 0)),
     totalPaid: roundMoney(rows.reduce((sum, r) => sum + r.payment, 0)),
   };
 }

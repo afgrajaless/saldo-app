@@ -1,3 +1,4 @@
+import { InsuranceConfig, NO_INSURANCE } from '../insurance/insurance';
 import { roundMoney } from '../shared/money';
 import { AmortizationSchedule } from './amortization.types';
 import {
@@ -42,6 +43,7 @@ function validatePrepayment(input: PrepaymentInput): void {
 const PAID_OFF_SCHEDULE: AmortizationSchedule = {
   rows: [],
   totalInterest: 0,
+  totalInsurance: 0,
   totalPaid: 0,
 };
 
@@ -52,6 +54,7 @@ const PAID_OFF_SCHEDULE: AmortizationSchedule = {
  * @param monthlyRate - Tasa mensual efectiva.
  * @param remainingInstallments - Cuotas que quedaban antes del abono.
  * @param previousPayment - Cuota vigente antes del abono (para reducir plazo).
+ * @param insurance - Configuracion del seguro a conservar.
  * @returns El cronograma proyectado de las cuotas restantes.
  */
 function projectSchedule(
@@ -60,6 +63,7 @@ function projectSchedule(
   monthlyRate: number,
   remainingInstallments: number,
   previousPayment: number,
+  insurance: InsuranceConfig,
 ): AmortizationSchedule {
   if (mode === PrepaymentMode.REDUCE_INSTALLMENT) {
     // Mismo plazo, nueva cuota mas baja sobre el saldo reducido.
@@ -67,10 +71,11 @@ function projectSchedule(
       principal: newBalance,
       monthlyRate,
       numberOfInstallments: remainingInstallments,
+      insurance,
     });
   }
   // REDUCE_TERM: se conserva la cuota previa y se salda en menos periodos.
-  return amortizeWithPayment(newBalance, monthlyRate, previousPayment);
+  return amortizeWithPayment(newBalance, monthlyRate, previousPayment, insurance);
 }
 
 /**
@@ -85,12 +90,14 @@ export function applyPrepayment(input: PrepaymentInput): PrepaymentResult {
   validatePrepayment(input);
   const { currentBalance, monthlyRate, remainingInstallments, extraPayment, mode } =
     input;
+  const insurance = input.insurance ?? NO_INSURANCE;
 
   // Intereses que se pagarian si no se abonara nada (linea base de comparacion).
   const originalSchedule = generateFrenchSchedule({
     principal: currentBalance,
     monthlyRate,
     numberOfInstallments: remainingInstallments,
+    insurance,
   });
 
   const appliedExtraPayment = Math.min(extraPayment, currentBalance);
@@ -113,6 +120,7 @@ export function applyPrepayment(input: PrepaymentInput): PrepaymentResult {
     monthlyRate,
     remainingInstallments,
     originalSchedule.fixedPayment ?? 0,
+    insurance,
   );
 
   return {

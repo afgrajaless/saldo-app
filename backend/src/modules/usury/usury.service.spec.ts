@@ -27,6 +27,8 @@ function makeDebt(overrides: Partial<DebtRow> = {}): DebtRow {
     amortizationSystem: 'frances',
     termMonths: 24,
     startDate: '2026-01-15',
+    insuranceMode: 'none',
+    insuranceValue: null,
     status: 'activa',
     createdAt: new Date(),
     updatedAt: new Date(),

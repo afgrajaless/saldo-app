@@ -1,3 +1,5 @@
+import { InsuranceConfig } from '../insurance/insurance';
+
 /**
  * Tipos del motor de amortizacion.
  *
@@ -13,18 +15,22 @@ export interface AmortizationInput {
   readonly monthlyRate: number;
   /** Numero total de cuotas. Debe ser un entero mayor que cero. */
   readonly numberOfInstallments: number;
+  /** Configuracion del seguro de vida deudor (opcional; por defecto, sin seguro). */
+  readonly insurance?: InsuranceConfig;
 }
 
-/** Una cuota del cronograma con su desglose capital/interes y saldo restante. */
+/** Una cuota del cronograma con su desglose y saldo restante. */
 export interface InstallmentRow {
   /** Numero de cuota, empezando en 1. */
   readonly number: number;
-  /** Valor total de la cuota (capital + interes). */
+  /** Cuota de amortizacion (capital + interes), sin incluir el seguro. */
   readonly payment: number;
   /** Porcion de interes de la cuota. */
   readonly interest: number;
   /** Porcion de capital (abono) de la cuota. */
   readonly principal: number;
+  /** Valor del seguro del periodo (0 si la deuda no tiene seguro). */
+  readonly insurance: number;
   /** Saldo de capital pendiente despues de pagar esta cuota. */
   readonly balance: number;
 }
@@ -32,15 +38,16 @@ export interface InstallmentRow {
 /** Cronograma completo de amortizacion con totales agregados. */
 export interface AmortizationSchedule {
   /**
-   * Cuota fija periodica, solo aplica al sistema frances (cuota constante).
-   * En aleman (abono constante) y americano (interes + capital al final) la
-   * cuota varia, por lo que este campo queda indefinido.
+   * Cuota fija periodica (capital + interes), solo aplica al sistema frances.
+   * En aleman y americano la cuota varia, por lo que este campo queda indefinido.
    */
   readonly fixedPayment?: number;
   /** Filas del cronograma, una por cuota. */
   readonly rows: readonly InstallmentRow[];
   /** Suma total de intereses pagados a lo largo del credito. */
   readonly totalInterest: number;
-  /** Suma total pagada (capital + intereses). */
+  /** Suma total del seguro a lo largo del credito. */
+  readonly totalInsurance: number;
+  /** Suma total pagada en amortizacion (capital + intereses), sin seguro. */
   readonly totalPaid: number;
 }

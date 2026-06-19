@@ -1,3 +1,4 @@
+import { computeInsurance, InsuranceConfig, NO_INSURANCE } from '../insurance/insurance';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -15,6 +16,8 @@ import { validateAmortizationInput } from './amortization.validation';
  * Cuota fija:  C = P * i / (1 - (1 + i)^-n)
  *   donde P = capital, i = tasa mensual, n = numero de cuotas.
  * Si i = 0, la cuota es simplemente P / n.
+ *
+ * El seguro (si lo hay) se suma a la cuota sin alterar la amortizacion.
  */
 
 /**
@@ -39,9 +42,10 @@ export function calculateFixedPayment(
 /**
  * Construye una fila del cronograma para un periodo dado.
  * @param number - Numero de cuota (empieza en 1).
- * @param payment - Valor de la cuota de este periodo.
+ * @param payment - Cuota de amortizacion del periodo (capital + interes).
  * @param interest - Interes del periodo.
  * @param balanceBefore - Saldo de capital antes del pago.
+ * @param insurance - Valor del seguro del periodo.
  * @returns La fila con su desglose y el saldo resultante.
  */
 function buildRow(
@@ -49,10 +53,20 @@ function buildRow(
   payment: number,
   interest: number,
   balanceBefore: number,
+  insurance: number,
 ): InstallmentRow {
   const principalPaid = roundMoney(payment - interest);
   const balance = roundMoney(balanceBefore - principalPaid);
-  return { number, payment, interest, principal: principalPaid, balance };
+  return { number, payment, interest, principal: principalPaid, insurance, balance };
+}
+
+/**
+ * Suma el total del seguro de un conjunto de cuotas.
+ * @param rows - Filas del cronograma.
+ * @returns El total del seguro, redondeado.
+ */
+function totalInsuranceOf(rows: InstallmentRow[]): number {
+  return roundMoney(rows.reduce((sum, r) => sum + r.insurance, 0));
 }
 
 /**
@@ -60,7 +74,7 @@ function buildRow(
  *
  * Cada cuota se redondea a centavos; el residuo de redondeo se reconcilia en
  * la ultima cuota para que el saldo cierre exactamente en cero.
- * @param input - Capital, tasa mensual y numero de cuotas.
+ * @param input - Capital, tasa mensual, numero de cuotas y seguro opcional.
  * @returns El cronograma con sus filas y totales agregados.
  */
 export function generateFrenchSchedule(
@@ -68,6 +82,7 @@ export function generateFrenchSchedule(
 ): AmortizationSchedule {
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
+  const insurance = input.insurance ?? NO_INSURANCE;
 
   const fixedPayment = calculateFixedPayment(principal, monthlyRate, n);
   const rows: InstallmentRow[] = [];
@@ -79,7 +94,7 @@ export function generateFrenchSchedule(
 
     // En la ultima cuota se paga el saldo restante + su interes para cerrar en 0.
     const payment = isLast ? roundMoney(balance + interest) : fixedPayment;
-    const row = buildRow(period, payment, interest, balance);
+    const row = buildRow(period, payment, interest, balance, computeInsurance(insurance, balance));
     rows.push(row);
     balance = row.balance;
   }
@@ -88,6 +103,7 @@ export function generateFrenchSchedule(
     fixedPayment,
     rows,
     totalInterest: roundMoney(rows.reduce((sum, r) => sum + r.interest, 0)),
+    totalInsurance: totalInsuranceOf(rows),
     totalPaid: roundMoney(rows.reduce((sum, r) => sum + r.payment, 0)),
   };
 }
@@ -104,7 +120,8 @@ const MAX_PERIODS = 1200;
  * y el credito se salda en menos cuotas. La ultima cuota cierra el saldo en 0.
  * @param principal - Saldo a amortizar.
  * @param monthlyRate - Tasa mensual efectiva como fraccion decimal.
- * @param fixedPayment - Cuota fija que se mantendra cada periodo.
+ * @param fixedPayment - Cuota fija (capital + interes) que se mantendra.
+ * @param insurance - Configuracion del seguro (opcional).
  * @returns El cronograma resultante con sus filas y totales.
  * @throws Error si la cuota no cubre el interes del primer periodo.
  */
@@ -112,6 +129,7 @@ export function amortizeWithPayment(
   principal: number,
   monthlyRate: number,
   fixedPayment: number,
+  insurance: InsuranceConfig = NO_INSURANCE,
 ): AmortizationSchedule {
   const firstInterest = principal * monthlyRate;
   if (monthlyRate > 0 && fixedPayment <= firstInterest) {
@@ -126,7 +144,7 @@ export function amortizeWithPayment(
     const interest = roundMoney(balance * monthlyRate);
     const isLast = fixedPayment >= balance + interest;
     const payment = isLast ? roundMoney(balance + interest) : fixedPayment;
-    const row = buildRow(period, payment, interest, balance);
+    const row = buildRow(period, payment, interest, balance, computeInsurance(insurance, balance));
     rows.push(row);
     balance = row.balance;
     period += 1;
@@ -136,6 +154,7 @@ export function amortizeWithPayment(
     fixedPayment,
     rows,
     totalInterest: roundMoney(rows.reduce((sum, r) => sum + r.interest, 0)),
+    totalInsurance: totalInsuranceOf(rows),
     totalPaid: roundMoney(rows.reduce((sum, r) => sum + r.payment, 0)),
   };
 }

@@ -4,6 +4,7 @@ import { PrepaymentMode } from '../../domain/amortization/prepayment.types';
 import { normalizeToMonthly } from '../../domain/rates/rate-conversion';
 import { RateType } from '../../domain/rates/rate-type';
 import { DebtRow, DebtsRepository, InstallmentRow } from '../debts/debts.repository';
+import { toInsuranceConfig } from '../debts/insurance.mapper';
 import { scheduleToSeeds } from '../debts/installment-schedule.factory';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentResponseDto, PaymentResultDto } from './dto/payment-response.dto';
@@ -100,6 +101,7 @@ export class PaymentsService {
       remainingInstallments: remaining,
       extraPayment: dto.amount,
       mode: dto.mode as PrepaymentMode,
+      insurance: toInsuranceConfig(debt.insuranceMode, debt.insuranceValue),
     });
 
     const newInstallments = result.isPaidOff
