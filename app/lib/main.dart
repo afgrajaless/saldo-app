@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/screens/auth_gate.dart';
 
 /// Punto de entrada de la app. Inicializa la inyeccion de dependencias y monta
 /// el arbol de Riverpod.
@@ -22,36 +23,7 @@ class SaldoApp extends StatelessWidget {
       title: 'Saldo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const _BootstrapScreen(),
-    );
-  }
-}
-
-/// Pantalla provisional de arranque (se reemplazara por el flujo de auth).
-class _BootstrapScreen extends StatelessWidget {
-  const _BootstrapScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_balance_wallet_outlined,
-                size: 72, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
-            Text('Saldo', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Gestor de deuda y credito',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
+      home: const AuthGate(),
     );
   }
 }
