@@ -41,6 +41,9 @@ export class DebtResponseDto {
 
 /** Una cuota del cronograma en las respuestas de la API. */
 export class InstallmentResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
   @ApiProperty({ example: 1 })
   number!: number;
 

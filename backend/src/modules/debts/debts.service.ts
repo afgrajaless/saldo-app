@@ -189,6 +189,7 @@ export class DebtsService {
    */
   private toInstallmentResponse(row: InstallmentRow): InstallmentResponseDto {
     return {
+      id: row.id,
       number: row.number,
       dueDate: row.dueDate,
       principalPortion: Number(row.principalPortion),

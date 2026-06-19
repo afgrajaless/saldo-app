@@ -86,3 +86,32 @@ export function buildSchedule(
     totalPaid: schedule.totalPaid,
   };
 }
+
+/**
+ * Convierte un cronograma del dominio en cuotas persistibles, asignando numeros
+ * de cuota absolutos y fechas de vencimiento ancladas a la fecha de inicio.
+ *
+ * Se usa al recalcular tras un abono a capital: las cuotas nuevas reemplazan a
+ * las pendientes conservando la numeracion y la cadencia mensual originales.
+ * @param schedule - Cronograma generado por el dominio (filas locales 1..k).
+ * @param firstNumber - Numero de cuota absoluto de la primera fila nueva.
+ * @param debtStartDate - Fecha de inicio del credito (YYYY-MM-DD).
+ * @returns Las cuotas listas para insertar.
+ */
+export function scheduleToSeeds(
+  schedule: AmortizationSchedule,
+  firstNumber: number,
+  debtStartDate: string,
+): InstallmentSeed[] {
+  return schedule.rows.map((row, index) => {
+    const number = firstNumber + index;
+    return {
+      number,
+      dueDate: addMonths(debtStartDate, number),
+      principalPortion: row.principal.toFixed(2),
+      interestPortion: row.interest.toFixed(2),
+      totalAmount: row.payment.toFixed(2),
+      remainingBalance: row.balance.toFixed(2),
+    };
+  });
+}

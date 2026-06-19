@@ -9,5 +9,6 @@ import { DebtsService } from './debts.service';
   imports: [AuthModule],
   controllers: [DebtsController],
   providers: [DebtsService, DebtsRepository],
+  exports: [DebtsRepository],
 })
 export class DebtsModule {}
