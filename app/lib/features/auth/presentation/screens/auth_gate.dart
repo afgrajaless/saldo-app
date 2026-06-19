@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../debts/presentation/screens/debts_list_screen.dart';
+import '../../../dashboard/presentation/screens/main_shell.dart';
 import '../providers/auth_controller.dart';
 import 'login_screen.dart';
 
@@ -20,6 +20,6 @@ class AuthGate extends ConsumerWidget {
     }
 
     final session = auth.valueOrNull;
-    return session == null ? const LoginScreen() : const DebtsListScreen();
+    return session == null ? const LoginScreen() : const MainShell();
   }
 }

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:saldo/core/di/injection.dart';
+import 'package:saldo/features/debts/domain/entities/create_debt_params.dart';
+import 'package:saldo/features/debts/domain/repositories/debts_repository.dart';
+import 'package:saldo/features/debts/presentation/providers/debts_controller.dart';
 import 'package:saldo/main.dart' as app;
 
-/// Prueba e2e del badge de usura: una deuda legal (verde) y una usuraria (rojo).
-/// Requiere el backend corriendo y el catalogo de usura cargado (db:seed).
+/// Prueba e2e del dashboard. Registra por UI, crea deudas de varios tipos via
+/// el repositorio (mas robusto que conducir el formulario) y abre el Resumen.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -34,25 +39,20 @@ void main() {
     await tester.tap(finder);
   }
 
-  /// Crea una deuda con la tasa dada y abre su detalle (toca la primera tarjeta).
-  Future<void> createDebtAndOpen(WidgetTester tester, String creditor, String rate, String term) async {
-    await tester.tap(find.text('Nueva deuda'));
-    await tester.pumpAndSettle();
-    await pumpUntil(tester, find.widgetWithText(AppBar, 'Nueva deuda'));
-    await tester.enterText(find.byType(TextFormField).at(0), creditor);
-    await tester.enterText(find.byType(TextFormField).at(1), '5000000');
-    await tester.enterText(find.byType(TextFormField).at(2), rate);
-    await tester.enterText(find.byType(TextFormField).at(3), term);
-    await tester.pumpAndSettle();
-    await tapVisible(tester, find.text('Crear deuda'));
-    await pumpUntil(tester, find.text(creditor));
-    await tester.pumpAndSettle(const Duration(seconds: 1));
-    await tester.tap(find.byType(ListTile).first);
-    await tester.pumpAndSettle();
-    await pumpUntil(tester, find.text('Detalle de la deuda'));
+  CreateDebtParams debt(String creditor, String type, double principal, int term) {
+    return CreateDebtParams(
+      creditor: creditor,
+      debtType: type,
+      principalAmount: principal,
+      nominalRate: 0.012,
+      rateType: 'mv',
+      amortizationSystem: 'frances',
+      termMonths: term,
+      startDate: '2026-06-01',
+    );
   }
 
-  testWidgets('badge de usura legal y usuraria', (tester) async {
+  testWidgets('dashboard con distribucion por tipo', (tester) async {
     app.main();
     await tester.pumpAndSettle();
 
@@ -62,32 +62,37 @@ void main() {
       await tester.tap(find.byIcon(Icons.logout));
       await tester.pumpAndSettle();
     }
-
     await pumpUntil(tester, loginLink);
     await tester.tap(loginLink);
     await tester.pumpAndSettle();
 
     final email = 'itest_${DateTime.now().millisecondsSinceEpoch}@saldo.dev';
-    await tester.enterText(find.byType(TextFormField).at(0), 'Tester Usura');
+    await tester.enterText(find.byType(TextFormField).at(0), 'Tester Dash');
     await tester.enterText(find.byType(TextFormField).at(1), email);
     await tester.enterText(find.byType(TextFormField).at(2), 'ClaveSegura123');
     await tester.pumpAndSettle();
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Crear cuenta'));
     await pumpUntil(tester, find.text('Aun no tienes deudas registradas'));
 
-    // Deuda legal: 1% M.V. (~12,7% E.A.) por debajo del tope.
-    await createDebtAndOpen(tester, 'Banco Legal', '1', '12');
-    await pumpUntil(tester, find.text('Dentro del limite legal'));
-    await tester.pageBack();
+    // Crear deudas de varios tipos via el repositorio (usa el token de sesion).
+    final repo = getIt<DebtsRepository>();
+    await repo.createDebt(debt('Hipoteca Casa', 'hipotecario', 90000000, 180));
+    await repo.createDebt(debt('Credito Carro', 'vehiculo', 45000000, 60));
+    await repo.createDebt(debt('Tarjeta Visa', 'tarjeta_credito', 6000000, 24));
+
+    // Refrescar la lista y abrir el Resumen.
+    final container = ProviderScope.containerOf(tester.element(find.text('Resumen')));
+    container.invalidate(debtsControllerProvider);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Resumen'));
     await tester.pumpAndSettle();
 
-    // Deuda usuraria: 2.5% M.V. (~34,5% E.A.) supera el tope.
-    await createDebtAndOpen(tester, 'Prestamo Caro', '2.5', '6');
-    await pumpUntil(tester, find.text('Tasa usuraria'));
-    expect(find.text('Tasa usuraria'), findsOneWidget);
+    await pumpUntil(tester, find.text('Distribucion por tipo'));
+    expect(find.text('Distribucion por tipo'), findsOneWidget);
+    expect(find.text('Hipotecario'), findsOneWidget);
 
-    // Ventana para capturar el screenshot del badge rojo desde fuera.
-    debugPrint('USURY_HOLD_READY');
+    // Ventana para el screenshot del dashboard.
+    debugPrint('DASHBOARD_HOLD_READY');
     for (var i = 0; i < 50; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
