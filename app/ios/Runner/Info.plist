@@ -49,5 +49,12 @@
 	     (macOS Ventura) Impeller produce pantalla roja con artefactos. -->
 	<key>FLTEnableImpeller</key>
 	<false/>
+	<!-- Permitir HTTP a localhost/.local en desarrollo (backend NestJS local).
+	     No afecta conexiones a internet, que siguen exigiendo HTTPS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

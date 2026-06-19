@@ -26,6 +26,12 @@ import 'package:saldo/features/auth/domain/usecases/login_usecase.dart'
     as _i240;
 import 'package:saldo/features/auth/domain/usecases/register_usecase.dart'
     as _i1049;
+import 'package:saldo/features/debts/data/datasources/debts_remote_datasource.dart'
+    as _i394;
+import 'package:saldo/features/debts/data/repositories/debts_repository_impl.dart'
+    as _i331;
+import 'package:saldo/features/debts/domain/repositories/debts_repository.dart'
+    as _i409;
 
 extension GetItInjectableX on _i174.GetIt {
 // initializes the registration of main-scope dependencies inside of GetIt
@@ -44,6 +50,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
     gh.lazySingleton<_i523.AuthRemoteDataSource>(
         () => _i523.AuthRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i394.DebtsRemoteDataSource>(
+        () => _i394.DebtsRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i409.DebtsRepository>(
+        () => _i331.DebtsRepositoryImpl(gh<_i394.DebtsRemoteDataSource>()));
     gh.lazySingleton<_i390.TokenStorage>(
         () => _i390.TokenStorage(gh<_i558.FlutterSecureStorage>()));
     gh.lazySingleton<_i919.AuthRepository>(() => _i765.AuthRepositoryImpl(
