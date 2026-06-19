@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../budget/presentation/screens/budget_screen.dart';
 import '../../../debts/presentation/screens/debts_list_screen.dart';
 import 'dashboard_screen.dart';
 
-/// Contenedor principal autenticado con navegacion inferior entre la lista de
-/// deudas y el resumen (dashboard).
+/// Contenedor principal autenticado con navegacion inferior entre deudas,
+/// presupuesto y el resumen (dashboard).
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -15,7 +16,11 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _screens = [DebtsListScreen(), DashboardScreen()];
+  static const _screens = [
+    DebtsListScreen(),
+    BudgetScreen(),
+    DashboardScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +34,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'Deudas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.savings_outlined),
+            selectedIcon: Icon(Icons.savings),
+            label: 'Presupuesto',
           ),
           NavigationDestination(
             icon: Icon(Icons.pie_chart_outline),

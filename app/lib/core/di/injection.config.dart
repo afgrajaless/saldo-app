@@ -26,6 +26,10 @@ import 'package:saldo/features/auth/domain/usecases/login_usecase.dart'
     as _i240;
 import 'package:saldo/features/auth/domain/usecases/register_usecase.dart'
     as _i1049;
+import 'package:saldo/features/budget/data/budget_repository_impl.dart'
+    as _i147;
+import 'package:saldo/features/budget/domain/repositories/budget_repository.dart'
+    as _i580;
 import 'package:saldo/features/debts/data/datasources/debts_remote_datasource.dart'
     as _i394;
 import 'package:saldo/features/debts/data/repositories/debts_repository_impl.dart'
@@ -68,6 +72,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i523.AuthRemoteDataSource(gh<_i361.Dio>()));
     gh.lazySingleton<_i403.UsuryRemoteDataSource>(
         () => _i403.UsuryRemoteDataSource(gh<_i361.Dio>()));
+    gh.lazySingleton<_i580.BudgetRepository>(
+        () => _i147.BudgetRepositoryImpl(gh<_i361.Dio>()));
     gh.lazySingleton<_i763.UsuryRepository>(
         () => _i611.UsuryRepositoryImpl(gh<_i403.UsuryRemoteDataSource>()));
     gh.lazySingleton<_i54.PaymentsRepository>(() =>
