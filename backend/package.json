@@ -14,6 +14,7 @@
     "test:cov": "jest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "ts-node src/db/seeds/usury.seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

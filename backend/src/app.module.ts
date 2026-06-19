@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DebtsModule } from './modules/debts/debts.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { UsersModule } from './modules/users/users.module';
+import { UsuryModule } from './modules/usury/usury.module';
 
 /**
  * Modulo raiz de la aplicacion. Carga la configuracion validada, la conexion a
@@ -24,6 +25,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     DebtsModule,
     PaymentsModule,
+    UsuryModule,
   ],
 })
 export class AppModule {}
