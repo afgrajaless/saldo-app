@@ -103,9 +103,11 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               TextFormField(
                 controller: _creditorController,
                 decoration: const InputDecoration(
@@ -214,7 +216,8 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                       )
                     : const Text('Crear deuda'),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
