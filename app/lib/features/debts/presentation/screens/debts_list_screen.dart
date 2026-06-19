@@ -133,24 +133,24 @@ class _SummaryHeader extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Deuda total',
               style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.colorScheme.onPrimaryContainer)),
+                  ?.copyWith(color: theme.colorScheme.onPrimary)),
           const SizedBox(height: 4),
           Text(formatCop(total),
               style: theme.textTheme.headlineMedium?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
+                  color: theme.colorScheme.onPrimary,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('$count ${count == 1 ? 'obligacion' : 'obligaciones'}',
               style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onPrimaryContainer)),
+                  ?.copyWith(color: theme.colorScheme.onPrimary)),
         ],
       ),
     );
