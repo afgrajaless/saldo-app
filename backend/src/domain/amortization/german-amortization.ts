@@ -1,4 +1,5 @@
 import { computeInsurance, NO_INSURANCE } from '../insurance/insurance';
+import { accruePeriodInterest } from '../interest/interest-accrual';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -52,6 +53,8 @@ export function generateGermanSchedule(
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
   const insurance = input.insurance ?? NO_INSURANCE;
+  const interestMode = input.interestMode ?? 'monthly';
+  const anchorDate = input.anchorDate;
 
   const constantPrincipal = roundMoney(principal / n);
   const rows: InstallmentRow[] = [];
@@ -59,7 +62,7 @@ export function generateGermanSchedule(
 
   for (let period = 1; period <= n; period += 1) {
     const isLast = period === n;
-    const interest = roundMoney(balance * monthlyRate);
+    const interest = accruePeriodInterest(balance, monthlyRate, interestMode, anchorDate, period);
     // En la ultima cuota se abona el saldo restante para cerrar en 0.
     const principalPaid = isLast ? balance : constantPrincipal;
     const row = buildRow(period, principalPaid, interest, balance, computeInsurance(insurance, balance));

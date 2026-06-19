@@ -1,4 +1,5 @@
 import { computeInsurance, NO_INSURANCE } from '../insurance/insurance';
+import { accruePeriodInterest } from '../interest/interest-accrual';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -30,20 +31,22 @@ export function generateAmericanSchedule(
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
   const insurance = input.insurance ?? NO_INSURANCE;
+  const interestMode = input.interestMode ?? 'monthly';
+  const anchorDate = input.anchorDate;
 
-  const periodicInterest = roundMoney(principal * monthlyRate);
   const rows: InstallmentRow[] = [];
 
   for (let period = 1; period <= n; period += 1) {
     const isLast = period === n;
-    const principalPaid = isLast ? principal : 0;
-    const payment = roundMoney(periodicInterest + principalPaid);
-    const balance = isLast ? 0 : principal;
     // El saldo es constante (= principal) hasta la ultima cuota.
+    const interest = accruePeriodInterest(principal, monthlyRate, interestMode, anchorDate, period);
+    const principalPaid = isLast ? principal : 0;
+    const payment = roundMoney(interest + principalPaid);
+    const balance = isLast ? 0 : principal;
     rows.push({
       number: period,
       payment,
-      interest: periodicInterest,
+      interest,
       principal: principalPaid,
       insurance: computeInsurance(insurance, principal),
       balance,

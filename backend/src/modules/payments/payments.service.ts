@@ -6,6 +6,7 @@ import { RateType } from '../../domain/rates/rate-type';
 import { DebtRow, DebtsRepository, InstallmentRow } from '../debts/debts.repository';
 import { toInsuranceConfig } from '../debts/insurance.mapper';
 import { scheduleToSeeds } from '../debts/installment-schedule.factory';
+import { addMonths } from '../../shared/date/add-months';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentResponseDto, PaymentResultDto } from './dto/payment-response.dto';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
@@ -102,6 +103,9 @@ export class PaymentsService {
       extraPayment: dto.amount,
       mode: dto.mode as PrepaymentMode,
       insurance: toInsuranceConfig(debt.insuranceMode, debt.insuranceValue),
+      interestMode: debt.interestMode,
+      // El recalculo se ancla a la fecha de la ultima cuota pagada.
+      anchorDate: addMonths(debt.startDate, lastPaidNumber),
     });
 
     const newInstallments = result.isPaidOff

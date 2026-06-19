@@ -65,6 +65,8 @@ export const usuryModalityEnum = pgEnum('usury_modality', [
 export const categoryTypeEnum = pgEnum('category_type', ['income', 'expense']);
 // Modalidad del seguro de vida deudor: sin seguro, tasa sobre saldo o monto fijo.
 export const insuranceModeEnum = pgEnum('insurance_mode', ['none', 'rate', 'fixed']);
+// Modo de causacion del interes: mensual (contable) o diario (dias reales).
+export const interestModeEnum = pgEnum('interest_mode', ['monthly', 'daily']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -125,6 +127,8 @@ export const debts = pgTable(
     // Seguro de vida deudor (aditivo a la cuota).
     insuranceMode: insuranceModeEnum('insurance_mode').notNull().default('none'),
     insuranceValue: numeric('insurance_value', { precision: 18, scale: 8 }),
+    // Modo de causacion del interes (mensual o diario por dias reales).
+    interestMode: interestModeEnum('interest_mode').notNull().default('monthly'),
     status: debtStatusEnum('status').notNull().default('activa'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

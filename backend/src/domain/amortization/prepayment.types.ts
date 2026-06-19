@@ -1,4 +1,5 @@
 import { InsuranceConfig } from '../insurance/insurance';
+import { InterestMode } from '../interest/interest-accrual';
 import { AmortizationSchedule } from './amortization.types';
 
 /**
@@ -26,6 +27,10 @@ export interface PrepaymentInput {
   readonly mode: PrepaymentMode;
   /** Configuracion del seguro a conservar en el cronograma recalculado. */
   readonly insurance?: InsuranceConfig;
+  /** Modo de causacion del interes a conservar. */
+  readonly interestMode?: InterestMode;
+  /** Fecha ancla del recalculo (fecha de la ultima cuota pagada); para interes diario. */
+  readonly anchorDate?: string;
 }
 
 /** Resultado del recalculo tras aplicar un abono a capital. */

@@ -1,4 +1,5 @@
 import { computeInsurance, InsuranceConfig, NO_INSURANCE } from '../insurance/insurance';
+import { accruePeriodInterest, InterestMode } from '../interest/interest-accrual';
 import { roundMoney } from '../shared/money';
 import {
   AmortizationInput,
@@ -83,6 +84,8 @@ export function generateFrenchSchedule(
   validateAmortizationInput(input);
   const { principal, monthlyRate, numberOfInstallments: n } = input;
   const insurance = input.insurance ?? NO_INSURANCE;
+  const interestMode = input.interestMode ?? 'monthly';
+  const anchorDate = input.anchorDate;
 
   const fixedPayment = calculateFixedPayment(principal, monthlyRate, n);
   const rows: InstallmentRow[] = [];
@@ -90,7 +93,7 @@ export function generateFrenchSchedule(
 
   for (let period = 1; period <= n; period += 1) {
     const isLast = period === n;
-    const interest = roundMoney(balance * monthlyRate);
+    const interest = accruePeriodInterest(balance, monthlyRate, interestMode, anchorDate, period);
 
     // En la ultima cuota se paga el saldo restante + su interes para cerrar en 0.
     const payment = isLast ? roundMoney(balance + interest) : fixedPayment;
@@ -130,6 +133,8 @@ export function amortizeWithPayment(
   monthlyRate: number,
   fixedPayment: number,
   insurance: InsuranceConfig = NO_INSURANCE,
+  interestMode: InterestMode = 'monthly',
+  anchorDate?: string,
 ): AmortizationSchedule {
   const firstInterest = principal * monthlyRate;
   if (monthlyRate > 0 && fixedPayment <= firstInterest) {
@@ -141,7 +146,7 @@ export function amortizeWithPayment(
   let period = 1;
 
   while (balance > 0 && period <= MAX_PERIODS) {
-    const interest = roundMoney(balance * monthlyRate);
+    const interest = accruePeriodInterest(balance, monthlyRate, interestMode, anchorDate, period);
     const isLast = fixedPayment >= balance + interest;
     const payment = isLast ? roundMoney(balance + interest) : fixedPayment;
     const row = buildRow(period, payment, interest, balance, computeInsurance(insurance, balance));

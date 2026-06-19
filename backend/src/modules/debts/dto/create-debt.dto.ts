@@ -16,6 +16,7 @@ import {
   amortizationSystemEnum,
   debtTypeEnum,
   insuranceModeEnum,
+  interestModeEnum,
   rateTypeEnum,
 } from '../../../db/schema';
 
@@ -75,6 +76,16 @@ export class CreateDebtDto {
   @ApiProperty({ description: 'Fecha de inicio del credito (YYYY-MM-DD).', example: '2026-01-15' })
   @IsISO8601({ strict: true })
   startDate!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Modo de causacion del interes: monthly (mensual contable) o daily (por dias reales entre cuotas).',
+    enum: interestModeEnum.enumValues,
+    default: 'monthly',
+  })
+  @IsOptional()
+  @IsIn(interestModeEnum.enumValues)
+  interestMode?: (typeof interestModeEnum.enumValues)[number];
 
   @ApiPropertyOptional({
     description:

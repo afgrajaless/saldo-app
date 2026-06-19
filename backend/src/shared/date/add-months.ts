@@ -18,3 +18,17 @@ export function addMonths(isoDate: string, months: number): string {
   const pad = (n: number): string => String(n).padStart(2, '0');
   return `${targetYear}-${pad(targetMonth + 1)}-${pad(targetDay)}`;
 }
+
+/**
+ * Calcula el numero de dias entre dos fechas ISO (YYYY-MM-DD), en UTC.
+ * @param fromIso - Fecha inicial.
+ * @param toIso - Fecha final.
+ * @returns Dias de diferencia (toIso - fromIso).
+ */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const [ay, am, ad] = fromIso.split('-').map(Number);
+  const [by, bm, bd] = toIso.split('-').map(Number);
+  const a = Date.UTC(ay, am - 1, ad);
+  const b = Date.UTC(by, bm - 1, bd);
+  return Math.round((b - a) / 86400000);
+}

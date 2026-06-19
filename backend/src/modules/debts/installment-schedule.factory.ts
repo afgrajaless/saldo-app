@@ -6,6 +6,7 @@ import {
 import { generateFrenchSchedule } from '../../domain/amortization/french-amortization';
 import { generateGermanSchedule } from '../../domain/amortization/german-amortization';
 import { InsuranceConfig, NO_INSURANCE } from '../../domain/insurance/insurance';
+import { InterestMode } from '../../domain/interest/interest-accrual';
 import { addMonths } from '../../shared/date/add-months';
 
 /** Sistema de amortizacion tal como se persiste (enum de la BD). */
@@ -95,6 +96,7 @@ export function buildSchedule(
   termMonths: number,
   startDate: string,
   insurance: InsuranceConfig = NO_INSURANCE,
+  interestMode: InterestMode = 'monthly',
 ): ScheduleSeed {
   const generator = selectGenerator(system);
   const schedule = generator({
@@ -102,6 +104,9 @@ export function buildSchedule(
     monthlyRate,
     numberOfInstallments: termMonths,
     insurance,
+    interestMode,
+    // El interes diario se ancla a la fecha de inicio del credito.
+    anchorDate: startDate,
   });
   const rows = schedule.rows.map((row) => toSeed(row.number, addMonths(startDate, row.number), row));
   return {

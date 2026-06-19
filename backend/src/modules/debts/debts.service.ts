@@ -47,6 +47,7 @@ export class DebtsService {
     const effectiveAnnualRate = normalizeToEffectiveAnnual(dto.nominalRate, rateType);
     const system = dto.amortizationSystem ?? 'frances';
     const insurance = this.buildInsurance(dto);
+    const interestMode = dto.interestMode ?? 'monthly';
 
     const { rows } = buildSchedule(
       system,
@@ -55,6 +56,7 @@ export class DebtsService {
       dto.termMonths,
       dto.startDate,
       insurance,
+      interestMode,
     );
 
     const debt = await this.debtsRepository.createWithSchedule(
@@ -71,6 +73,7 @@ export class DebtsService {
         startDate: dto.startDate,
         insuranceMode: insurance.mode,
         insuranceValue: insurance.mode === InsuranceMode.NONE ? null : insurance.value.toFixed(8),
+        interestMode,
         status: 'activa',
       },
       rows,
@@ -198,6 +201,7 @@ export class DebtsService {
       startDate: debt.startDate,
       insuranceMode: debt.insuranceMode,
       insuranceValue: debt.insuranceValue === null ? null : Number(debt.insuranceValue),
+      interestMode: debt.interestMode,
       status: debt.status,
       createdAt: debt.createdAt,
     };

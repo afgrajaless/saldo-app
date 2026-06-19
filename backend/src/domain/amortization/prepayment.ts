@@ -1,4 +1,5 @@
 import { InsuranceConfig, NO_INSURANCE } from '../insurance/insurance';
+import { InterestMode } from '../interest/interest-accrual';
 import { roundMoney } from '../shared/money';
 import { AmortizationSchedule } from './amortization.types';
 import {
@@ -64,6 +65,8 @@ function projectSchedule(
   remainingInstallments: number,
   previousPayment: number,
   insurance: InsuranceConfig,
+  interestMode: InterestMode,
+  anchorDate: string | undefined,
 ): AmortizationSchedule {
   if (mode === PrepaymentMode.REDUCE_INSTALLMENT) {
     // Mismo plazo, nueva cuota mas baja sobre el saldo reducido.
@@ -72,10 +75,12 @@ function projectSchedule(
       monthlyRate,
       numberOfInstallments: remainingInstallments,
       insurance,
+      interestMode,
+      anchorDate,
     });
   }
   // REDUCE_TERM: se conserva la cuota previa y se salda en menos periodos.
-  return amortizeWithPayment(newBalance, monthlyRate, previousPayment, insurance);
+  return amortizeWithPayment(newBalance, monthlyRate, previousPayment, insurance, interestMode, anchorDate);
 }
 
 /**
@@ -91,6 +96,8 @@ export function applyPrepayment(input: PrepaymentInput): PrepaymentResult {
   const { currentBalance, monthlyRate, remainingInstallments, extraPayment, mode } =
     input;
   const insurance = input.insurance ?? NO_INSURANCE;
+  const interestMode = input.interestMode ?? 'monthly';
+  const anchorDate = input.anchorDate;
 
   // Intereses que se pagarian si no se abonara nada (linea base de comparacion).
   const originalSchedule = generateFrenchSchedule({
@@ -98,6 +105,8 @@ export function applyPrepayment(input: PrepaymentInput): PrepaymentResult {
     monthlyRate,
     numberOfInstallments: remainingInstallments,
     insurance,
+    interestMode,
+    anchorDate,
   });
 
   const appliedExtraPayment = Math.min(extraPayment, currentBalance);
@@ -121,6 +130,8 @@ export function applyPrepayment(input: PrepaymentInput): PrepaymentResult {
     remainingInstallments,
     originalSchedule.fixedPayment ?? 0,
     insurance,
+    interestMode,
+    anchorDate,
   );
 
   return {

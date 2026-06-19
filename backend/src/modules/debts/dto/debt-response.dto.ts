@@ -42,6 +42,9 @@ export class DebtResponseDto {
   })
   insuranceValue!: number | null;
 
+  @ApiProperty({ description: 'Modo de causacion del interes: monthly o daily.', example: 'monthly' })
+  interestMode!: string;
+
   @ApiProperty({ example: 'activa' })
   status!: string;
 

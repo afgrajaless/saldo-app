@@ -1,4 +1,5 @@
 import { InsuranceConfig } from '../insurance/insurance';
+import { InterestMode } from '../interest/interest-accrual';
 
 /**
  * Tipos del motor de amortizacion.
@@ -17,6 +18,10 @@ export interface AmortizationInput {
   readonly numberOfInstallments: number;
   /** Configuracion del seguro de vida deudor (opcional; por defecto, sin seguro). */
   readonly insurance?: InsuranceConfig;
+  /** Modo de causacion del interes (opcional; por defecto, mensual). */
+  readonly interestMode?: InterestMode;
+  /** Fecha ancla del cronograma (YYYY-MM-DD); requerida para interes diario. */
+  readonly anchorDate?: string;
 }
 
 /** Una cuota del cronograma con su desglose y saldo restante. */
