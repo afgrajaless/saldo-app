@@ -61,6 +61,8 @@ export const usuryModalityEnum = pgEnum('usury_modality', [
   'microcredito',
   'consumo_bajo_monto',
 ]);
+// Presupuesto: una categoria es de ingreso o de egreso.
+export const categoryTypeEnum = pgEnum('category_type', ['income', 'expense']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -212,6 +214,60 @@ export const usuryRates = pgTable(
   }),
 );
 
+// ---------- categories (presupuesto: categorias de ingreso/egreso) ----------
+export const categories = pgTable(
+  'categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    type: categoryTypeEnum('type').notNull(),
+    color: text('color').notNull().default('#0B5D3B'), // hex para la UI
+    // Meta mensual (solo aplica a egresos); null = sin meta.
+    monthlyBudget: numeric('monthly_budget', { precision: 15, scale: 2 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }), // soft delete
+  },
+  (table) => ({
+    userIdx: index('idx_categories_user')
+      .on(table.userId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    budgetNonNegative: check(
+      'categories_budget_check',
+      sql`${table.monthlyBudget} IS NULL OR ${table.monthlyBudget} >= 0`,
+    ),
+  }),
+);
+
+// ---------- transactions (movimientos: ingresos y egresos) ----------
+export const transactions = pgTable(
+  'transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'restrict' }),
+    amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+    occurredOn: date('occurred_on').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userDateIdx: index('idx_transactions_user_date').on(table.userId, table.occurredOn),
+    categoryIdx: index('idx_transactions_category').on(table.categoryId),
+    amountPositive: check('transactions_amount_check', sql`${table.amount} > 0`),
+  }),
+);
+
 /** Esquema completo agrupado para inyectar en el cliente Drizzle. */
 export const schema = {
   users,
@@ -220,4 +276,6 @@ export const schema = {
   installments,
   payments,
   usuryRates,
+  categories,
+  transactions,
 };

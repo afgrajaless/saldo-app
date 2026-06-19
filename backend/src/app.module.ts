@@ -4,8 +4,11 @@ import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BudgetModule } from './modules/budget/budget.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { DebtsModule } from './modules/debts/debts.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
 import { UsuryModule } from './modules/usury/usury.module';
 
@@ -26,6 +29,9 @@ import { UsuryModule } from './modules/usury/usury.module';
     DebtsModule,
     PaymentsModule,
     UsuryModule,
+    CategoriesModule,
+    TransactionsModule,
+    BudgetModule,
   ],
 })
 export class AppModule {}
