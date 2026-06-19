@@ -29,6 +29,7 @@ class DebtsListScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab-debts',
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const CreateDebtScreen()),
         ),

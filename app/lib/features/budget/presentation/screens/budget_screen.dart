@@ -37,6 +37,7 @@ class BudgetScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab-budget',
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => AddTransactionScreen(month: month)),
         ),
