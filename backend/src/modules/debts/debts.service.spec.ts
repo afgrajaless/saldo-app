@@ -44,7 +44,13 @@ describe('DebtsService', () => {
   let repo: jest.Mocked<
     Pick<
       DebtsRepository,
-      'createWithSchedule' | 'findAllByUser' | 'findByIdForUser' | 'findInstallments' | 'update' | 'softDelete'
+      | 'createWithSchedule'
+      | 'findAllByUser'
+      | 'findByIdForUser'
+      | 'findInstallments'
+      | 'findInstallmentsByUser'
+      | 'update'
+      | 'softDelete'
     >
   >;
 
@@ -54,6 +60,7 @@ describe('DebtsService', () => {
       findAllByUser: jest.fn(),
       findByIdForUser: jest.fn(),
       findInstallments: jest.fn(),
+      findInstallmentsByUser: jest.fn(),
       update: jest.fn(),
       softDelete: jest.fn(),
     };
@@ -88,6 +95,62 @@ describe('DebtsService', () => {
 
       const [, values] = repo.createWithSchedule.mock.calls[0];
       expect(values.amortizationSystem).toBe('frances');
+    });
+  });
+
+  describe('findAll', () => {
+    it('calcula saldo actual, cuota y conteo de cuotas por deuda', async () => {
+      repo.findAllByUser.mockResolvedValue([makeDebt()]);
+      // Cuota 1 pagada; cuotas 2 y 3 pendientes.
+      const installments: InstallmentRow[] = [
+        {
+          id: 'i1',
+          debtId: 'debt-uuid',
+          number: 1,
+          dueDate: '2026-02-15',
+          principalPortion: '80000.00',
+          interestPortion: '20000.00',
+          insurancePortion: '0.00',
+          totalAmount: '100000.00',
+          remainingBalance: '920000.00',
+          status: 'pagada',
+        },
+        {
+          id: 'i2',
+          debtId: 'debt-uuid',
+          number: 2,
+          dueDate: '2026-03-15',
+          principalPortion: '82000.00',
+          interestPortion: '18000.00',
+          insurancePortion: '0.00',
+          totalAmount: '100000.00',
+          remainingBalance: '838000.00',
+          status: 'pendiente',
+        },
+        {
+          id: 'i3',
+          debtId: 'debt-uuid',
+          number: 3,
+          dueDate: '2026-04-15',
+          principalPortion: '84000.00',
+          interestPortion: '16000.00',
+          insurancePortion: '0.00',
+          totalAmount: '100000.00',
+          remainingBalance: '754000.00',
+          status: 'pendiente',
+        },
+      ];
+      repo.findInstallmentsByUser.mockResolvedValue(installments);
+
+      const [debt] = await service.findAll('user-uuid');
+
+      // Saldo = capital de las cuotas no pagadas (82000 + 84000).
+      expect(debt.currentBalance).toBe(166000);
+      // Cuota e interes = proxima cuota pendiente (la #2).
+      expect(debt.monthlyPayment).toBe(100000);
+      expect(debt.monthlyInterestCost).toBe(18000);
+      expect(debt.paidInstallments).toBe(1);
+      expect(debt.remainingInstallments).toBe(2);
     });
   });
 

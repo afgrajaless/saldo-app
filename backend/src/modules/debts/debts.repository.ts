@@ -67,6 +67,32 @@ export class DebtsRepository {
   }
 
   /**
+   * Trae las cuotas de todas las deudas vivas de un usuario en una sola query,
+   * para calcular metricas (saldo, cuota) sin caer en N+1.
+   * @param userId - Dueno de las deudas.
+   * @returns Las cuotas (con su debtId) de las deudas no eliminadas, por numero.
+   */
+  async findInstallmentsByUser(userId: string): Promise<InstallmentRow[]> {
+    return this.db
+      .select({
+        id: installments.id,
+        debtId: installments.debtId,
+        number: installments.number,
+        dueDate: installments.dueDate,
+        principalPortion: installments.principalPortion,
+        interestPortion: installments.interestPortion,
+        insurancePortion: installments.insurancePortion,
+        totalAmount: installments.totalAmount,
+        remainingBalance: installments.remainingBalance,
+        status: installments.status,
+      })
+      .from(installments)
+      .innerJoin(debts, eq(installments.debtId, debts.id))
+      .where(and(eq(debts.userId, userId), isNull(debts.deletedAt)))
+      .orderBy(installments.debtId, installments.number);
+  }
+
+  /**
    * Busca una deuda viva por id, garantizando que pertenezca al usuario.
    * @param id - UUID de la deuda.
    * @param userId - Dueno esperado.

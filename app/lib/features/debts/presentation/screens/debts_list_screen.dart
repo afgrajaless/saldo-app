@@ -4,10 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/money_format.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../domain/entities/debt.dart';
+import '../../domain/usecases/prioritize_debts.dart';
 import '../providers/debts_controller.dart';
 import '../widgets/debt_card.dart';
 import 'create_debt_screen.dart';
 import 'debt_detail_screen.dart';
+
+/// Estrategia de pago activa en la lista de deudas (estado de sesion).
+final debtStrategyProvider =
+    StateProvider<PayoffStrategy>((ref) => PayoffStrategy.avalanche);
 
 /// Pantalla principal: resumen del usuario y lista de obligaciones.
 class DebtsListScreen extends ConsumerWidget {
@@ -61,15 +66,23 @@ class _DebtsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final total = debts.fold<double>(0, (sum, d) => sum + d.principalAmount);
+    final strategy = ref.watch(debtStrategyProvider);
+    final ordered = prioritizeDebts(debts, strategy);
+    final total = ordered.fold<double>(0, (sum, d) => sum + d.currentBalance);
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: debts.length + 1,
+      itemCount: ordered.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _SummaryHeader(total: total, count: debts.length);
+          return _ListHeader(
+            total: total,
+            count: ordered.length,
+            strategy: strategy,
+          );
         }
-        final debt = debts[index - 1];
+        final debt = ordered[index - 1];
+        // La primera deuda con saldo es la prioridad bajo la estrategia activa.
+        final isPriority = index == 1 && debt.currentBalance > 0;
         return Dismissible(
           key: ValueKey(debt.id),
           direction: DismissDirection.endToStart,
@@ -85,6 +98,8 @@ class _DebtsList extends ConsumerWidget {
           ),
           child: DebtCard(
             debt: debt,
+            isPriority: isPriority,
+            priorityLabel: isPriority ? priorityReason(debt, strategy) : null,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => DebtDetailScreen(debtId: debt.id),
@@ -119,38 +134,95 @@ class _DebtsList extends ConsumerWidget {
   }
 }
 
-/// Encabezado con la deuda total y la cantidad de obligaciones.
-class _SummaryHeader extends StatelessWidget {
-  const _SummaryHeader({required this.total, required this.count});
+/// Encabezado con la deuda total, la cantidad de obligaciones y el selector
+/// de estrategia de pago que ordena la lista.
+class _ListHeader extends ConsumerWidget {
+  const _ListHeader({
+    required this.total,
+    required this.count,
+    required this.strategy,
+  });
 
   final double total;
   final int count;
+  final PayoffStrategy strategy;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(20),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Saldo total a hoy',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(color: theme.colorScheme.onPrimary)),
+              const SizedBox(height: 4),
+              Text(formatCop(total),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('$count ${count == 1 ? 'obligacion' : 'obligaciones'}',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onPrimary)),
+            ],
+          ),
+        ),
+        if (count > 1) _StrategySelector(strategy: strategy),
+      ],
+    );
+  }
+}
+
+/// Selector del orden de pago (avalancha / costo mensual) con explicacion.
+class _StrategySelector extends ConsumerWidget {
+  const _StrategySelector({required this.strategy});
+
+  final PayoffStrategy strategy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Deuda total',
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.colorScheme.onPrimary)),
-          const SizedBox(height: 4),
-          Text(formatCop(total),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                  color: theme.colorScheme.onPrimary,
-                  fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Icon(Icons.sort, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text('Orden de pago',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
           const SizedBox(height: 8),
-          Text('$count ${count == 1 ? 'obligacion' : 'obligaciones'}',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onPrimary)),
+          SegmentedButton<PayoffStrategy>(
+            showSelectedIcon: false,
+            segments: [
+              for (final s in PayoffStrategy.values)
+                ButtonSegment(value: s, label: Text(payoffStrategyLabel(s))),
+            ],
+            selected: {strategy},
+            onSelectionChanged: (selection) => ref
+                .read(debtStrategyProvider.notifier)
+                .state = selection.first,
+          ),
+          const SizedBox(height: 6),
+          Text(payoffStrategyHint(strategy),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ],
       ),
     );

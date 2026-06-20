@@ -169,7 +169,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                         suffixText: '%',
                         border: OutlineInputBorder(),
                       ),
-                      validator: _validatePositiveNumber,
+                      validator: _validateNonNegativeNumber,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -294,6 +294,14 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   String? _validatePositiveNumber(String? value) {
     final n = double.tryParse((value ?? '').replaceAll(',', '.'));
     if (n == null || n <= 0) return 'Ingresa un valor valido.';
+    return null;
+  }
+
+  /// Valida que el texto sea un numero mayor o igual a cero.
+  /// Permite tasa 0 (deudas sin interes).
+  String? _validateNonNegativeNumber(String? value) {
+    final n = double.tryParse((value ?? '').replaceAll(',', '.'));
+    if (n == null || n < 0) return 'Ingresa un valor valido.';
     return null;
   }
 

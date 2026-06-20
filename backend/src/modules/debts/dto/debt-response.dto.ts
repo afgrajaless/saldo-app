@@ -50,6 +50,30 @@ export class DebtResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Saldo de capital pendiente hoy (suma del capital de las cuotas no pagadas).',
+    example: 3722439.78,
+  })
+  currentBalance!: number;
+
+  @ApiProperty({
+    description: 'Valor de la proxima cuota pendiente (capital + interes + seguro). 0 si esta pagada.',
+    example: 199609.83,
+  })
+  monthlyPayment!: number;
+
+  @ApiProperty({
+    description: 'Interes que genera la proxima cuota pendiente (lo que cuesta la deuda este mes).',
+    example: 65669.02,
+  })
+  monthlyInterestCost!: number;
+
+  @ApiProperty({ description: 'Cantidad de cuotas ya pagadas.', example: 16 })
+  paidInstallments!: number;
+
+  @ApiProperty({ description: 'Cantidad de cuotas pendientes.', example: 20 })
+  remainingInstallments!: number;
 }
 
 /** Una cuota del cronograma en las respuestas de la API. */

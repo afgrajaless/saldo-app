@@ -15,6 +15,11 @@ class Debt {
     required this.insuranceValue,
     required this.interestMode,
     required this.status,
+    required this.currentBalance,
+    required this.monthlyPayment,
+    required this.monthlyInterestCost,
+    required this.paidInstallments,
+    required this.remainingInstallments,
   });
 
   final String id;
@@ -37,4 +42,22 @@ class Debt {
   /// Modo de causacion del interes: 'monthly' o 'daily'.
   final String interestMode;
   final String status;
+
+  /// Saldo de capital pendiente hoy (suma del capital de las cuotas no pagadas).
+  final double currentBalance;
+
+  /// Valor de la proxima cuota pendiente; 0 si la deuda esta pagada.
+  final double monthlyPayment;
+
+  /// Interes que genera la proxima cuota (lo que cuesta la deuda este mes).
+  final double monthlyInterestCost;
+
+  /// Cantidad de cuotas ya pagadas.
+  final int paidInstallments;
+
+  /// Cantidad de cuotas pendientes.
+  final int remainingInstallments;
+
+  /// Indica si la deuda esta en mora.
+  bool get isInArrears => status == 'en_mora';
 }

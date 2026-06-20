@@ -19,6 +19,15 @@ import {
 } from './debts.repository';
 import { buildSchedule } from './installment-schedule.factory';
 
+/** Metricas de pago derivadas del cronograma de una deuda. */
+interface DebtMetrics {
+  currentBalance: number;
+  monthlyPayment: number;
+  monthlyInterestCost: number;
+  paidInstallments: number;
+  remainingInstallments: number;
+}
+
 /** Mapea el tipo de tasa de la BD al tipo del dominio. */
 const RATE_TYPE_MAP: Record<string, RateType> = {
   ea: RateType.EFFECTIVE_ANNUAL,
@@ -59,6 +68,14 @@ export class DebtsService {
       interestMode,
     );
 
+    const metrics: DebtMetrics = {
+      currentBalance: dto.principalAmount,
+      monthlyPayment: rows.length > 0 ? Number(rows[0].totalAmount) : 0,
+      monthlyInterestCost: rows.length > 0 ? Number(rows[0].interestPortion) : 0,
+      paidInstallments: 0,
+      remainingInstallments: rows.length,
+    };
+
     const debt = await this.debtsRepository.createWithSchedule(
       userId,
       {
@@ -78,7 +95,7 @@ export class DebtsService {
       },
       rows,
     );
-    return this.toDebtResponse(debt);
+    return this.toDebtResponse(debt, metrics);
   }
 
   /**
@@ -101,7 +118,45 @@ export class DebtsService {
    */
   async findAll(userId: string): Promise<DebtResponseDto[]> {
     const debts = await this.debtsRepository.findAllByUser(userId);
-    return debts.map((debt) => this.toDebtResponse(debt));
+    const installments = await this.debtsRepository.findInstallmentsByUser(userId);
+    const byDebt = this.groupInstallmentsByDebt(installments);
+    return debts.map((debt) =>
+      this.toDebtResponse(debt, this.computeMetrics(byDebt.get(debt.id) ?? [])),
+    );
+  }
+
+  /**
+   * Agrupa una lista plana de cuotas por su deuda.
+   * @param installments - Cuotas de varias deudas (con su debtId).
+   * @returns Mapa de debtId a sus cuotas.
+   */
+  private groupInstallmentsByDebt(installments: InstallmentRow[]): Map<string, InstallmentRow[]> {
+    const byDebt = new Map<string, InstallmentRow[]>();
+    for (const row of installments) {
+      const list = byDebt.get(row.debtId) ?? [];
+      list.push(row);
+      byDebt.set(row.debtId, list);
+    }
+    return byDebt;
+  }
+
+  /**
+   * Calcula las metricas de pago de una deuda a partir de su cronograma.
+   * El saldo es la suma del capital de las cuotas no pagadas; la cuota y el
+   * interes del mes corresponden a la proxima cuota pendiente.
+   * @param installments - Cuotas de la deuda, ordenadas por numero.
+   * @returns Saldo actual, cuota, interes del mes y conteo de cuotas.
+   */
+  private computeMetrics(installments: InstallmentRow[]): DebtMetrics {
+    const pending = installments.filter((row) => row.status !== 'pagada');
+    const next = pending[0];
+    return {
+      currentBalance: this.sumBy(pending, (row) => Number(row.principalPortion)),
+      monthlyPayment: next ? Number(next.totalAmount) : 0,
+      monthlyInterestCost: next ? Number(next.interestPortion) : 0,
+      paidInstallments: installments.length - pending.length,
+      remainingInstallments: pending.length,
+    };
   }
 
   /**
@@ -116,7 +171,7 @@ export class DebtsService {
     const installments = await this.debtsRepository.findInstallments(debt.id);
     const installmentDtos = installments.map((row) => this.toInstallmentResponse(row));
     return {
-      ...this.toDebtResponse(debt),
+      ...this.toDebtResponse(debt, this.computeMetrics(installments)),
       installments: installmentDtos,
       totalInterest: this.sumBy(installmentDtos, (i) => i.interestPortion),
       totalInsurance: this.sumBy(installmentDtos, (i) => i.insurancePortion),
@@ -140,7 +195,8 @@ export class DebtsService {
     if (!updated) {
       throw new NotFoundException('Deuda no encontrada.');
     }
-    return this.toDebtResponse(updated);
+    const installments = await this.debtsRepository.findInstallments(updated.id);
+    return this.toDebtResponse(updated, this.computeMetrics(installments));
   }
 
   /**
@@ -187,7 +243,7 @@ export class DebtsService {
    * @param debt - Fila de deuda.
    * @returns El DTO de respuesta.
    */
-  private toDebtResponse(debt: DebtRow): DebtResponseDto {
+  private toDebtResponse(debt: DebtRow, metrics: DebtMetrics): DebtResponseDto {
     return {
       id: debt.id,
       creditor: debt.creditor,
@@ -204,6 +260,11 @@ export class DebtsService {
       interestMode: debt.interestMode,
       status: debt.status,
       createdAt: debt.createdAt,
+      currentBalance: metrics.currentBalance,
+      monthlyPayment: metrics.monthlyPayment,
+      monthlyInterestCost: metrics.monthlyInterestCost,
+      paidInstallments: metrics.paidInstallments,
+      remainingInstallments: metrics.remainingInstallments,
     };
   }
 

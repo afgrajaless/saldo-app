@@ -20,9 +20,9 @@ const Map<String, String> rateTypeLabels = {
 
 /// Sistemas de amortizacion.
 const Map<String, String> amortizationSystemLabels = {
-  'frances': 'Frances (cuota fija)',
-  'aleman': 'Aleman (abono fijo)',
-  'americano': 'Americano (capital al final)',
+  'frances': 'Cuota fija',
+  'aleman': 'Abono fijo',
+  'americano': 'Capital al final',
 };
 
 /// Estados de una deuda.

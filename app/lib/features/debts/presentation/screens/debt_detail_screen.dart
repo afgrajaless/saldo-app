@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/error/api_exception.dart';
 import '../../../../shared/enum_labels.dart';
 import '../../../../shared/money_format.dart';
+import '../../../budget/domain/entities/budget_params.dart';
+import '../../../budget/domain/repositories/budget_repository.dart';
+import '../../../budget/presentation/providers/budget_providers.dart';
 import '../../../payments/domain/entities/register_payment_params.dart';
 import '../../../payments/presentation/providers/payments_controller.dart';
 import '../../../payments/presentation/screens/abono_capital_screen.dart';
@@ -11,6 +15,7 @@ import '../../../usury/presentation/widgets/usury_badge.dart';
 import '../../domain/entities/debt_detail.dart';
 import '../../domain/entities/installment.dart';
 import '../providers/debt_detail_provider.dart';
+import '../providers/debts_controller.dart';
 
 /// Detalle de una deuda: resumen, distribucion capital/interes y cronograma,
 /// con acciones de pago de cuota y abono a capital.
@@ -55,43 +60,94 @@ class _DetailBody extends ConsumerWidget {
     WidgetRef ref,
     Installment installment,
   ) async {
-    final confirmed = await showDialog<bool>(
+    // El dialogo devuelve null al cancelar; true/false segun el check de gasto.
+    final createTransaction = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Pagar cuota #${installment.number}'),
-        content: Text('Registrar el pago de ${formatCop(installment.totalAmount)}?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Pagar')),
-        ],
-      ),
+      builder: (_) => _PayInstallmentDialog(installment: installment),
     );
-    if (confirmed != true) return;
+    if (createTransaction == null) return;
 
+    final today = DateTime.now().toIso8601String().substring(0, 10);
     try {
       await ref.read(paymentsControllerProvider.notifier).register(
             debtId,
             RegisterPaymentParams(
               type: 'regular',
               amount: installment.totalAmount,
-              paymentDate: DateTime.now().toIso8601String().substring(0, 10),
+              paymentDate: today,
               installmentId: installment.id,
             ),
           );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Pago registrado.')));
-      }
     } on ApiException catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
+      return;
     }
+
+    // El pago ya quedo registrado; el gasto en presupuesto es un paso aparte.
+    var budgetMessage = '';
+    if (createTransaction) {
+      try {
+        await _registerPaymentExpense(ref, installment, today);
+        budgetMessage = ' Gasto agregado al presupuesto.';
+      } on ApiException catch (error) {
+        budgetMessage = ' (No se pudo agregar al presupuesto: ${error.message})';
+      }
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Pago registrado.$budgetMessage')));
+    }
+  }
+
+  /// Crea un egreso en el presupuesto por el valor de la cuota pagada, en una
+  /// categoria con el nombre del acreedor (la crea si no existe), y refresca
+  /// los datos del presupuesto.
+  /// @param ref - Referencia de Riverpod.
+  /// @param installment - Cuota pagada.
+  /// @param date - Fecha del movimiento (YYYY-MM-DD).
+  Future<void> _registerPaymentExpense(
+    WidgetRef ref,
+    Installment installment,
+    String date,
+  ) async {
+    final repo = getIt<BudgetRepository>();
+    final categoryId = await _ensureCreditorCategory(repo, detail.debt.creditor);
+    await repo.createTransaction(
+      CreateTransactionParams(
+        categoryId: categoryId,
+        amount: installment.totalAmount,
+        occurredOn: date,
+        description: 'Pago cuota #${installment.number}',
+      ),
+    );
+    // Refresca el resumen y los movimientos para que el gasto se vea de inmediato.
+    ref.invalidate(budgetSummaryProvider);
+    ref.invalidate(monthTransactionsProvider);
+  }
+
+  /// Devuelve el id de la categoria de egreso del acreedor, creandola si no existe.
+  /// @param repo - Repositorio de presupuesto.
+  /// @param creditor - Nombre del acreedor (sera el nombre de la categoria).
+  /// @return El UUID de la categoria.
+  Future<String> _ensureCreditorCategory(
+    BudgetRepository repo,
+    String creditor,
+  ) async {
+    final categories = await repo.getCategories();
+    for (final category in categories) {
+      if (category.type == 'expense' &&
+          category.name.toLowerCase() == creditor.toLowerCase()) {
+        return category.id;
+      }
+    }
+    final created = await repo.createCategory(
+      CreateCategoryParams(name: creditor, type: 'expense', color: '#EF4444'),
+    );
+    return created.id;
   }
 
   @override
@@ -147,8 +203,54 @@ class _DetailBody extends ConsumerWidget {
                 : null,
           ),
         ),
+        const SizedBox(height: 28),
+        OutlinedButton.icon(
+          onPressed: () => _deleteDebt(context, ref),
+          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+          label: Text('Eliminar deuda',
+              style: TextStyle(color: theme.colorScheme.error)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            side: BorderSide(color: theme.colorScheme.error),
+          ),
+        ),
       ],
     );
+  }
+
+  /// Elimina la deuda (borra el registro) tras confirmar. Es distinto de pagar:
+  /// la deuda no queda en el historial. Vuelve a la lista al eliminar.
+  /// @param context - Contexto de la pantalla.
+  /// @param ref - Referencia de Riverpod.
+  Future<void> _deleteDebt(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Eliminar "${detail.debt.creditor}"'),
+        content: const Text(
+          'Se elimina la deuda y su cronograma del registro. Esto NO es lo mismo '
+          'que pagarla: no queda en el historial. Esta accion no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(debtsControllerProvider.notifier).deleteDebt(debtId);
+      if (context.mounted) Navigator.of(context).pop();
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 }
 
@@ -316,6 +418,56 @@ class _InstallmentTile extends StatelessWidget {
           style: theme.textTheme.bodySmall,
         ),
       ),
+    );
+  }
+}
+
+/// Dialogo de confirmacion de pago de cuota con la opcion de registrar el
+/// pago como gasto en el presupuesto. Devuelve null al cancelar, o el estado
+/// del check (true = crear gasto) al confirmar.
+class _PayInstallmentDialog extends StatefulWidget {
+  const _PayInstallmentDialog({required this.installment});
+
+  final Installment installment;
+
+  @override
+  State<_PayInstallmentDialog> createState() => _PayInstallmentDialogState();
+}
+
+class _PayInstallmentDialogState extends State<_PayInstallmentDialog> {
+  // El check viene activado por defecto.
+  bool _createTransaction = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final installment = widget.installment;
+    return AlertDialog(
+      title: Text('Pagar cuota #${installment.number}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Registrar el pago de ${formatCop(installment.totalAmount)}?'),
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            value: _createTransaction,
+            onChanged: (value) =>
+                setState(() => _createTransaction = value ?? false),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text('Registrar como gasto en mi presupuesto'),
+            subtitle: const Text('Crea un egreso por el valor de la cuota.'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar')),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, _createTransaction),
+            child: const Text('Pagar')),
+      ],
     );
   }
 }

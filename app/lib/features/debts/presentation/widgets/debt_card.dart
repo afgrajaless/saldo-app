@@ -6,43 +6,107 @@ import '../../domain/entities/debt.dart';
 
 /// Tarjeta que resume una obligacion en la lista.
 class DebtCard extends StatelessWidget {
-  const DebtCard({super.key, required this.debt, required this.onTap});
+  const DebtCard({
+    super.key,
+    required this.debt,
+    required this.onTap,
+    this.isPriority = false,
+    this.priorityLabel,
+  });
 
   final Debt debt;
   final VoidCallback onTap;
 
+  /// Si es la deuda recomendada para pagar primero (resalta la tarjeta).
+  final bool isPriority;
+
+  /// Motivo por el que es prioridad (ej. "Tasa mas alta"); null si no aplica.
+  final String? priorityLabel;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final totalInstallments = debt.paidInstallments + debt.remainingInstallments;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
-          child: Icon(Icons.request_quote_outlined,
-              color: theme.colorScheme.onPrimaryContainer),
-        ),
-        title: Text(debt.creditor,
-            style: theme.textTheme.titleMedium,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 2),
-            Text(labelOf(debtTypeLabels, debt.debtType),
-                style: theme.textTheme.bodySmall),
-            const SizedBox(height: 4),
-            Text(
-              '${formatCop(debt.principalAmount)}  ·  ${formatPercent(debt.effectiveAnnualRate)} E.A.',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+      shape: isPriority
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+            )
+          : null,
+      child: Column(
+        children: [
+          if (isPriority) _PriorityBanner(label: priorityLabel),
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            onTap: onTap,
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Icon(Icons.request_quote_outlined,
+                  color: theme.colorScheme.onPrimaryContainer),
             ),
-          ],
-        ),
-        trailing: _StatusChip(status: debt.status),
+            title: Text(debt.creditor,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 2),
+                Text(labelOf(debtTypeLabels, debt.debtType),
+                    style: theme.textTheme.bodySmall),
+                const SizedBox(height: 4),
+                Text(
+                  '${formatCop(debt.currentBalance)}  ·  ${formatPercent(debt.effectiveAnnualRate)} E.A.',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Cuota ${formatCop(debt.monthlyPayment)}  ·  ${debt.paidInstallments}/$totalInstallments cuotas',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            trailing: _StatusChip(status: debt.status),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banda superior que marca la deuda recomendada para pagar primero.
+class _PriorityBanner extends StatelessWidget {
+  const _PriorityBanner({this.label});
+
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag, size: 16, color: scheme.onPrimary),
+          const SizedBox(width: 6),
+          Text(
+            label == null ? 'Paga primero' : 'Paga primero · $label',
+            style: TextStyle(
+                color: scheme.onPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }
