@@ -1,0 +1,211 @@
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/di/injection.dart';
+import '../../../../shared/hex_color.dart';
+import '../../../../shared/money_format.dart';
+import '../../domain/entities/account.dart';
+import '../../domain/entities/account_yield.dart';
+import '../../domain/repositories/budget_repository.dart';
+import '../providers/budget_providers.dart';
+import 'account_detail_screen.dart';
+import 'add_account_screen.dart';
+
+/// Pantalla de gestion de cuentas (Nequi, efectivo, banco, etc.).
+class AccountsScreen extends ConsumerWidget {
+  const AccountsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountsAsync = ref.watch(accountsListProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cuentas')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const AddAccountScreen()),
+        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Cuenta'),
+      ),
+      body: accountsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('$e')),
+        data: (accounts) => accounts.isEmpty
+            ? const _Empty()
+            : ListView(
+                padding: const EdgeInsets.only(top: 8, bottom: 96),
+                children: [
+                  const _NetWorthCard(),
+                  ...accounts.map((a) => _AccountTile(account: a)),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Fila de una cuenta: tap para ver detalle, swipe para eliminar.
+class _AccountTile extends ConsumerWidget {
+  const _AccountTile({required this.account});
+
+  final Account account;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dismissible(
+      key: ValueKey(account.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirm(context),
+      onDismissed: (_) async {
+        await getIt<BudgetRepository>().deleteAccount(account.id);
+        ref.invalidate(accountsListProvider);
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        color: Theme.of(context).colorScheme.errorContainer,
+        padding: const EdgeInsets.only(right: 24),
+        child: Icon(Icons.delete_outline,
+            color: Theme.of(context).colorScheme.onErrorContainer),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: hexToColor(account.color), radius: 14),
+        title: Text(account.name),
+        subtitle: account.hasYield
+            ? Text(
+                '${account.isCdt ? 'CDT' : 'Remunerada'} · '
+                '${formatPercent(account.effectiveAnnualRate ?? 0)} E.A.',
+              )
+            : null,
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => AccountDetailScreen(account: account)),
+        ),
+      ),
+    );
+  }
+
+  /// Pide confirmacion antes de eliminar.
+  Future<bool> _confirm(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Eliminar "${account.name}"'),
+        content: const Text(
+          'Los movimientos asociados se conservan, pero quedan sin cuenta.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+}
+
+/// Tarjeta con la evolucion del patrimonio (suma de saldos por fecha).
+class _NetWorthCard extends ConsumerWidget {
+  const _NetWorthCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final netWorthAsync = ref.watch(netWorthProvider);
+    return netWorthAsync.maybeWhen(
+      data: (points) {
+        if (points.isEmpty) return const SizedBox.shrink();
+        final latest = points.last;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Patrimonio',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(color: theme.colorScheme.onPrimary)),
+              const SizedBox(height: 4),
+              Text(formatCop(latest.total),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                      color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold)),
+              if (points.length >= 2) ...[
+                const SizedBox(height: 16),
+                SizedBox(height: 90, child: _NetWorthChart(points: points)),
+              ],
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// Mini-grafico de linea del patrimonio en el tiempo.
+class _NetWorthChart extends StatelessWidget {
+  const _NetWorthChart({required this.points});
+
+  final List<NetWorthPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final spots = [
+      for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].total),
+    ];
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: onPrimary,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: true, color: onPrimary.withValues(alpha: 0.15)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Estado vacio de cuentas.
+class _Empty extends StatelessWidget {
+  const _Empty();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_balance_wallet_outlined,
+                size: 72, color: theme.colorScheme.primary),
+            const SizedBox(height: 16),
+            Text('Crea tus cuentas',
+                style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text('Nequi, efectivo, banco... para clasificar tus movimientos.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+}

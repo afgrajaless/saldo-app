@@ -5,29 +5,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/error/api_exception.dart';
 import '../../../../shared/hex_color.dart';
+import '../../domain/entities/account.dart';
 import '../../domain/entities/budget_params.dart';
-import '../../domain/entities/category.dart';
 import '../../domain/repositories/budget_repository.dart';
 import '../providers/budget_providers.dart';
-import 'categories_screen.dart';
+import 'add_account_screen.dart';
 
-/// Pantalla para registrar un movimiento (ingreso o egreso).
-class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key, required this.month});
+/// Pantalla para registrar una transferencia entre cuentas.
+class AddTransferScreen extends ConsumerStatefulWidget {
+  const AddTransferScreen({super.key, required this.month});
 
-  /// Mes vigente, para refrescar sus datos al guardar.
+  /// Mes vigente, para refrescar sus transferencias al guardar.
   final String month;
 
   @override
-  ConsumerState<AddTransactionScreen> createState() => _AddTransactionScreenState();
+  ConsumerState<AddTransferScreen> createState() => _AddTransferScreenState();
 }
 
-class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
+class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
-  String? _categoryId;
-  String? _accountId;
+  String? _fromId;
+  String? _toId;
   late DateTime _date;
   bool _submitting = false;
 
@@ -58,30 +58,33 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  /// Valida y guarda el movimiento; refresca el resumen y la lista del mes.
+  /// Valida y guarda la transferencia; refresca las del mes.
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _categoryId == null) {
-      if (_categoryId == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Elige una categoria.')));
-      }
+    if (!_formKey.currentState!.validate()) return;
+    if (_fromId == null || _toId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Elige las cuentas de origen y destino.')));
+      return;
+    }
+    if (_fromId == _toId) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Las cuentas deben ser distintas.')));
       return;
     }
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
 
-    final params = CreateTransactionParams(
-      categoryId: _categoryId!,
+    final params = CreateTransferParams(
+      fromAccountId: _fromId!,
+      toAccountId: _toId!,
       amount: double.parse(_amountController.text.replaceAll(',', '.')),
       occurredOn: _formatDate(_date),
       description: _descriptionController.text.trim(),
-      accountId: _accountId,
     );
 
     try {
-      await getIt<BudgetRepository>().createTransaction(params);
-      ref.invalidate(budgetSummaryProvider(widget.month));
-      ref.invalidate(monthTransactionsProvider(widget.month));
+      await getIt<BudgetRepository>().createTransfer(params);
+      ref.invalidate(monthTransfersProvider(widget.month));
       if (!mounted) return;
       Navigator.of(context).pop();
     } on ApiException catch (error) {
@@ -94,59 +97,23 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesListProvider);
+    final accountsAsync = ref.watch(accountsListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo movimiento')),
+      appBar: AppBar(title: const Text('Nueva transferencia')),
       body: SafeArea(
-        child: categoriesAsync.when(
+        child: accountsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),
-          data: (categories) =>
-              categories.isEmpty ? const _NoCategories() : _form(context, categories),
+          data: (accounts) =>
+              accounts.length < 2 ? const _NeedAccounts() : _form(accounts),
         ),
       ),
     );
   }
 
-  /// Dropdown opcional de cuenta; vacio si el usuario no tiene cuentas.
-  Widget _accountField() {
-    final accountsAsync = ref.watch(accountsListProvider);
-    return accountsAsync.maybeWhen(
-      data: (accounts) {
-        if (accounts.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: DropdownButtonFormField<String?>(
-            value: _accountId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Cuenta (opcional)',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem<String?>(value: null, child: Text('Sin cuenta')),
-              ...accounts.map((a) => DropdownMenuItem<String?>(
-                    value: a.id,
-                    child: Row(
-                      children: [
-                        CircleAvatar(radius: 6, backgroundColor: hexToColor(a.color)),
-                        const SizedBox(width: 10),
-                        Text(a.name),
-                      ],
-                    ),
-                  )),
-            ],
-            onChanged: (v) => setState(() => _accountId = v),
-          ),
-        );
-      },
-      orElse: () => const SizedBox.shrink(),
-    );
-  }
-
-  /// Construye el formulario con la lista de categorias.
-  Widget _form(BuildContext context, List<Category> categories) {
+  /// Construye el formulario con las cuentas disponibles.
+  Widget _form(List<Account> accounts) {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -154,30 +121,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DropdownButtonFormField<String>(
-              value: _categoryId,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Categoria',
-                border: OutlineInputBorder(),
-              ),
-              items: categories
-                  .map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Row(
-                          children: [
-                            CircleAvatar(radius: 6, backgroundColor: hexToColor(c.color)),
-                            const SizedBox(width: 10),
-                            Text('${c.name}  ·  ${c.isIncome ? 'Ingreso' : 'Egreso'}'),
-                          ],
-                        ),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _categoryId = v),
-              validator: (v) => v == null ? 'Elige una categoria.' : null,
+            _accountDropdown(
+              label: 'Desde',
+              value: _fromId,
+              accounts: accounts,
+              onChanged: (v) => setState(() => _fromId = v),
             ),
             const SizedBox(height: 16),
-            _accountField(),
+            _accountDropdown(
+              label: 'Hacia',
+              value: _toId,
+              accounts: accounts,
+              onChanged: (v) => setState(() => _toId = v),
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -221,18 +178,46 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               child: _submitting
                   ? const SizedBox(
                       height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                  : const Text('Guardar movimiento'),
+                  : const Text('Guardar transferencia'),
             ),
           ],
         ),
       ),
     );
   }
+
+  /// Dropdown de seleccion de cuenta.
+  Widget _accountDropdown({
+    required String label,
+    required String? value,
+    required List<Account> accounts,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      items: accounts
+          .map((a) => DropdownMenuItem(
+                value: a.id,
+                child: Row(
+                  children: [
+                    CircleAvatar(radius: 6, backgroundColor: hexToColor(a.color)),
+                    const SizedBox(width: 10),
+                    Text(a.name),
+                  ],
+                ),
+              ))
+          .toList(),
+      onChanged: onChanged,
+      validator: (v) => v == null ? 'Elige una cuenta.' : null,
+    );
+  }
 }
 
-/// Aviso cuando no hay categorias creadas.
-class _NoCategories extends StatelessWidget {
-  const _NoCategories();
+/// Aviso cuando hay menos de dos cuentas para transferir.
+class _NeedAccounts extends StatelessWidget {
+  const _NeedAccounts();
 
   @override
   Widget build(BuildContext context) {
@@ -242,16 +227,16 @@ class _NoCategories extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.category_outlined, size: 56),
+            const Icon(Icons.account_balance_wallet_outlined, size: 56),
             const SizedBox(height: 12),
-            const Text('Primero crea una categoria',
+            const Text('Necesitas al menos dos cuentas para transferir.',
                 textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute<void>(builder: (_) => const CategoriesScreen()),
+                MaterialPageRoute<void>(builder: (_) => const AddAccountScreen()),
               ),
-              child: const Text('Ir a categorias'),
+              child: const Text('Crear cuenta'),
             ),
           ],
         ),

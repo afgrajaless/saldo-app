@@ -6,6 +6,7 @@ class Category {
     required this.type,
     required this.color,
     this.monthlyBudget,
+    this.transactionCount = 0,
   });
 
   final String id;
@@ -19,6 +20,9 @@ class Category {
 
   /// Meta mensual de gasto (solo egresos); null si no tiene.
   final double? monthlyBudget;
+
+  /// Cantidad de movimientos asociados a la categoria.
+  final int transactionCount;
 
   /// Indica si es una categoria de ingreso.
   bool get isIncome => type == 'income';

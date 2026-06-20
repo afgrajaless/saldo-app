@@ -2,12 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/error/api_exception.dart';
 import '../../../../shared/hex_color.dart';
 import '../../../../shared/money_format.dart';
+import '../../domain/entities/budget_params.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/budget_repository.dart';
 import '../providers/budget_providers.dart';
+import '../widgets/delete_category_dialog.dart';
 import 'add_category_screen.dart';
+
+/// Categorias sugeridas para sembrar al primer uso (nombre, tipo, color hex).
+const List<CreateCategoryParams> _suggestedCategories = [
+  CreateCategoryParams(name: 'Salario', type: 'income', color: '#10B981'),
+  CreateCategoryParams(name: 'Otros ingresos', type: 'income', color: '#3B82F6'),
+  CreateCategoryParams(name: 'Arriendo', type: 'expense', color: '#EF4444'),
+  CreateCategoryParams(name: 'Mercado', type: 'expense', color: '#F59E0B'),
+  CreateCategoryParams(name: 'Transporte', type: 'expense', color: '#8B5CF6'),
+  CreateCategoryParams(name: 'Servicios', type: 'expense', color: '#06B6D4'),
+  CreateCategoryParams(name: 'Ocio', type: 'expense', color: '#EC4899'),
+  CreateCategoryParams(name: 'Pagos de deuda', type: 'expense', color: '#6B7280'),
+];
 
 /// Pantalla de gestion de categorias (ingresos y egresos).
 class CategoriesScreen extends ConsumerWidget {
@@ -34,23 +49,43 @@ class CategoriesScreen extends ConsumerWidget {
             : ListView(
                 padding: const EdgeInsets.only(bottom: 96),
                 children: [
-                  _section(context, 'Ingresos', categories.where((c) => c.isIncome).toList()),
-                  _section(context, 'Egresos', categories.where((c) => !c.isIncome).toList()),
+                  _section(context, 'Ingresos', Icons.trending_up,
+                      categories.where((c) => c.isIncome).toList()),
+                  _section(context, 'Egresos', Icons.trending_down,
+                      categories.where((c) => !c.isIncome).toList()),
                 ],
               ),
       ),
     );
   }
 
-  /// Construye una seccion (ingresos o egresos) con sus categorias.
-  Widget _section(BuildContext context, String title, List<Category> items) {
+  /// Construye una seccion (ingresos o egresos) con su encabezado y categorias.
+  Widget _section(
+    BuildContext context,
+    String title,
+    IconData icon,
+    List<Category> items,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final isIncome = title == 'Ingresos';
+    final accent = isIncome ? theme.colorScheme.primary : theme.colorScheme.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: accent),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(width: 6),
+              Text('(${items.length})', style: theme.textTheme.bodySmall),
+            ],
+          ),
         ),
         ...items.map((c) => _CategoryTile(category: c)),
       ],
@@ -58,7 +93,7 @@ class CategoriesScreen extends ConsumerWidget {
   }
 }
 
-/// Fila de una categoria con swipe para eliminar.
+/// Fila de una categoria: tap para editar, swipe para eliminar.
 class _CategoryTile extends ConsumerWidget {
   const _CategoryTile({required this.category});
 
@@ -70,11 +105,8 @@ class _CategoryTile extends ConsumerWidget {
     return Dismissible(
       key: ValueKey(category.id),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (_) => _confirm(context),
-      onDismissed: (_) async {
-        await getIt<BudgetRepository>().deleteCategory(category.id);
-        ref.invalidate(categoriesListProvider);
-      },
+      confirmDismiss: (_) => confirmDeleteCategory(context, category),
+      onDismissed: (_) => deleteCategory(ref, category.id),
       background: Container(
         alignment: Alignment.centerRight,
         color: Theme.of(context).colorScheme.errorContainer,
@@ -85,31 +117,59 @@ class _CategoryTile extends ConsumerWidget {
       child: ListTile(
         leading: CircleAvatar(backgroundColor: hexToColor(category.color), radius: 14),
         title: Text(category.name),
-        subtitle: budget != null ? Text('Meta: ${formatCop(budget)}') : null,
+        subtitle: _subtitle(budget, category.transactionCount),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AddCategoryScreen(category: category),
+          ),
+        ),
       ),
     );
   }
 
-  /// Pide confirmacion antes de eliminar.
-  Future<bool> _confirm(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Eliminar "${category.name}"'),
-        content: const Text('Los movimientos existentes se conservan.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
-        ],
-      ),
-    );
-    return result ?? false;
+  /// Construye el subtitulo con la meta y/o el conteo de movimientos.
+  /// @param budget - Meta mensual (null si no tiene).
+  /// @param count - Cantidad de movimientos.
+  /// @return El widget de subtitulo, o null si no hay nada que mostrar.
+  Widget? _subtitle(double? budget, int count) {
+    final parts = <String>[
+      if (budget != null) 'Meta: ${formatCop(budget)}',
+      if (count > 0) '$count ${count == 1 ? 'movimiento' : 'movimientos'}',
+    ];
+    return parts.isEmpty ? null : Text(parts.join('  ·  '));
   }
 }
 
-/// Estado vacio de categorias.
-class _Empty extends StatelessWidget {
+/// Estado vacio de categorias, con opcion de sembrar categorias sugeridas.
+class _Empty extends ConsumerStatefulWidget {
   const _Empty();
+
+  @override
+  ConsumerState<_Empty> createState() => _EmptyState();
+}
+
+class _EmptyState extends ConsumerState<_Empty> {
+  bool _seeding = false;
+
+  /// Crea el set de categorias sugeridas; ignora las que ya existan.
+  Future<void> _seedSuggested() async {
+    setState(() => _seeding = true);
+    final repo = getIt<BudgetRepository>();
+    try {
+      for (final params in _suggestedCategories) {
+        try {
+          await repo.createCategory(params);
+        } on ApiException {
+          // Si alguna ya existe (409), se omite y se sigue con las demas.
+        }
+      }
+      ref.invalidate(categoriesListProvider);
+      ref.invalidate(budgetSummaryProvider);
+    } finally {
+      if (mounted) setState(() => _seeding = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +189,15 @@ class _Empty extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _seeding ? null : _seedSuggested,
+              icon: _seeding
+                  ? const SizedBox(
+                      height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2.5))
+                  : const Icon(Icons.auto_awesome),
+              label: const Text('Usar categorias sugeridas'),
+            ),
           ],
         ),
       ),

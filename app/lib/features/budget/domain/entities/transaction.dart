@@ -9,6 +9,8 @@ class Transaction {
     required this.amount,
     required this.occurredOn,
     this.description,
+    this.accountId,
+    this.accountName,
   });
 
   final String id;
@@ -21,6 +23,10 @@ class Transaction {
   final double amount;
   final String occurredOn;
   final String? description;
+
+  /// Cuenta asociada (null si el movimiento no tiene cuenta).
+  final String? accountId;
+  final String? accountName;
 
   /// Indica si el movimiento es un ingreso.
   bool get isIncome => categoryType == 'income';

@@ -11,7 +11,9 @@ import '../../domain/repositories/budget_repository.dart';
 import '../providers/budget_providers.dart';
 import '../providers/selected_month_provider.dart';
 import 'add_transaction_screen.dart';
+import 'add_transfer_screen.dart';
 import 'categories_screen.dart';
+import 'import_screen.dart';
 
 /// Pantalla de presupuesto: resumen mensual, avance de metas y movimientos.
 class BudgetScreen extends ConsumerWidget {
@@ -28,11 +30,41 @@ class BudgetScreen extends ConsumerWidget {
         title: const Text('Presupuesto'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.category_outlined),
-            tooltip: 'Categorias',
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'Nueva transferencia',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const CategoriesScreen()),
+              MaterialPageRoute<void>(builder: (_) => AddTransferScreen(month: month)),
             ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Mas opciones',
+            onSelected: (value) {
+              final routes = <String, Widget>{
+                'categories': const CategoriesScreen(),
+                'import': const ImportScreen(),
+              };
+              final screen = routes[value];
+              if (screen != null) {
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => screen));
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'categories',
+                child: ListTile(
+                  leading: Icon(Icons.category_outlined),
+                  title: Text('Categorias'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'import',
+                child: ListTile(
+                  leading: Icon(Icons.upload_file_outlined),
+                  title: Text('Importar'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -304,16 +336,24 @@ class _TransactionTile extends StatelessWidget {
           backgroundColor: hexToColor(transaction.categoryColor),
         ),
         title: Text(transaction.categoryName),
-        subtitle: Text(
-          transaction.description?.isNotEmpty == true
-              ? '${transaction.occurredOn} · ${transaction.description}'
-              : transaction.occurredOn,
-        ),
+        subtitle: Text(_subtitle()),
         trailing: Text('$sign ${formatCop(transaction.amount)}',
             style: theme.textTheme.titleSmall
                 ?.copyWith(color: amountColor, fontWeight: FontWeight.w600)),
       ),
     );
+  }
+
+  /// Subtitulo del movimiento: fecha · cuenta · descripcion (lo que aplique).
+  String _subtitle() {
+    final parts = <String>[transaction.occurredOn];
+    if (transaction.accountName != null && transaction.accountName!.isNotEmpty) {
+      parts.add(transaction.accountName!);
+    }
+    if (transaction.description?.isNotEmpty == true) {
+      parts.add(transaction.description!);
+    }
+    return parts.join(' · ');
   }
 }
 

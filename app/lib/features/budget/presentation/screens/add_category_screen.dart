@@ -7,12 +7,18 @@ import '../../../../core/error/api_exception.dart';
 import '../../../../shared/chart_palette.dart';
 import '../../../../shared/hex_color.dart';
 import '../../domain/entities/budget_params.dart';
+import '../../domain/entities/category.dart';
 import '../../domain/repositories/budget_repository.dart';
 import '../providers/budget_providers.dart';
+import '../widgets/delete_category_dialog.dart';
 
-/// Pantalla para crear una categoria de ingreso o egreso.
+/// Pantalla para crear o editar una categoria de ingreso o egreso.
+/// Si recibe [category], opera en modo edicion (el tipo no se cambia).
 class AddCategoryScreen extends ConsumerStatefulWidget {
-  const AddCategoryScreen({super.key});
+  const AddCategoryScreen({super.key, this.category});
+
+  /// Categoria a editar; null para crear una nueva.
+  final Category? category;
 
   @override
   ConsumerState<AddCategoryScreen> createState() => _AddCategoryScreenState();
@@ -26,6 +32,23 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
   Color _color = chartPalette.first;
   bool _submitting = false;
 
+  /// Indica si la pantalla esta editando una categoria existente.
+  bool get _isEditing => widget.category != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final category = widget.category;
+    if (category != null) {
+      _nameController.text = category.name;
+      _type = category.type;
+      _color = hexToColor(category.color);
+      if (category.monthlyBudget != null) {
+        _budgetController.text = category.monthlyBudget!.toStringAsFixed(0);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -33,24 +56,20 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
     super.dispose();
   }
 
-  /// Valida y crea la categoria; refresca la lista.
+  /// Valida y guarda la categoria (crea o actualiza); refresca la lista.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
 
-    final budgetText = _budgetController.text.replaceAll(',', '.');
-    final params = CreateCategoryParams(
-      name: _nameController.text.trim(),
-      type: _type,
-      color: colorToHex(_color),
-      monthlyBudget:
-          _type == 'expense' && budgetText.isNotEmpty ? double.tryParse(budgetText) : null,
-    );
-
     try {
-      await getIt<BudgetRepository>().createCategory(params);
+      if (_isEditing) {
+        await _update();
+      } else {
+        await _create();
+      }
       ref.invalidate(categoriesListProvider);
+      ref.invalidate(budgetSummaryProvider);
       if (!mounted) return;
       Navigator.of(context).pop();
     } on ApiException catch (error) {
@@ -61,11 +80,61 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
     }
   }
 
+  /// Crea una categoria nueva con los datos del formulario.
+  Future<void> _create() async {
+    await getIt<BudgetRepository>().createCategory(
+      CreateCategoryParams(
+        name: _nameController.text.trim(),
+        type: _type,
+        color: colorToHex(_color),
+        monthlyBudget: _parsedBudget(),
+      ),
+    );
+  }
+
+  /// Actualiza la categoria en edicion con los datos del formulario.
+  /// En egresos, si la meta queda vacia se envia el borrado de la meta.
+  Future<void> _update() async {
+    final budget = _parsedBudget();
+    await getIt<BudgetRepository>().updateCategory(
+      widget.category!.id,
+      UpdateCategoryParams(
+        name: _nameController.text.trim(),
+        color: colorToHex(_color),
+        monthlyBudget: budget,
+        clearMonthlyBudget: _type == 'expense' && budget == null,
+      ),
+    );
+  }
+
+  /// Confirma y elimina la categoria en edicion; cierra la pantalla si se borra.
+  Future<void> _delete() async {
+    final category = widget.category!;
+    final confirmed = await confirmDeleteCategory(context, category);
+    if (!confirmed) return;
+    try {
+      await deleteCategory(ref, category.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  /// Lee la meta mensual del formulario (solo egresos); null si vacia.
+  /// @return La meta como double, o null.
+  double? _parsedBudget() {
+    if (_type != 'expense') return null;
+    final text = _budgetController.text.replaceAll(',', '.');
+    return text.isNotEmpty ? double.tryParse(text) : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Nueva categoria')),
+      appBar: AppBar(title: Text(_isEditing ? 'Editar categoria' : 'Nueva categoria')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -78,7 +147,9 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
                   ButtonSegment(value: 'income', label: Text('Ingreso')),
                 ],
                 selected: {_type},
-                onSelectionChanged: (s) => setState(() => _type = s.first),
+                // El tipo no se puede cambiar al editar.
+                onSelectionChanged:
+                    _isEditing ? null : (s) => setState(() => _type = s.first),
               ),
               const SizedBox(height: 20),
               TextFormField(
@@ -132,8 +203,21 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
                 child: _submitting
                     ? const SizedBox(
                         height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                    : const Text('Crear categoria'),
+                    : Text(_isEditing ? 'Guardar cambios' : 'Crear categoria'),
               ),
+              if (_isEditing) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _submitting ? null : _delete,
+                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                  label: Text('Eliminar categoria',
+                      style: TextStyle(color: theme.colorScheme.error)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    side: BorderSide(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

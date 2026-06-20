@@ -21,6 +21,31 @@ class CreateCategoryParams {
       };
 }
 
+/// Parametros para editar una categoria (el tipo no se cambia).
+class UpdateCategoryParams {
+  const UpdateCategoryParams({
+    this.name,
+    this.color,
+    this.monthlyBudget,
+    this.clearMonthlyBudget = false,
+  });
+
+  final String? name;
+  final String? color;
+  final double? monthlyBudget;
+
+  /// Si es true, envia la meta en null para quitarla.
+  final bool clearMonthlyBudget;
+
+  /// Cuerpo JSON para el PATCH /categories/:id (solo envia lo que cambia).
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (color != null) 'color': color,
+        if (monthlyBudget != null) 'monthlyBudget': monthlyBudget,
+        if (clearMonthlyBudget && monthlyBudget == null) 'monthlyBudget': null,
+      };
+}
+
 /// Parametros para registrar un movimiento.
 class CreateTransactionParams {
   const CreateTransactionParams({
@@ -28,16 +53,119 @@ class CreateTransactionParams {
     required this.amount,
     required this.occurredOn,
     this.description,
+    this.accountId,
   });
 
   final String categoryId;
   final double amount;
   final String occurredOn;
   final String? description;
+  final String? accountId;
 
   /// Cuerpo JSON para el POST /transactions.
   Map<String, dynamic> toJson() => {
         'categoryId': categoryId,
+        'amount': amount,
+        'occurredOn': occurredOn,
+        if (description != null && description!.isNotEmpty) 'description': description,
+        if (accountId != null) 'accountId': accountId,
+      };
+}
+
+/// Parametros para crear una cuenta.
+class CreateAccountParams {
+  const CreateAccountParams({required this.name, this.color});
+
+  final String name;
+  final String? color;
+
+  /// Cuerpo JSON para el POST /accounts.
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (color != null) 'color': color,
+      };
+}
+
+/// Parametros para editar una cuenta.
+class UpdateAccountParams {
+  const UpdateAccountParams({this.name, this.color});
+
+  final String? name;
+  final String? color;
+
+  /// Cuerpo JSON para el PATCH /accounts/:id (solo envia lo que cambia).
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (color != null) 'color': color,
+      };
+}
+
+/// Parametros para configurar el rendimiento de una cuenta.
+class SetYieldParams {
+  const SetYieldParams({
+    required this.yieldType,
+    this.effectiveAnnualRate,
+    this.principal,
+    this.openedOn,
+    this.termDays,
+    this.withholdingRate,
+    this.interestPayment,
+  });
+
+  /// 'none', 'savings' o 'cdt'.
+  final String yieldType;
+  final double? effectiveAnnualRate;
+
+  // Solo CDT:
+  final double? principal;
+  final String? openedOn;
+  final int? termDays;
+  final double? withholdingRate;
+  final String? interestPayment;
+
+  /// Cuerpo JSON para el PUT /accounts/:id/yield.
+  Map<String, dynamic> toJson() => {
+        'yieldType': yieldType,
+        if (effectiveAnnualRate != null) 'effectiveAnnualRate': effectiveAnnualRate,
+        if (principal != null) 'principal': principal,
+        if (openedOn != null) 'openedOn': openedOn,
+        if (termDays != null) 'termDays': termDays,
+        if (withholdingRate != null) 'withholdingRate': withholdingRate,
+        if (interestPayment != null) 'interestPayment': interestPayment,
+      };
+}
+
+/// Parametros para registrar el saldo real de una cuenta en una fecha.
+class CreateSnapshotParams {
+  const CreateSnapshotParams({required this.balance, required this.asOfDate});
+
+  final double balance;
+  final String asOfDate;
+
+  /// Cuerpo JSON para el POST /accounts/:id/snapshots.
+  Map<String, dynamic> toJson() => {'balance': balance, 'asOfDate': asOfDate};
+}
+
+/// Parametros para registrar una transferencia entre cuentas.
+class CreateTransferParams {
+  const CreateTransferParams({
+    required this.fromAccountId,
+    required this.toAccountId,
+    required this.amount,
+    required this.occurredOn,
+    this.description,
+  });
+
+  final String fromAccountId;
+  final String toAccountId;
+  final double amount;
+  final String occurredOn;
+  final String? description;
+
+  /// Cuerpo JSON para el POST /transfers.
+  Map<String, dynamic> toJson() => {
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
         'amount': amount,
         'occurredOn': occurredOn,
         if (description != null && description!.isNotEmpty) 'description': description,
