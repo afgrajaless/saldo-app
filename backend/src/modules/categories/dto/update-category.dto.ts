@@ -6,6 +6,7 @@ import {
   IsString,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 /** Campos editables de una categoria (el tipo no se cambia). */
@@ -21,9 +22,14 @@ export class UpdateCategoryDto {
   @IsHexColor()
   color?: string;
 
-  @ApiPropertyOptional({ description: 'Meta mensual de gasto.', example: 1800000 })
+  @ApiPropertyOptional({
+    description: 'Meta mensual de gasto. Enviar null para quitar la meta.',
+    example: 1800000,
+    nullable: true,
+  })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  monthlyBudget?: number;
+  monthlyBudget?: number | null;
 }

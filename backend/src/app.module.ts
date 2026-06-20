@@ -3,12 +3,15 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
 import { HealthModule } from './health/health.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BudgetModule } from './modules/budget/budget.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { DebtsModule } from './modules/debts/debts.module';
+import { ImportModule } from './modules/import/import.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { TransfersModule } from './modules/transfers/transfers.module';
 import { UsersModule } from './modules/users/users.module';
 import { UsuryModule } from './modules/usury/usury.module';
 
@@ -30,7 +33,10 @@ import { UsuryModule } from './modules/usury/usury.module';
     PaymentsModule,
     UsuryModule,
     CategoriesModule,
+    AccountsModule,
     TransactionsModule,
+    TransfersModule,
+    ImportModule,
     BudgetModule,
   ],
 })

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { categories, transactions } from '../../db/schema';
+import { accounts, categories, transactions } from '../../db/schema';
 
 /** Fila de transaccion tal como se almacena. */
 export type TransactionRow = typeof transactions.$inferSelect;
@@ -11,10 +11,11 @@ export type NewTransactionValues = Omit<
   'id' | 'createdAt' | 'userId'
 >;
 
-/** Transaccion con los datos de su categoria embebidos. */
+/** Transaccion con los datos de su categoria (y cuenta, si tiene) embebidos. */
 export interface TransactionWithCategory {
   id: string;
   categoryId: string;
+  accountId: string | null;
   amount: string;
   occurredOn: string;
   description: string | null;
@@ -22,6 +23,7 @@ export interface TransactionWithCategory {
   categoryName: string;
   categoryType: string;
   categoryColor: string;
+  accountName: string | null;
 }
 
 /** Suma de transacciones de una categoria en un periodo. */
@@ -68,6 +70,7 @@ export class TransactionsRepository {
       .select({
         id: transactions.id,
         categoryId: transactions.categoryId,
+        accountId: transactions.accountId,
         amount: transactions.amount,
         occurredOn: transactions.occurredOn,
         description: transactions.description,
@@ -75,9 +78,11 @@ export class TransactionsRepository {
         categoryName: categories.name,
         categoryType: categories.type,
         categoryColor: categories.color,
+        accountName: accounts.name,
       })
       .from(transactions)
       .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           eq(transactions.userId, userId),

@@ -15,6 +15,11 @@ export class CreateTransactionDto {
   @IsUUID()
   categoryId!: string;
 
+  @ApiPropertyOptional({ description: 'Cuenta de la que sale/entra el dinero.', format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
+
   @ApiProperty({ description: 'Monto del movimiento.', example: 1500000, minimum: 0 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive({ message: 'El monto debe ser mayor que cero.' })

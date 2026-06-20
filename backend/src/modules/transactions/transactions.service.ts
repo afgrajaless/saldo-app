@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CategoriesRepository, CategoryRow } from '../categories/categories.repository';
+import { AccountsRepository } from '../accounts/accounts.repository';
+import { CategoriesRepository } from '../categories/categories.repository';
 import { currentMonth, monthRange } from '../../shared/date/month-range';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
@@ -14,6 +15,7 @@ export class TransactionsService {
   constructor(
     private readonly transactionsRepository: TransactionsRepository,
     private readonly categoriesRepository: CategoriesRepository,
+    private readonly accountsRepository: AccountsRepository,
   ) {}
 
   /**
@@ -28,13 +30,33 @@ export class TransactionsService {
     if (!category) {
       throw new BadRequestException('La categoria no existe o no es del usuario.');
     }
+    // Si se indica cuenta, debe existir y ser del usuario.
+    let account = null;
+    if (dto.accountId) {
+      account = await this.accountsRepository.findByIdForUser(dto.accountId, userId);
+      if (!account) {
+        throw new BadRequestException('La cuenta no existe o no es del usuario.');
+      }
+    }
     const tx = await this.transactionsRepository.create(userId, {
       categoryId: dto.categoryId,
+      accountId: dto.accountId ?? null,
       amount: dto.amount.toFixed(2),
       occurredOn: dto.occurredOn,
       description: dto.description ?? null,
     });
-    return this.toResponseFromCategory(tx.id, tx.amount, tx.occurredOn, tx.description, category);
+    return {
+      id: tx.id,
+      categoryId: category.id,
+      categoryName: category.name,
+      categoryType: category.type,
+      categoryColor: category.color,
+      accountId: account?.id ?? null,
+      accountName: account?.name ?? null,
+      amount: Number(tx.amount),
+      occurredOn: tx.occurredOn,
+      description: tx.description,
+    };
   }
 
   /**
@@ -74,37 +96,11 @@ export class TransactionsService {
       categoryName: row.categoryName,
       categoryType: row.categoryType,
       categoryColor: row.categoryColor,
+      accountId: row.accountId,
+      accountName: row.accountName,
       amount: Number(row.amount),
       occurredOn: row.occurredOn,
       description: row.description,
-    };
-  }
-
-  /**
-   * Construye la respuesta a partir de la transaccion y su categoria.
-   * @param id - UUID de la transaccion.
-   * @param amount - Monto (string NUMERIC).
-   * @param occurredOn - Fecha del movimiento.
-   * @param description - Descripcion.
-   * @param category - Categoria asociada.
-   * @returns El DTO de respuesta.
-   */
-  private toResponseFromCategory(
-    id: string,
-    amount: string,
-    occurredOn: string,
-    description: string | null,
-    category: CategoryRow,
-  ): TransactionResponseDto {
-    return {
-      id,
-      categoryId: category.id,
-      categoryName: category.name,
-      categoryType: category.type,
-      categoryColor: category.color,
-      amount: Number(amount),
-      occurredOn,
-      description,
     };
   }
 }

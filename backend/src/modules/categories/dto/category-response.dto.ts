@@ -19,4 +19,10 @@ export class CategoryResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Cantidad de movimientos asociados a la categoria.',
+    example: 3,
+  })
+  transactionCount!: number;
 }

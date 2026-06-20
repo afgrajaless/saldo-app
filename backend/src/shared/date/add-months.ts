@@ -20,6 +20,29 @@ export function addMonths(isoDate: string, months: number): string {
 }
 
 /**
+ * Suma dias a una fecha ISO (YYYY-MM-DD), en UTC.
+ * @param isoDate - Fecha base en formato YYYY-MM-DD.
+ * @param days - Numero de dias a sumar (puede ser negativo).
+ * @returns La nueva fecha en formato YYYY-MM-DD.
+ */
+export function addDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const result = new Date(Date.UTC(year, month - 1, day + days));
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${result.getUTCFullYear()}-${pad(result.getUTCMonth() + 1)}-${pad(result.getUTCDate())}`;
+}
+
+/**
+ * Devuelve la fecha de hoy en formato YYYY-MM-DD (UTC).
+ * @returns La fecha actual.
+ */
+export function today(): string {
+  const now = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+}
+
+/**
  * Calcula el numero de dias entre dos fechas ISO (YYYY-MM-DD), en UTC.
  * @param fromIso - Fecha inicial.
  * @param toIso - Fecha final.

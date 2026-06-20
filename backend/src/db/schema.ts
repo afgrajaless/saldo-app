@@ -67,6 +67,11 @@ export const categoryTypeEnum = pgEnum('category_type', ['income', 'expense']);
 export const insuranceModeEnum = pgEnum('insurance_mode', ['none', 'rate', 'fixed']);
 // Modo de causacion del interes: mensual (contable) o diario (dias reales).
 export const interestModeEnum = pgEnum('interest_mode', ['monthly', 'daily']);
+// Tipo de rendimiento de una cuenta: ninguno, cuenta remunerada (diario, tasa
+// variable) o CDT (deposito a termino, tasa fija).
+export const yieldTypeEnum = pgEnum('yield_type', ['none', 'savings', 'cdt']);
+// Forma de pago del interes de un CDT: mensual (devengo) o al vencimiento.
+export const cdtInterestPaymentEnum = pgEnum('cdt_interest_payment', ['monthly', 'at_maturity']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -258,6 +263,110 @@ export const categories = pgTable(
   }),
 );
 
+// ---------- accounts (cuentas: Nequi, efectivo, banco, etc.) ----------
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    color: text('color').notNull().default('#2D6FB0'), // hex para la UI
+    // Tipo de rendimiento: none, savings (remunerada) o cdt.
+    yieldType: yieldTypeEnum('yield_type').notNull().default('none'),
+    // Tasa E.A. vigente (fraccion decimal); null si no genera rendimiento.
+    effectiveAnnualRate: numeric('effective_annual_rate', { precision: 8, scale: 6 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }), // soft delete
+  },
+  (table) => ({
+    userIdx: index('idx_accounts_user')
+      .on(table.userId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  }),
+);
+
+// ---------- account_rates (historial de tasa E.A. de una cuenta) ----------
+export const accountRates = pgTable(
+  'account_rates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    effectiveAnnualRate: numeric('effective_annual_rate', { precision: 8, scale: 6 }).notNull(),
+    validFrom: date('valid_from').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    accountIdx: index('idx_account_rates_account').on(table.accountId, table.validFrom),
+    rateNonNegative: check('account_rates_rate_check', sql`${table.effectiveAnnualRate} >= 0`),
+  }),
+);
+
+// ---------- account_snapshots (saldo real de una cuenta en una fecha) ----------
+export const accountSnapshots = pgTable(
+  'account_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    balance: numeric('balance', { precision: 15, scale: 2 }).notNull(),
+    asOfDate: date('as_of_date').notNull(),
+    // Origen del dato: 'manual' (lo ingreso el usuario) o 'computed'.
+    source: text('source').notNull().default('manual'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    accountDateIdx: index('idx_account_snapshots_account_date').on(table.accountId, table.asOfDate),
+    // Un solo saldo por cuenta y fecha.
+    accountDateUnique: unique('account_snapshots_account_date_unique').on(
+      table.accountId,
+      table.asOfDate,
+    ),
+  }),
+);
+
+// ---------- cdt_terms (condiciones de un CDT, 1:1 con la cuenta) ----------
+export const cdtTerms = pgTable(
+  'cdt_terms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .unique()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    principal: numeric('principal', { precision: 15, scale: 2 }).notNull(),
+    openedOn: date('opened_on').notNull(),
+    termDays: integer('term_days').notNull(),
+    maturesOn: date('matures_on').notNull(),
+    effectiveAnnualRate: numeric('effective_annual_rate', { precision: 8, scale: 6 }).notNull(),
+    // Retencion en la fuente sobre los intereses (4% por defecto en Colombia).
+    withholdingRate: numeric('withholding_rate', { precision: 6, scale: 4 })
+      .notNull()
+      .default('0.04'),
+    interestPayment: cdtInterestPaymentEnum('interest_payment').notNull().default('at_maturity'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index('idx_cdt_terms_user').on(table.userId),
+    principalPositive: check('cdt_terms_principal_check', sql`${table.principal} > 0`),
+    termPositive: check('cdt_terms_term_check', sql`${table.termDays} > 0`),
+  }),
+);
+
 // ---------- transactions (movimientos: ingresos y egresos) ----------
 export const transactions = pgTable(
   'transactions',
@@ -269,6 +378,8 @@ export const transactions = pgTable(
     categoryId: uuid('category_id')
       .notNull()
       .references(() => categories.id, { onDelete: 'restrict' }),
+    // Cuenta de la que sale/entra el dinero; null = sin cuenta asignada.
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
     amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
     occurredOn: date('occurred_on').notNull(),
     description: text('description'),
@@ -277,7 +388,37 @@ export const transactions = pgTable(
   (table) => ({
     userDateIdx: index('idx_transactions_user_date').on(table.userId, table.occurredOn),
     categoryIdx: index('idx_transactions_category').on(table.categoryId),
+    accountIdx: index('idx_transactions_account').on(table.accountId),
     amountPositive: check('transactions_amount_check', sql`${table.amount} > 0`),
+  }),
+);
+
+// ---------- transfers (transferencias entre cuentas; ni ingreso ni gasto) ----------
+export const transfers = pgTable(
+  'transfers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    fromAccountId: uuid('from_account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    toAccountId: uuid('to_account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+    occurredOn: date('occurred_on').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userDateIdx: index('idx_transfers_user_date').on(table.userId, table.occurredOn),
+    amountPositive: check('transfers_amount_check', sql`${table.amount} > 0`),
+    differentAccounts: check(
+      'transfers_accounts_check',
+      sql`${table.fromAccountId} <> ${table.toAccountId}`,
+    ),
   }),
 );
 
@@ -290,5 +431,10 @@ export const schema = {
   payments,
   usuryRates,
   categories,
+  accounts,
+  accountRates,
+  accountSnapshots,
+  cdtTerms,
   transactions,
+  transfers,
 };

@@ -17,6 +17,12 @@ export class TransactionResponseDto {
   @ApiProperty({ example: '#C0392B' })
   categoryColor!: string;
 
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Cuenta asociada.' })
+  accountId!: string | null;
+
+  @ApiPropertyOptional({ example: 'Nequi', nullable: true, description: 'Nombre de la cuenta.' })
+  accountName!: string | null;
+
   @ApiProperty({ example: 1500000 })
   amount!: number;
 

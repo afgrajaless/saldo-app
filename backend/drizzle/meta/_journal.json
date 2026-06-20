@@ -29,6 +29,20 @@
       "when": 1781911728732,
       "tag": "0003_nasty_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781983642031,
+      "tag": "0004_premium_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781986730578,
+      "tag": "0005_watery_firebrand",
+      "breakpoints": true
     }
   ]
 }
