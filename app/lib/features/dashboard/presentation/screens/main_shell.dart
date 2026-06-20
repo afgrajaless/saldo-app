@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../budget/presentation/screens/accounts_screen.dart';
 import '../../../budget/presentation/screens/budget_screen.dart';
 import '../../../debts/presentation/screens/debts_list_screen.dart';
 import 'dashboard_screen.dart';
 
 /// Contenedor principal autenticado con navegacion inferior entre deudas,
-/// presupuesto y el resumen (dashboard).
+/// presupuesto, cuentas y el resumen (dashboard).
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -19,6 +20,7 @@ class _MainShellState extends State<MainShell> {
   static const _screens = [
     DebtsListScreen(),
     BudgetScreen(),
+    AccountsScreen(),
     DashboardScreen(),
   ];
 
@@ -39,6 +41,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.savings_outlined),
             selectedIcon: Icon(Icons.savings),
             label: 'Presupuesto',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance),
+            label: 'Cuentas',
           ),
           NavigationDestination(
             icon: Icon(Icons.pie_chart_outline),
