@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { sharedExpenses, sharedExpenseShares } from '../../db/schema';
 import { MemberShare } from '../../domain/split/split-expense';
@@ -15,6 +15,7 @@ export interface ExpenseUpdateFields {
   amount?: string;
   occurredOn?: string;
   paidByMemberId?: string;
+  splitMethod?: 'equal' | 'exact';
 }
 
 /**
@@ -85,7 +86,21 @@ export class ExpensesRepository {
           eq(sharedExpenses.groupId, groupId),
           isNull(sharedExpenses.deletedAt),
         ),
-      );
+      )
+      .orderBy(desc(sharedExpenses.occurredOn));
+  }
+
+  /**
+   * Obtiene todas las partes de una lista de gastos en una sola consulta (evita N+1).
+   * @param expenseIds - Lista de UUIDs de gastos a consultar.
+   * @returns Lista de partes agrupadas. Si la lista esta vacia, devuelve [].
+   */
+  async findSharesForExpenses(expenseIds: string[]): Promise<SharedExpenseShareRow[]> {
+    if (expenseIds.length === 0) return [];
+    return this.db
+      .select()
+      .from(sharedExpenseShares)
+      .where(inArray(sharedExpenseShares.expenseId, expenseIds));
   }
 
   /**
@@ -128,6 +143,7 @@ export class ExpensesRepository {
    * @throws NotFoundException si el gasto no existe en el grupo o ya fue eliminado.
    */
   async softDeleteExpense(groupId: string, expenseId: string): Promise<void> {
+    // MVP: comprobacion fuera de transaccion; aceptable por bajo riesgo
     const existing = await this.findExpense(groupId, expenseId);
     if (!existing) {
       throw new NotFoundException('Gasto no encontrado en el grupo.');
@@ -161,6 +177,7 @@ export class ExpensesRepository {
     fields: ExpenseUpdateFields,
     newShares?: MemberShare[],
   ): Promise<SharedExpenseRow> {
+    // MVP: comprobacion fuera de transaccion; aceptable por bajo riesgo
     const existing = await this.findExpense(groupId, expenseId);
     if (!existing) {
       throw new NotFoundException('Gasto no encontrado en el grupo.');

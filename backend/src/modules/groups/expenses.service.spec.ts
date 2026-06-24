@@ -28,6 +28,7 @@ function makeExpensesRepo(): ExpensesRepo {
     softDeleteExpense: jest.fn().mockResolvedValue(undefined),
     updateExpense: jest.fn().mockResolvedValue(undefined),
     findExpenseShares: jest.fn().mockResolvedValue([]),
+    findSharesForExpenses: jest.fn().mockResolvedValue([]),
   } as unknown as ExpensesRepo;
 }
 
@@ -146,6 +147,39 @@ describe('ExpensesService.createExpense', () => {
 
     await expect(service.createExpense('grp', 'u1', dto)).rejects.toBeInstanceOf(
       ForbiddenException,
+    );
+  });
+
+  it('rechaza exact cuando un memberId no pertenece al grupo (400)', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // El usuario u1 es miembro activo
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    const groupsService = new GroupsService(groupsRepo);
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    const dto = {
+      paidByMemberId: 'a',
+      amount: 100,
+      occurredOn: '2026-06-10',
+      splitMethod: 'exact' as const,
+      // 'z' no existe en los miembros del grupo (a, b, c)
+      exactShares: [
+        { memberId: 'a', shareAmount: 60 },
+        { memberId: 'z', shareAmount: 40 },
+      ],
+    };
+
+    await expect(service.createExpense('grp', 'u1', dto)).rejects.toBeInstanceOf(
+      BadRequestException,
     );
   });
 });

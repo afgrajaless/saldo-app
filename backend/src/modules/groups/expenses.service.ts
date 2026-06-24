@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { splitEqual, validateExact, MemberShare } from '../../domain/split/split-expense';
-import { ExpensesRepository, SharedExpenseRow, SharedExpenseShareRow } from './expenses.repository';
+import { ExpensesRepository, ExpenseUpdateFields, SharedExpenseRow, SharedExpenseShareRow } from './expenses.repository';
 import { GroupsService } from './groups.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseResponseDto, ShareResponseDto } from './dto/expense-response.dto';
@@ -75,14 +75,23 @@ export class ExpensesService {
     await this.groupsService.assertActiveMember(groupId, userId);
     const expenses = await this.expensesRepository.listExpenses(groupId);
 
-    // Carga las partes de cada gasto en paralelo para eficiencia.
-    const results = await Promise.all(
-      expenses.map(async (expense) => {
-        const shares = await this.expensesRepository.findExpenseShares(expense.id);
-        return this.toResponse(expense, shares);
-      }),
+    if (expenses.length === 0) return [];
+
+    // Obtiene todas las partes en una sola consulta para evitar N+1.
+    const expenseIds = expenses.map((e) => e.id);
+    const allShares = await this.expensesRepository.findSharesForExpenses(expenseIds);
+
+    // Agrupa las partes por expenseId en memoria para asignacion O(n).
+    const sharesByExpense = new Map<string, SharedExpenseShareRow[]>();
+    for (const share of allShares) {
+      const list = sharesByExpense.get(share.expenseId) ?? [];
+      list.push(share);
+      sharesByExpense.set(share.expenseId, list);
+    }
+
+    return expenses.map((expense) =>
+      this.toResponse(expense, sharesByExpense.get(expense.id) ?? []),
     );
-    return results;
   }
 
   /**
@@ -127,12 +136,12 @@ export class ExpensesService {
       newShares = this.resolveShares(effectiveDto, memberIds);
     }
 
-    const fields: Record<string, unknown> = {};
-    if (dto.description !== undefined) fields['description'] = dto.description ?? null;
-    if (dto.amount !== undefined) fields['amount'] = dto.amount.toFixed(2);
-    if (dto.occurredOn !== undefined) fields['occurredOn'] = dto.occurredOn;
-    if (dto.paidByMemberId !== undefined) fields['paidByMemberId'] = dto.paidByMemberId;
-    if (dto.splitMethod !== undefined) fields['splitMethod'] = dto.splitMethod;
+    const fields: ExpenseUpdateFields = {};
+    if (dto.description !== undefined) fields.description = dto.description ?? null;
+    if (dto.amount !== undefined) fields.amount = dto.amount.toFixed(2);
+    if (dto.occurredOn !== undefined) fields.occurredOn = dto.occurredOn;
+    if (dto.paidByMemberId !== undefined) fields.paidByMemberId = dto.paidByMemberId;
+    if (dto.splitMethod !== undefined) fields.splitMethod = dto.splitMethod;
 
     const updated = await this.expensesRepository.updateExpense(
       groupId,
@@ -183,6 +192,15 @@ export class ExpensesService {
       if (!dto.exactShares || dto.exactShares.length === 0) {
         throw new BadRequestException(
           'Para reparto exacto debes proveer al menos una parte en exactShares.',
+        );
+      }
+      // Valida que todos los miembros en exactShares sean miembros activos del grupo.
+      const invalidExactIds = dto.exactShares
+        .map((s) => s.memberId)
+        .filter((id) => !allGroupMemberIds.includes(id));
+      if (invalidExactIds.length > 0) {
+        throw new BadRequestException(
+          `Los siguientes participantes no son miembros activos del grupo: ${invalidExactIds.join(', ')}`,
         );
       }
       validateExact(dto.amount, dto.exactShares);
