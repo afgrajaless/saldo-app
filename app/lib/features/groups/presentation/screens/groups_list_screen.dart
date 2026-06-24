@@ -5,6 +5,7 @@ import '../../domain/entities/group.dart';
 import '../providers/groups_providers.dart';
 import 'create_group_screen.dart';
 import 'group_detail_screen.dart';
+import 'join_group_screen.dart';
 
 /// Pantalla principal del tab Compartido: lista los grupos del usuario.
 /// Muestra un estado vacio con CTA cuando no hay grupos, y un ListView
@@ -17,7 +18,18 @@ class GroupsListScreen extends ConsumerWidget {
     final groupsAsync = ref.watch(groupsListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Compartido')),
+      appBar: AppBar(
+        title: const Text('Compartido'),
+        actions: [
+          IconButton(
+            tooltip: 'Unirme con codigo',
+            icon: const Icon(Icons.input_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const JoinGroupScreen()),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab-new-group',
         onPressed: () => Navigator.of(context).push(
@@ -72,10 +84,12 @@ class _EmptyGroups extends StatelessWidget {
               label: const Text('Crear grupo'),
             ),
             const SizedBox(height: 12),
-            // TODO(Task 7): habilitar cuando exista JoinGroupScreen
             OutlinedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.link),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const JoinGroupScreen()),
+              ),
+              icon: const Icon(Icons.input_outlined),
               label: const Text('Unirme con codigo'),
             ),
           ],

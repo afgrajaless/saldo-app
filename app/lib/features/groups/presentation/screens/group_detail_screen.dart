@@ -9,6 +9,7 @@ import '../../domain/repositories/groups_repository.dart';
 import '../providers/groups_providers.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/expense_tile.dart';
+import 'add_member_screen.dart';
 import 'new_expense_screen.dart';
 
 /// Pantalla de detalle de un grupo compartido.
@@ -115,13 +116,26 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               onSelected: (value) {
                 if (value == 'leave') {
                   _confirmLeaveGroup();
+                } else if (value == 'add_member') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          AddMemberScreen(groupId: widget.group.id),
+                    ),
+                  );
+                } else if (value == 'invite') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => AddMemberScreen(
+                        groupId: widget.group.id,
+                      ),
+                    ),
+                  );
                 }
-                // TODO(Task 7): manejar 'add_member' e 'invite'
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(
                   value: 'add_member',
-                  enabled: false, // TODO(Task 7): habilitar cuando exista la pantalla
                   child: ListTile(
                     leading: Icon(Icons.person_add_outlined),
                     title: Text('Agregar miembro'),
@@ -129,7 +143,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                 ),
                 PopupMenuItem(
                   value: 'invite',
-                  enabled: false, // TODO(Task 7): habilitar cuando exista la pantalla
                   child: ListTile(
                     leading: Icon(Icons.link),
                     title: Text('Invitar por codigo'),
