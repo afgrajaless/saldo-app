@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { groups, groupMembers } from '../../db/schema';
+import { groups, groupMembers, users } from '../../db/schema';
 
 /** Fila de grupo tal como se almacena. */
 export type GroupRow = typeof groups.$inferSelect;
@@ -24,13 +24,22 @@ export class GroupsRepository {
 
   /**
    * Crea un grupo y agrega al creador como miembro real activo.
+   * Resuelve el displayName consultando users.fullName dentro de la transaccion;
+   * si por alguna razon no hay fullName, usa el email como respaldo.
    * @param userId - UUID del usuario creador.
    * @param name - Nombre del grupo.
-   * @param displayName - Nombre visible del creador dentro del grupo.
+   * @param emailFallback - Email del creador, usado como respaldo si no se encuentra fullName.
    * @returns El grupo creado.
    */
-  async createGroup(userId: string, name: string, displayName: string): Promise<GroupRow> {
+  async createGroup(userId: string, name: string, emailFallback: string): Promise<GroupRow> {
     return this.db.transaction(async (tx) => {
+      const [userRow] = await tx
+        .select({ fullName: users.fullName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const displayName = userRow?.fullName?.trim() || emailFallback;
+
       const [group] = await tx
         .insert(groups)
         .values({ name, createdBy: userId })

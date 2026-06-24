@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { GroupMemberRow, GroupRow, GroupsRepository } from './groups.repository';
+import { GroupMemberRow, GroupRow, GroupUpdateFields, GroupsRepository } from './groups.repository';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
@@ -29,16 +29,15 @@ export class GroupsService {
 
   /**
    * Crea un grupo nuevo y agrega al usuario como miembro real owner.
-   * El displayName se toma del fullName del JWT si esta disponible; si no,
-   * se usa un placeholder razonable (concern: el JWT de este proyecto solo
-   * trae sub y email, no fullName; se usa el email como displayName provisional).
+   * El displayName del creador se resuelve desde users.fullName en el repositorio;
+   * el email se pasa como respaldo en caso de que fullName no este disponible.
    * @param userId - UUID del usuario autenticado.
    * @param dto - Datos del grupo.
-   * @param displayName - Nombre visible del creador (email u otro valor del JWT).
+   * @param emailFallback - Email del usuario, usado como respaldo si fullName esta vacio.
    * @returns El grupo creado.
    */
-  async create(userId: string, dto: CreateGroupDto, displayName: string): Promise<GroupResponseDto> {
-    const group = await this.groupsRepository.createGroup(userId, dto.name.trim(), displayName);
+  async create(userId: string, dto: CreateGroupDto, emailFallback: string): Promise<GroupResponseDto> {
+    const group = await this.groupsRepository.createGroup(userId, dto.name.trim(), emailFallback);
     return this.toResponse(group);
   }
 
@@ -54,17 +53,17 @@ export class GroupsService {
 
   /**
    * Devuelve un grupo especifico, validando que el usuario sea miembro activo.
+   * La validacion de membresia se realiza en el JOIN de findGroupForMember,
+   * por lo que no se necesita un chequeo previo con findActiveMember.
    * @param groupId - UUID del grupo.
    * @param userId - UUID del usuario autenticado.
    * @returns El grupo.
-   * @throws ForbiddenException si no es miembro.
-   * @throws NotFoundException si el grupo no existe.
+   * @throws NotFoundException si el grupo no existe o el usuario no es miembro activo.
    */
   async findOne(groupId: string, userId: string): Promise<GroupResponseDto> {
-    await this.assertActiveMember(groupId, userId);
     const group = await this.groupsRepository.findGroupForMember(groupId, userId);
     if (!group) {
-      throw new NotFoundException('Grupo no encontrado.');
+      throw new NotFoundException('Grupo no encontrado o no eres miembro.');
     }
     return this.toResponse(group);
   }
@@ -80,7 +79,7 @@ export class GroupsService {
    */
   async update(groupId: string, userId: string, dto: UpdateGroupDto): Promise<GroupResponseDto> {
     await this.assertActiveMember(groupId, userId);
-    const fields: { name?: string; archivedAt?: Date | null } = {};
+    const fields: GroupUpdateFields = {};
     if (dto.name !== undefined) {
       fields.name = dto.name.trim();
     }

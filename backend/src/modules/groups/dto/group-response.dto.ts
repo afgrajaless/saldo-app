@@ -2,19 +2,19 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Representacion de un grupo en las respuestas de la API. */
 export class GroupResponseDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ description: 'UUID del grupo.', format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Apartamento 301' })
+  @ApiProperty({ description: 'Nombre del grupo.', example: 'Apartamento 301' })
   name!: string;
 
   @ApiProperty({ description: 'UUID del usuario que creo el grupo.', format: 'uuid' })
   createdBy!: string;
 
-  @ApiProperty({ format: 'date-time' })
+  @ApiProperty({ description: 'Fecha de creacion del grupo.', format: 'date-time' })
   createdAt!: Date;
 
-  @ApiProperty({ format: 'date-time' })
+  @ApiProperty({ description: 'Fecha de la ultima actualizacion del grupo.', format: 'date-time' })
   updatedAt!: Date;
 
   @ApiProperty({ description: 'Indica si el grupo esta archivado.', example: false })

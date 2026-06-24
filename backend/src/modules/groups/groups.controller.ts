@@ -38,8 +38,9 @@ export class GroupsController {
 
   /**
    * Crea un grupo nuevo y agrega al usuario como primer miembro.
+   * El displayName del creador se resuelve desde users.fullName en el repositorio.
    * @param userId - UUID del usuario autenticado.
-   * @param email - Email del usuario autenticado (usado como displayName inicial).
+   * @param email - Email del usuario, usado como respaldo si fullName no esta disponible.
    * @param dto - Datos del grupo.
    * @returns El grupo creado.
    */
