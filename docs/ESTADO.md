@@ -11,13 +11,66 @@ App de **gestión de deuda + presupuesto personal** enfocada en Colombia.
 Diferenciadores: amortización real, conversión de tasas, alerta de usura, abono
 a capital (Ley 1555/2012), **seguro de vida deudor**, **interés por día**,
 **cuentas con rendimiento (cuenta remunerada y CDT)**, **transferencias entre
-cuentas** e **importación de movimientos desde XLSX/CSV**.
+cuentas**, **importación de movimientos desde XLSX/CSV**, **subcategorías** y
+**grupos de gasto compartido (estilo Splitwise)**.
 
 Monorepo: `backend/` (NestJS + Drizzle + Neon) y `app/` (Flutter, iOS/Android).
 
+> **Rama de trabajo:** todo lo nuevo (subcategorías + grupos) vive en la rama
+> **`develop`** (pusheada a origin). `main` es la base estable previa.
+
 ---
 
-## 1.a Subcategorías de categorías (última sesión)
+## 1.a Grupos de gasto compartido — estilo Splitwise (última sesión)
+
+Feature completa **end-to-end** (backend + app), en la rama `develop`. Permite a un
+usuario estar en **varios grupos** a la vez (pareja, roomies, viaje…), repartir gastos
+y llevar el **saldo "quién le debe a quién"**. Es el **primer dato compartido entre
+usuarios distintos**; lo personal de cada uno sigue privado.
+
+**Decisiones de producto:** estilo Splitwise (uno paga, los demás le deben); cada
+miembro real solo ve lo del grupo (gastos + saldo); vinculación por **código/QR**;
+grupos de **3+ personas**; miembros **reales** (con app, sincronizan) + **fantasma**
+(solo un nombre que un real administra); reparto **iguales por defecto, ajustable**
+(o exacto); el gasto vive solo en el grupo; **saldar** registra el pago y opcionalmente
+crea un movimiento en la cuenta personal del usuario.
+
+- **BD — migración 0007 (aditiva):** 6 tablas — `groups`, `group_members`
+  (`user_id` nullable = fantasma; índice único parcial de miembro real activo),
+  `group_invites` (`code` único, `member_id` para reclamar fantasma), `shared_expenses`
+  (enum `split_method` equal/exact, soft delete), `shared_expense_shares`
+  (unique `(expense_id, member_id)`), `settlements` (`from/to_transaction_id` a
+  `transactions`). Enum nuevo `split_method`.
+- **Dominio puro** (`backend/src/domain/split/`): `split-expense.ts` (`splitEqual`
+  con centavos enteros + `validateExact`), `group-balance.ts` (`computeBalances`
+  → neto por miembro con suma 0; `deriveDebts` → deudas pairwise). Testeado.
+- **Módulo `backend/src/modules/groups/`**: CRUD de grupos + `GroupMembershipGuard`
+  (`assertActiveMember`: solo miembro real activo accede), miembros fantasma,
+  invitaciones por código + unirse/reclamar fantasma (transaccional), gastos
+  (equal/exact, gasto+shares en una tx), endpoint de saldo, liquidaciones
+  (settlement + movimiento personal opcional, valida cuenta/categoría del usuario y
+  el tipo de categoría). Guard de saldo en `removeMember` (409 si saldo ≠ 0).
+- **Endpoints** (`/api`): `groups` (CRUD + `/leave`), `groups/:id/members` (+fantasma),
+  `groups/:id/invites` + `groups/join`, `groups/:id/expenses` (CRUD),
+  `groups/:id/balance`, `groups/:id/settlements`.
+- **Flutter** (`app/lib/features/groups/`): **5º tab "Compartido"** (Deudas ·
+  Presupuesto · Cuentas · Compartido · Resumen). Entidades/mappers, `GroupsRepository`
+  sobre Dio, providers Riverpod. Pantallas: lista de grupos, crear grupo, detalle
+  (tabs Saldos/Gastos + deudas + salir), nuevo gasto (iguales/exacto con participantes),
+  agregar miembro/invitar por código, unirse por código, saldar (con movimiento
+  personal opcional reutilizando cuentas/categorías).
+- **Verificación:** backend **169 tests** + smoke e2e contra Neon (aislamiento **403**
+  a no-miembro, saldos que suman 0, liquidación, **409** al quitar miembro con saldo).
+  Flutter `analyze` limpio + **integration test verde** en simulador iOS. Revisión final
+  de toda la rama backend (2 fallos de seguridad en editar-gasto atrapados y corregidos:
+  body PATCH sin validar y pagador no revalidado contra el grupo).
+- **Pendiente (futuro):** reparto por %/partes y debt-simplification en la UI, `CHECK
+  amount>0` en `settlements`, TOCTOU en editar/borrar gasto, dedupe de invites por
+  miembro, tiempo real (push) — el sync hoy es **pull** (refrescar al abrir el grupo).
+
+---
+
+## 1.b Subcategorías de categorías
 
 Las categorías ahora soportan **un nivel de subcategorías** (padre → hijo). Decisiones
 de producto: jerarquía de **un solo nivel**, los **movimientos van solo en las hojas**
@@ -50,10 +103,10 @@ verificado end-to-end contra Neon.
 
 ---
 
-## 1.b Novedades de la última sesión (resumen para retomar)
+## 1.c Novedades de sesiones previas (resumen para retomar)
 
 Todo lo de abajo ya está implementado, probado (`flutter analyze` limpio, backend
-**110 tests**) y commiteado/pusheado a `main` (4 commits `fc45885`, `43a3128`,
+**110 tests** en su momento) y commiteado (4 commits `fc45885`, `43a3128`,
 `bc3df73`, `bc41302`).
 
 1. **Orden de pago de deudas** (sección "Mis deudas"): selector **Avalancha**
@@ -240,12 +293,14 @@ GET /api/health
 
 Tablas: `users`, `income_sources`, `debts`, `installments`, `payments`,
 `usury_rates`, `categories`, `transactions`, **`accounts`**, **`transfers`**,
-**`account_rates`**, **`account_snapshots`**, **`cdt_terms`**.
+**`account_rates`**, **`account_snapshots`**, **`cdt_terms`**, **`groups`**,
+**`group_members`**, **`group_invites`**, **`shared_expenses`**,
+**`shared_expense_shares`**, **`settlements`**.
 
 Enums: `debt_type`, `rate_type`, `amortization_system`, `debt_status`,
 `installment_status`, `payment_type`, `usury_modality`, `category_type`,
 `insurance_mode`, `interest_mode`, **`yield_type`** (none/savings/cdt),
-**`cdt_interest_payment`** (monthly/at_maturity).
+**`cdt_interest_payment`** (monthly/at_maturity), **`split_method`** (equal/exact).
 
 Convenciones: dinero `NUMERIC(15,2)`; tasas como fracción; PK UUID;
 soft delete (`deleted_at`) en debts/categories/accounts; aislamiento por `user_id`.
@@ -260,8 +315,9 @@ interest_payment. `account_snapshots`: balance + as_of_date (único por cuenta+f
 Migraciones: 0000 (6 tablas), 0001 (categories+transactions), 0002 (seguro),
 0003 (interest_mode), **0004 (accounts, transfers, transactions.account_id)**,
 **0005 (yield_type/EA en accounts, account_rates, account_snapshots, cdt_terms)**,
-**0006 (categories.parent_id + idx_categories_parent — subcategorías)**.
-Rollback de 0004/0005/0006 documentado en su momento (DROP de las tablas/columnas nuevas).
+**0006 (categories.parent_id + idx_categories_parent — subcategorías)**,
+**0007 (6 tablas de grupos de gasto compartido + enum split_method)**.
+Rollback de 0004/0005/0006/0007 documentado en su momento (DROP de las tablas/columnas/enum nuevos).
 
 `categories` incluye `parent_id` (autoreferencia, null = primer nivel). Unicidad de
 nombre por (user_id, type, parent_id). Movimientos solo en hojas; metas en padre e hijos.
