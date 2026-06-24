@@ -1,4 +1,4 @@
-import { computeBalances, deriveDebts } from './group-balance';
+import { computeBalances, computeDirectDebts, deriveDebts } from './group-balance';
 
 describe('computeBalances', () => {
   it('calcula el neto por miembro y suma cero', () => {
@@ -63,6 +63,47 @@ describe('computeBalances', () => {
     expect(byId.b).toBe(0);
     expect(byId.c).toBe(-30000);
     expect(balances.reduce((s, x) => s + x.net, 0)).toBe(0);
+  });
+});
+
+describe('computeDirectDebts', () => {
+  it('deuda directa por pagador con desglose pendiente', () => {
+    const debts = computeDirectDebts(
+      [{
+        paidByMemberId: 'a',
+        shares: [
+          { memberId: 'a', shareAmount: 30000, status: 'confirmed' },
+          { memberId: 'b', shareAmount: 30000, status: 'pending' },
+          { memberId: 'c', shareAmount: 30000, status: 'confirmed' },
+        ],
+      }],
+      [],
+    );
+    const bToA = debts.find((d) => d.fromMemberId === 'b' && d.toMemberId === 'a')!;
+    expect(bToA.owed).toBe(30000);
+    expect(bToA.pendingOwed).toBe(30000);
+    expect(bToA.hasPending).toBe(true);
+    const cToA = debts.find((d) => d.fromMemberId === 'c' && d.toMemberId === 'a')!;
+    expect(cToA.owed).toBe(30000);
+    expect(cToA.pendingOwed).toBe(0);
+    expect(cToA.hasPending).toBe(false);
+    expect(debts.find((d) => d.fromMemberId === 'a')).toBeUndefined(); // el pagador no se debe
+  });
+
+  it('un settlement reduce primero la porcion confirmada', () => {
+    const debts = computeDirectDebts(
+      [{
+        paidByMemberId: 'a',
+        shares: [
+          { memberId: 'a', shareAmount: 0, status: 'confirmed' },
+          { memberId: 'b', shareAmount: 100, status: 'pending' },
+        ],
+      }],
+      [{ fromMemberId: 'b', toMemberId: 'a', amount: 40 }],
+    );
+    const bToA = debts.find((d) => d.fromMemberId === 'b')!;
+    expect(bToA.owed).toBe(60);       // 100 - 40
+    expect(bToA.pendingOwed).toBe(60); // 100 pendiente - 40 settlement = 60 pendiente
   });
 });
 

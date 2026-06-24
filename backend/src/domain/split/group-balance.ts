@@ -67,6 +67,60 @@ export function computeBalances(
   return memberIds.map((id) => ({ memberId: id, net: roundMoney(net.get(id) ?? 0) }));
 }
 
+/** Deuda directa de un deudor hacia el pagador de un gasto, con desglose pendiente. */
+export interface DirectDebt {
+  fromMemberId: string;
+  toMemberId: string;
+  owed: number;
+  pendingOwed: number;
+  hasPending: boolean;
+}
+
+/**
+ * Calcula la deuda directa por pagador (deudor → pagador del gasto), con cuánto
+ * de lo adeudado proviene de partes pendientes de confirmar.
+ * @param expenses - Gastos con su reparto y estado por parte.
+ * @param settlements - Pagos entre miembros.
+ * @returns Una entrada por par (deudor, pagador) con owed > 0.
+ */
+export function computeDirectDebts(
+  expenses: ExpenseInput[],
+  settlements: SettlementInput[],
+): DirectDebt[] {
+  const owed = new Map<string, number>();        // key `from|to`
+  const pending = new Map<string, number>();
+  const key = (from: string, to: string) => `${from}|${to}`;
+
+  for (const expense of expenses) {
+    const payer = expense.paidByMemberId;
+    for (const s of expense.shares) {
+      if (s.status === 'disputed' || s.memberId === payer) continue;
+      const k = key(s.memberId, payer);
+      owed.set(k, roundMoney((owed.get(k) ?? 0) + s.shareAmount));
+      if (s.status === 'pending') {
+        pending.set(k, roundMoney((pending.get(k) ?? 0) + s.shareAmount));
+      }
+    }
+  }
+  // Las settlements reducen primero la porcion confirmada (owed - pending).
+  for (const st of settlements) {
+    const k = key(st.fromMemberId, st.toMemberId);
+    const newOwed = roundMoney((owed.get(k) ?? 0) - st.amount);
+    owed.set(k, newOwed);
+    const pend = pending.get(k) ?? 0;
+    // pendiente no puede exceder lo adeudado restante.
+    if (pend > Math.max(newOwed, 0)) pending.set(k, roundMoney(Math.max(newOwed, 0)));
+  }
+  const result: DirectDebt[] = [];
+  for (const [k, value] of owed) {
+    if (value <= 0) continue;
+    const [fromMemberId, toMemberId] = k.split('|');
+    const pendingOwed = roundMoney(Math.min(pending.get(k) ?? 0, value));
+    result.push({ fromMemberId, toMemberId, owed: value, pendingOwed, hasPending: pendingOwed > 0 });
+  }
+  return result;
+}
+
 /**
  * Deriva una lista de deudas pairwise emparejando deudores con acreedores en
  * orden determinista hasta agotar los saldos (no minimiza transacciones).
