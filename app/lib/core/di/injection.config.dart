@@ -36,6 +36,10 @@ import 'package:saldo/features/debts/data/repositories/debts_repository_impl.dar
     as _i331;
 import 'package:saldo/features/debts/domain/repositories/debts_repository.dart'
     as _i409;
+import 'package:saldo/features/groups/data/groups_repository_impl.dart'
+    as _i709;
+import 'package:saldo/features/groups/domain/repositories/groups_repository.dart'
+    as _i682;
 import 'package:saldo/features/payments/data/datasources/payments_remote_datasource.dart'
     as _i54;
 import 'package:saldo/features/payments/data/repositories/payments_repository_impl.dart'
@@ -78,6 +82,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i611.UsuryRepositoryImpl(gh<_i403.UsuryRemoteDataSource>()));
     gh.lazySingleton<_i54.PaymentsRepository>(() =>
         _i286.PaymentsRepositoryImpl(gh<_i54.PaymentsRemoteDataSource>()));
+    gh.lazySingleton<_i682.GroupsRepository>(
+        () => _i709.GroupsRepositoryImpl(gh<_i361.Dio>()));
     gh.lazySingleton<_i409.DebtsRepository>(
         () => _i331.DebtsRepositoryImpl(gh<_i394.DebtsRemoteDataSource>()));
     gh.lazySingleton<_i390.TokenStorage>(
