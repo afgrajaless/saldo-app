@@ -156,6 +156,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Agregar un miembro fantasma al grupo' })
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
   @ApiResponse({ status: 201, description: 'Miembro fantasma agregado.', type: MemberResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos de entrada inválidos (displayName vacío o muy largo).' })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   addMember(
     @CurrentUser('sub') userId: string,

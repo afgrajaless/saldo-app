@@ -160,7 +160,13 @@ export class GroupsRepository {
     await this.db
       .update(groupMembers)
       .set({ removedAt: new Date() })
-      .where(eq(groupMembers.id, memberId));
+      .where(
+        and(
+          eq(groupMembers.id, memberId),
+          eq(groupMembers.groupId, groupId),
+          isNull(groupMembers.removedAt),
+        ),
+      );
   }
 
   /**

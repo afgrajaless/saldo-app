@@ -78,6 +78,18 @@ describe('GroupsService.listMembers', () => {
     expect(members).toHaveLength(1);
     expect(members[0].isGhost).toBe(true);
   });
+
+  it('marca como miembro real (no fantasma) si userId no es null', async () => {
+    const repo = makeRepo();
+    repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
+    repo.listMembers.mockResolvedValue([
+      { id: 'm2', groupId: 'grp', userId: 'u2', displayName: 'Ana', removedAt: null } as never,
+    ]);
+    const service = new GroupsService(repo);
+    const members = await service.listMembers('grp', 'u1');
+    expect(members).toHaveLength(1);
+    expect(members[0].isGhost).toBe(false);
+  });
 });
 
 describe('GroupsService.assertActiveMember', () => {
