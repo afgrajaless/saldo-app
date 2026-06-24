@@ -8,9 +8,9 @@ describe('computeBalances', () => {
         {
           paidByMemberId: 'a',
           shares: [
-            { memberId: 'a', shareAmount: 30000 },
-            { memberId: 'b', shareAmount: 30000 },
-            { memberId: 'c', shareAmount: 30000 },
+            { memberId: 'a', shareAmount: 30000, status: 'confirmed' },
+            { memberId: 'b', shareAmount: 30000, status: 'confirmed' },
+            { memberId: 'c', shareAmount: 30000, status: 'confirmed' },
           ],
         },
       ],
@@ -30,8 +30,8 @@ describe('computeBalances', () => {
         {
           paidByMemberId: 'a',
           shares: [
-            { memberId: 'a', shareAmount: 0 },
-            { memberId: 'b', shareAmount: 100 },
+            { memberId: 'a', shareAmount: 0, status: 'confirmed' },
+            { memberId: 'b', shareAmount: 100, status: 'confirmed' },
           ],
         },
       ],
@@ -41,6 +41,28 @@ describe('computeBalances', () => {
     const byId = Object.fromEntries(balances.map((b) => [b.memberId, b.net]));
     expect(byId.a).toBe(0);
     expect(byId.b).toBe(0);
+  });
+
+  it('excluye las partes disputadas y los netos siguen sumando 0', () => {
+    // a paga 90000, repartido 30000 c/u; b disputa su parte.
+    const balances = computeBalances(
+      [{
+        paidByMemberId: 'a',
+        shares: [
+          { memberId: 'a', shareAmount: 30000, status: 'confirmed' },
+          { memberId: 'b', shareAmount: 30000, status: 'disputed' },
+          { memberId: 'c', shareAmount: 30000, status: 'pending' },
+        ],
+      }],
+      [],
+      ['a', 'b', 'c'],
+    );
+    const byId = Object.fromEntries(balances.map((x) => [x.memberId, x.net]));
+    // La parte de b queda fuera del libro: a solo recupera 30000 (la de c).
+    expect(byId.a).toBe(30000);
+    expect(byId.b).toBe(0);
+    expect(byId.c).toBe(-30000);
+    expect(balances.reduce((s, x) => s + x.net, 0)).toBe(0);
   });
 });
 

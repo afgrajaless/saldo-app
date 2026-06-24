@@ -1,9 +1,17 @@
 import { roundMoney } from '../shared/money';
 
+/**
+ * Estado de confirmación de una parte de gasto compartido.
+ * - confirmed: el miembro aceptó su parte.
+ * - pending:   aún no ha respondido (se cuenta en el saldo).
+ * - disputed:  el miembro rechaza la parte; se excluye del cálculo.
+ */
+export type ShareStatus = 'confirmed' | 'pending' | 'disputed';
+
 /** Gasto con su pagador y el reparto entre participantes. */
 export interface ExpenseInput {
   paidByMemberId: string;
-  shares: { memberId: string; shareAmount: number }[];
+  shares: { memberId: string; shareAmount: number; status: ShareStatus }[];
 }
 
 /** Pago entre dos miembros para saldar. */
@@ -28,7 +36,9 @@ export interface Debt {
 
 /**
  * Calcula el neto de cada miembro a partir de gastos y saldados.
- * neto = pagado − lo que le tocaba. Un settlement reduce el neto del receptor (cobra su acreencia)
+ * neto = pagado − lo que le tocaba. Las partes con estado 'disputed' se excluyen:
+ * no se acreditan al pagador ni se debitan al miembro que disputa.
+ * Un settlement reduce el neto del receptor (cobra su acreencia)
  * e incrementa el del pagador (salda su deuda).
  * @param expenses - Gastos vivos del grupo con su reparto.
  * @param settlements - Pagos de saldo entre miembros.
@@ -45,9 +55,10 @@ export function computeBalances(
     net.set(id, (net.get(id) ?? 0) + delta);
 
   for (const expense of expenses) {
-    const total = expense.shares.reduce((s, x) => s + x.shareAmount, 0);
+    const active = expense.shares.filter((s) => s.status !== 'disputed');
+    const total = active.reduce((sum, s) => sum + s.shareAmount, 0);
     add(expense.paidByMemberId, total);
-    for (const share of expense.shares) add(share.memberId, -share.shareAmount);
+    for (const share of active) add(share.memberId, -share.shareAmount);
   }
   for (const s of settlements) {
     add(s.toMemberId, -s.amount);
