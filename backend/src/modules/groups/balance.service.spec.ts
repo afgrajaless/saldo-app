@@ -1,5 +1,4 @@
 import { ForbiddenException } from '@nestjs/common';
-import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
 import { BalanceRepository } from './balance.repository';
 import { BalanceService } from './balance.service';
@@ -35,21 +34,13 @@ function makeBalanceRepo(): BalanceRepo {
 
 /**
  * Construye un BalanceService con los repos mockeados.
- * GroupsService se crea de verdad (sin DB) usando el repo mockeado.
+ * Ya no depende de GroupsService: inyecta BalanceRepository y GroupsRepository directamente.
  */
 function makeService(
-  groupsRepo: GroupsRepo,
   balanceRepo: BalanceRepo,
+  groupsRepo: GroupsRepo,
 ): BalanceService {
-  // BalanceService recibe groupsService (con forward ref), balanceRepo y groupsRepo.
-  // Para tests de BalanceService, GroupsService solo necesita assertActiveMember;
-  // se pasa un mock de BalanceService vacio como segundo arg del constructor.
-  const fakeBalanceSvc = {
-    getMemberNet: jest.fn().mockResolvedValue(0),
-    getBalance: jest.fn(),
-  } as unknown as BalanceService;
-  const groupsService = new GroupsService(groupsRepo, fakeBalanceSvc);
-  return new BalanceService(groupsService, balanceRepo, groupsRepo);
+  return new BalanceService(balanceRepo, groupsRepo);
 }
 
 /**
@@ -95,7 +86,7 @@ describe('BalanceService.getBalance', () => {
     // Sin settlements
     balanceRepo.findSettlements.mockResolvedValue([]);
 
-    const service = makeService(groupsRepo, balanceRepo);
+    const service = makeService(balanceRepo, groupsRepo);
     const result = await service.getBalance(GROUP_ID, USER_ID);
 
     // Verifica los netos
@@ -150,7 +141,7 @@ describe('BalanceService.getBalance', () => {
       { fromMemberId: mB, toMemberId: mA, amount: '30000.00' },
     ]);
 
-    const service = makeService(groupsRepo, balanceRepo);
+    const service = makeService(balanceRepo, groupsRepo);
     const result = await service.getBalance(GROUP_ID, USER_ID);
 
     // mB ya está saldado → neto 0, solo mC debe
@@ -167,9 +158,10 @@ describe('BalanceService.getBalance', () => {
   it('lanza 403 si el usuario no es miembro activo', async () => {
     const groupsRepo = makeGroupsRepo();
     const balanceRepo = makeBalanceRepo();
+    // findActiveMember devuelve undefined → no es miembro
     groupsRepo.findActiveMember.mockResolvedValue(undefined);
 
-    const service = makeService(groupsRepo, balanceRepo);
+    const service = makeService(balanceRepo, groupsRepo);
 
     await expect(service.getBalance(GROUP_ID, USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
   });
@@ -201,7 +193,7 @@ describe('BalanceService.getMemberNet (usado por removeMember guard)', () => {
     ]);
     balanceRepo.findSettlements.mockResolvedValue([]);
 
-    const service = makeService(groupsRepo, balanceRepo);
+    const service = makeService(balanceRepo, groupsRepo);
 
     const net = await service.getMemberNet(GROUP_ID, mB);
     // mB debe 15 000 → neto -15 000
@@ -220,7 +212,7 @@ describe('BalanceService.getMemberNet (usado por removeMember guard)', () => {
     balanceRepo.findExpensesWithShares.mockResolvedValue([]);
     balanceRepo.findSettlements.mockResolvedValue([]);
 
-    const service = makeService(groupsRepo, balanceRepo);
+    const service = makeService(balanceRepo, groupsRepo);
     const net = await service.getMemberNet(GROUP_ID, mD);
     expect(net).toBe(0);
   });

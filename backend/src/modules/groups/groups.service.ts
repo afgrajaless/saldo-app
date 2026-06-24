@@ -1,8 +1,6 @@
 import {
   ConflictException,
   ForbiddenException,
-  forwardRef,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -30,8 +28,7 @@ import { BalanceService } from './balance.service';
 @Injectable()
 export class GroupsService {
   constructor(
-    readonly groupsRepository: GroupsRepository,
-    @Inject(forwardRef(() => BalanceService))
+    private readonly groupsRepository: GroupsRepository,
     private readonly balanceService: BalanceService,
   ) {}
 
@@ -156,6 +153,8 @@ export class GroupsService {
 
     // Guard de saldo: no se puede quitar a un miembro con deudas pendientes.
     const net = await this.balanceService.getMemberNet(groupId, memberId);
+    // Comparacion directa segura: getMemberNet devuelve el valor ya redondeado con
+    // roundMoney (2 decimales), por lo que !== 0 no tiene riesgos de precision flotante.
     if (net !== 0) {
       throw new ConflictException('No puedes quitar un miembro con saldo pendiente.');
     }

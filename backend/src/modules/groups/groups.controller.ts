@@ -257,6 +257,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Consultar el saldo del grupo: netos por miembro y deudas pairwise' })
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Saldo calculado correctamente.', type: BalanceResponseDto })
+  @ApiResponse({ status: 401, description: 'No autenticado.' })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   getBalance(
     @CurrentUser('sub') userId: string,
