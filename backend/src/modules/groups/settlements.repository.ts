@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { groupMembers, settlements, transactions } from '../../db/schema';
 
@@ -17,12 +17,12 @@ export interface NewSettlementData {
 /**
  * Datos del movimiento personal opcional que acompana al settlement.
  * side indica si el usuario autenticado es el pagador (from = egreso) o el receptor (to = ingreso).
- * La categoria determina el tipo de movimiento; accountId puede ser null.
+ * accountId es obligatorio: el DTO exige que se especifique la cuenta.
  */
 export interface PersonalTxData {
   side: 'from' | 'to';
   userId: string;
-  accountId: string | null;
+  accountId: string;
   categoryId: string;
 }
 
@@ -112,7 +112,7 @@ export class SettlementsRepository {
       .select()
       .from(settlements)
       .where(eq(settlements.groupId, groupId))
-      .orderBy(settlements.createdAt);
+      .orderBy(desc(settlements.createdAt));
   }
 
   /**

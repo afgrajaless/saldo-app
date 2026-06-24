@@ -96,10 +96,19 @@ export class SettlementsService {
         return this.persist(groupId, userId, dto, undefined);
       }
 
+      // Valida que el tipo de la categoria sea coherente con el rol del usuario:
+      // el pagador (from) debe usar una categoria de egreso y el receptor (to) de ingreso.
+      if (side === 'from' && category.type !== 'expense') {
+        throw new BadRequestException('La categoría debe ser de tipo "egreso" para registrar tu pago.');
+      }
+      if (side === 'to' && category.type !== 'income') {
+        throw new BadRequestException('La categoría debe ser de tipo "ingreso" para registrar lo que recibiste.');
+      }
+
       personalTx = {
         side,
         userId,
-        accountId: accountId ?? null,
+        accountId,
         categoryId,
       };
     }

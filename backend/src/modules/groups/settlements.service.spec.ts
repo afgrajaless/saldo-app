@@ -275,6 +275,62 @@ describe('SettlementsService.createSettlement', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('lanza 404 si la categoria no pertenece al usuario', async () => {
+    const settlementsRepo = makeSettlementsRepo();
+    const groupsRepo = makeGroupsRepo();
+    const accountsRepo = makeAccountsRepo();
+    const categoriesRepo = makeCategoriesRepo();
+
+    groupsRepo.findActiveMember.mockResolvedValue(MEMBER_FROM as never);
+    groupsRepo.listMembers.mockResolvedValue(MEMBERS_LIST as never);
+
+    // La categoria no existe o no pertenece al usuario
+    categoriesRepo.findByIdForUser.mockResolvedValue(undefined);
+
+    const service = makeService(settlementsRepo, groupsRepo, accountsRepo, categoriesRepo);
+
+    await expect(
+      service.createSettlement(GROUP_ID, USER_ID, {
+        fromMemberId: MEMBER_FROM.id,
+        toMemberId: MEMBER_TO.id,
+        amount: 50000,
+        settledOn: '2026-06-24',
+        recordPersonal: { accountId: 'account-uuid', categoryId: 'categoria-ajena' },
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lanza 400 si la categoria es de tipo income cuando el usuario es el pagador (from)', async () => {
+    const settlementsRepo = makeSettlementsRepo();
+    const groupsRepo = makeGroupsRepo();
+    const accountsRepo = makeAccountsRepo();
+    const categoriesRepo = makeCategoriesRepo();
+
+    groupsRepo.findActiveMember.mockResolvedValue(MEMBER_FROM as never);
+    groupsRepo.listMembers.mockResolvedValue(MEMBERS_LIST as never);
+
+    // El usuario es el pagador (from), pero la categoria es de tipo ingreso — mismatch
+    categoriesRepo.findByIdForUser.mockResolvedValue({
+      id: 'category-uuid',
+      userId: USER_ID,
+      name: 'Salario',
+      type: 'income',
+      deletedAt: null,
+    } as never);
+
+    const service = makeService(settlementsRepo, groupsRepo, accountsRepo, categoriesRepo);
+
+    await expect(
+      service.createSettlement(GROUP_ID, USER_ID, {
+        fromMemberId: MEMBER_FROM.id,  // userId del from = USER_ID = pagador
+        toMemberId: MEMBER_TO.id,
+        amount: 50000,
+        settledOn: '2026-06-24',
+        recordPersonal: { accountId: 'account-uuid', categoryId: 'category-uuid' },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });
 
 describe('SettlementsService.listSettlements', () => {
