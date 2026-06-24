@@ -9,6 +9,7 @@ import '../../domain/repositories/groups_repository.dart';
 import '../providers/groups_providers.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/expense_tile.dart';
+import 'new_expense_screen.dart';
 
 /// Pantalla de detalle de un grupo compartido.
 /// Muestra dos pestañas: Saldos (netos + deudas entre miembros)
@@ -161,9 +162,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             : FloatingActionButton.extended(
                 heroTag: 'fab-new-expense',
                 onPressed: () {
-                  // TODO(Task 6): navegar a la pantalla de nuevo gasto
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Proximamente: nuevo gasto')),
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          NewExpenseScreen(groupId: widget.group.id),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.add),
