@@ -185,8 +185,14 @@ class _SummarySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final positive = summary.balance >= 0;
-    final withTargets =
-        summary.categories.where((c) => !c.isIncome && c.monthlyBudget != null).toList();
+    // Metas de gasto: incluye categorias padre (con su rollup) y subcategorias.
+    final withTargets = <BudgetCategorySummary>[];
+    for (final c in summary.categories.where((c) => !c.isIncome)) {
+      if (c.monthlyBudget != null) withTargets.add(c);
+      for (final sub in c.subcategories) {
+        if (sub.monthlyBudget != null) withTargets.add(sub);
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -271,15 +277,27 @@ class _BudgetProgress extends StatelessWidget {
     final usage = summary.budgetUsage ?? 0;
     final over = usage > 100;
     final color = over ? theme.colorScheme.error : hexToColor(summary.color);
+    // Las subcategorias se muestran indentadas bajo su padre.
+    final isSub = summary.parentId != null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(isSub ? 32 : 16, 8, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(summary.name, style: theme.textTheme.bodyLarge),
+              Row(
+                children: [
+                  if (isSub)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.subdirectory_arrow_right,
+                          size: 16, color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  Text(summary.name, style: theme.textTheme.bodyLarge),
+                ],
+              ),
               Text('${formatCop(summary.spent)} / ${formatCop(summary.monthlyBudget!)}',
                   style: theme.textTheme.bodySmall),
             ],

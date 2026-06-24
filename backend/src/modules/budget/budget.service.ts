@@ -39,8 +39,10 @@ export class BudgetService {
       spentByCategory.set(sum.categoryId, Number(sum.total));
     }
 
-    const categorySummaries = categories.map((category) =>
-      this.buildCategorySummary(category, spentByCategory.get(category.id) ?? 0),
+    const childrenByParent = this.groupChildrenByParent(categories);
+    const topLevel = categories.filter((category) => category.parentId === null);
+    const categorySummaries = topLevel.map((category) =>
+      this.buildTopLevelSummary(category, childrenByParent, spentByCategory),
     );
 
     const totalIncome = this.sumByType(categorySummaries, 'income');
@@ -53,6 +55,46 @@ export class BudgetService {
       balance: this.round(totalIncome - totalExpense),
       categories: categorySummaries,
     };
+  }
+
+  /**
+   * Agrupa las subcategorias vivas por el id de su categoria padre.
+   * @param categories - Todas las categorias del usuario.
+   * @returns Mapa parentId -> subcategorias.
+   */
+  private groupChildrenByParent(categories: CategoryRow[]): Map<string, CategoryRow[]> {
+    const map = new Map<string, CategoryRow[]>();
+    for (const category of categories) {
+      if (category.parentId === null) continue;
+      const siblings = map.get(category.parentId) ?? [];
+      siblings.push(category);
+      map.set(category.parentId, siblings);
+    }
+    return map;
+  }
+
+  /**
+   * Construye el resumen de una categoria de primer nivel. Si tiene subcategorias,
+   * su gasto es la suma de estas y se incluyen anidadas.
+   * @param category - Categoria de primer nivel.
+   * @param childrenByParent - Mapa de subcategorias por padre.
+   * @param spentByCategory - Gasto del mes por categoria (hojas).
+   * @returns El resumen de la categoria con su rollup.
+   */
+  private buildTopLevelSummary(
+    category: CategoryRow,
+    childrenByParent: Map<string, CategoryRow[]>,
+    spentByCategory: Map<string, number>,
+  ): BudgetCategorySummaryDto {
+    const children = childrenByParent.get(category.id) ?? [];
+    if (children.length === 0) {
+      return this.buildCategorySummary(category, spentByCategory.get(category.id) ?? 0);
+    }
+    const subcategories = children.map((child) =>
+      this.buildCategorySummary(child, spentByCategory.get(child.id) ?? 0),
+    );
+    const spent = subcategories.reduce((sum, sub) => sum + sub.spent, 0);
+    return { ...this.buildCategorySummary(category, spent), subcategories };
   }
 
   /**
@@ -71,6 +113,7 @@ export class BudgetService {
       categoryId: category.id,
       name: category.name,
       type: category.type,
+      parentId: category.parentId,
       color: category.color,
       monthlyBudget,
       spent: this.round(spent),

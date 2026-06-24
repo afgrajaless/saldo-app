@@ -23,13 +23,24 @@ export class BudgetCategorySummaryDto {
   @ApiProperty({ example: 'expense' })
   type!: string;
 
+  @ApiPropertyOptional({
+    description: 'UUID de la categoria padre; null si es de primer nivel.',
+    format: 'uuid',
+    nullable: true,
+  })
+  parentId!: string | null;
+
   @ApiProperty({ example: '#C0392B' })
   color!: string;
 
   @ApiPropertyOptional({ description: 'Meta mensual.', example: 1500000, nullable: true })
   monthlyBudget!: number | null;
 
-  @ApiProperty({ description: 'Total del mes en esta categoria.', example: 1200000 })
+  @ApiProperty({
+    description:
+      'Total del mes. En una categoria con subcategorias es la suma de estas.',
+    example: 1200000,
+  })
   spent!: number;
 
   @ApiPropertyOptional({
@@ -38,6 +49,12 @@ export class BudgetCategorySummaryDto {
     nullable: true,
   })
   budgetUsage!: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Subcategorias con su propio gasto del mes (solo en categorias padre).',
+    type: () => [BudgetCategorySummaryDto],
+  })
+  subcategories?: BudgetCategorySummaryDto[];
 }
 
 /** Resumen mensual del presupuesto. */

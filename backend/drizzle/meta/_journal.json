@@ -43,6 +43,13 @@
       "when": 1781986730578,
       "tag": "0005_watery_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782327001066,
+      "tag": "0006_parched_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

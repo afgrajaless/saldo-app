@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   check,
   date,
   index,
@@ -242,6 +243,10 @@ export const categories = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     type: categoryTypeEnum('type').notNull(),
+    // Categoria padre (jerarquia de un solo nivel); null = categoria de primer nivel.
+    parentId: uuid('parent_id').references((): AnyPgColumn => categories.id, {
+      onDelete: 'set null',
+    }),
     color: text('color').notNull().default('#0B5D3B'), // hex para la UI
     // Meta mensual (solo aplica a egresos); null = sin meta.
     monthlyBudget: numeric('monthly_budget', { precision: 15, scale: 2 }),
@@ -255,6 +260,9 @@ export const categories = pgTable(
   (table) => ({
     userIdx: index('idx_categories_user')
       .on(table.userId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    parentIdx: index('idx_categories_parent')
+      .on(table.parentId)
       .where(sql`${table.deletedAt} IS NULL`),
     budgetNonNegative: check(
       'categories_budget_check',

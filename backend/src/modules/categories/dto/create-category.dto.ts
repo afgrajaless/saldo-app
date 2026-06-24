@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -41,4 +42,14 @@ export class CreateCategoryDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   monthlyBudget?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'UUID de la categoria padre. Si se envia, la categoria se crea como ' +
+      'subcategoria (debe ser del mismo tipo). Omitir para una categoria de primer nivel.',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
 }

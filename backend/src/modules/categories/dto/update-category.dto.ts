@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   ValidateIf,
@@ -32,4 +33,16 @@ export class UpdateCategoryDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   monthlyBudget?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'UUID de la categoria padre. Enviar null para volverla de primer nivel; ' +
+      'un UUID para moverla bajo otra categoria del mismo tipo.',
+    format: 'uuid',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  parentId?: string | null;
 }

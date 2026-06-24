@@ -5,6 +5,7 @@ class CreateCategoryParams {
     required this.type,
     required this.color,
     this.monthlyBudget,
+    this.parentId,
   });
 
   final String name;
@@ -12,12 +13,16 @@ class CreateCategoryParams {
   final String color;
   final double? monthlyBudget;
 
+  /// UUID de la categoria padre; null para una categoria de primer nivel.
+  final String? parentId;
+
   /// Cuerpo JSON para el POST /categories.
   Map<String, dynamic> toJson() => {
         'name': name,
         'type': type,
         'color': color,
         if (monthlyBudget != null) 'monthlyBudget': monthlyBudget,
+        if (parentId != null) 'parentId': parentId,
       };
 }
 
@@ -28,6 +33,8 @@ class UpdateCategoryParams {
     this.color,
     this.monthlyBudget,
     this.clearMonthlyBudget = false,
+    this.parentId,
+    this.changeParent = false,
   });
 
   final String? name;
@@ -37,12 +44,19 @@ class UpdateCategoryParams {
   /// Si es true, envia la meta en null para quitarla.
   final bool clearMonthlyBudget;
 
+  /// Nuevo padre; null junto con [changeParent] = volver a primer nivel.
+  final String? parentId;
+
+  /// Si es true, se envia parentId (incluso null) para mover la categoria.
+  final bool changeParent;
+
   /// Cuerpo JSON para el PATCH /categories/:id (solo envia lo que cambia).
   Map<String, dynamic> toJson() => {
         if (name != null) 'name': name,
         if (color != null) 'color': color,
         if (monthlyBudget != null) 'monthlyBudget': monthlyBudget,
         if (clearMonthlyBudget && monthlyBudget == null) 'monthlyBudget': null,
+        if (changeParent) 'parentId': parentId,
       };
 }
 
