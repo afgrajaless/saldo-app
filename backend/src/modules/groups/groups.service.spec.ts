@@ -17,10 +17,9 @@ function makeRepo(): Repo {
     listMembers: jest.fn().mockResolvedValue([]),
     createInvite: jest.fn(),
     findInviteByCode: jest.fn().mockResolvedValue(undefined),
-    claimGhostMember: jest.fn(),
-    consumeInvite: jest.fn(),
+    joinGroupAtomically: jest.fn().mockResolvedValue(undefined),
     findGroupById: jest.fn().mockResolvedValue(undefined),
-    addRealMember: jest.fn(),
+    resolveDisplayName: jest.fn().mockResolvedValue('Usuario'),
   } as unknown as Repo;
 }
 
@@ -99,19 +98,34 @@ describe('GroupsService.listMembers', () => {
 });
 
 describe('GroupsService.joinByCode', () => {
-  it('al unirse con invite ligado a fantasma, reclama ese miembro', async () => {
+  it('al unirse con invite ligado a fantasma, llama joinGroupAtomically con el invite correcto', async () => {
     const repo = makeRepo();
-    repo.findInviteByCode = jest.fn().mockResolvedValue({
-      id: 'inv', groupId: 'grp', memberId: 'ghost1', expiresAt: new Date(Date.now() + 1e6), consumedAt: null,
-    });
+    const invite = {
+      id: 'inv',
+      groupId: 'grp',
+      memberId: 'ghost1',
+      expiresAt: new Date(Date.now() + 1e6),
+      consumedAt: null,
+    };
+    repo.findInviteByCode = jest.fn().mockResolvedValue(invite);
     repo.findActiveMember.mockResolvedValue(undefined); // aun no es miembro
-    repo.claimGhostMember = jest.fn().mockResolvedValue({ id: 'ghost1', userId: 'u9' });
-    repo.consumeInvite = jest.fn();
-    repo.findGroupById = jest.fn().mockResolvedValue({ id: 'grp', name: 'Apto' });
+    repo.joinGroupAtomically = jest.fn().mockResolvedValue(undefined);
+    repo.findGroupById = jest.fn().mockResolvedValue({
+      id: 'grp',
+      name: 'Apto',
+      createdBy: 'u1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      archivedAt: null,
+    });
     const service = new GroupsService(repo);
     const group = await service.joinByCode('u9', 'ABCD2345');
     expect(group.id).toBe('grp');
-    expect(repo.claimGhostMember).toHaveBeenCalledWith('ghost1', 'u9');
+    // Verifica que se haya invocado joinGroupAtomically con el invite que tiene memberId
+    expect(repo.joinGroupAtomically).toHaveBeenCalledTimes(1);
+    const [passedInvite, passedUserId] = (repo.joinGroupAtomically as jest.Mock).mock.calls[0] as [typeof invite, string, string];
+    expect(passedInvite.memberId).toBe('ghost1');
+    expect(passedUserId).toBe('u9');
   });
 
   it('lanza 409 si el invite ya fue consumido', async () => {

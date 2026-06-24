@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { groups, groupMembers, groupInvites, users } from '../../db/schema';
@@ -276,53 +276,51 @@ export class GroupsRepository {
   }
 
   /**
-   * Reclama un miembro fantasma asociando su cuenta de usuario real.
-   * No actualiza displayName; el llamador lo omite deliberadamente para
-   * mantener el nombre que el grupo ya conoce (puede cambiarse desde settings).
-   * @param memberId - UUID del miembro fantasma a reclamar.
-   * @param userId - UUID del usuario real que reclama el fantasma.
-   * @returns El miembro actualizado.
+   * Une al usuario a un grupo de forma atomica dentro de una transaccion.
+   * Si el invite apunta a un fantasma (memberId presente), lo reclama asignando userId
+   * solo si el fantasma sigue activo (userId IS NULL AND removed_at IS NULL).
+   * Si no hay memberId, inserta un miembro real nuevo.
+   * En el mismo commit de la transaccion, marca el invite como consumido.
+   * @param invite - Fila de la invitacion validada previamente.
+   * @param userId - UUID del usuario que se une.
+   * @param displayName - Nombre visible dentro del grupo (solo se usa cuando se crea miembro nuevo).
+   * @throws ConflictException si el fantasma ya fue reclamado o removido.
    */
-  async claimGhostMember(memberId: string, userId: string): Promise<GroupMemberRow> {
-    const [member] = await this.db
-      .update(groupMembers)
-      .set({ userId })
-      .where(eq(groupMembers.id, memberId))
-      .returning();
-    return member;
-  }
+  async joinGroupAtomically(invite: InviteRow, userId: string, displayName: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      if (invite.memberId) {
+        // Reclama el fantasma: solo si sigue activo (user_id IS NULL y no removido).
+        // No sobreescribe displayName para conservar el nombre que el grupo ya conoce.
+        const claimed = await tx
+          .update(groupMembers)
+          .set({ userId })
+          .where(
+            and(
+              eq(groupMembers.id, invite.memberId),
+              isNull(groupMembers.userId),
+              isNull(groupMembers.removedAt),
+            ),
+          )
+          .returning({ id: groupMembers.id });
+        if (claimed.length === 0) {
+          throw new ConflictException('El fantasma ya fue reclamado o removido.');
+        }
+      } else {
+        // Inserta un miembro real nuevo en el grupo.
+        await tx.insert(groupMembers).values({
+          groupId: invite.groupId,
+          userId,
+          displayName,
+          addedByUserId: userId,
+        });
+      }
 
-  /**
-   * Inserta un miembro real en el grupo (usuario con cuenta).
-   * @param groupId - UUID del grupo.
-   * @param userId - UUID del usuario real que se une.
-   * @param displayName - Nombre visible dentro del grupo.
-   * @param addedByUserId - UUID del usuario que genero la accion (el mismo userId en este caso).
-   * @returns La fila del miembro creado.
-   */
-  async addRealMember(
-    groupId: string,
-    userId: string,
-    displayName: string,
-    addedByUserId: string,
-  ): Promise<GroupMemberRow> {
-    const [member] = await this.db
-      .insert(groupMembers)
-      .values({ groupId, userId, displayName, addedByUserId })
-      .returning();
-    return member;
-  }
-
-  /**
-   * Marca una invitacion como consumida (consumedAt = now, consumedBy = userId).
-   * @param inviteId - UUID de la invitacion.
-   * @param consumedBy - UUID del usuario que la consumio.
-   */
-  async consumeInvite(inviteId: string, consumedBy: string): Promise<void> {
-    await this.db
-      .update(groupInvites)
-      .set({ consumedAt: new Date(), consumedBy })
-      .where(eq(groupInvites.id, inviteId));
+      // Marca el invite como consumido en la misma transaccion.
+      await tx
+        .update(groupInvites)
+        .set({ consumedAt: new Date(), consumedBy: userId })
+        .where(eq(groupInvites.id, invite.id));
+    });
   }
 
   /**

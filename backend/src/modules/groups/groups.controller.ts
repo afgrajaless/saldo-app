@@ -205,6 +205,7 @@ export class GroupsController {
   @ApiResponse({ status: 201, description: 'Invitacion creada.', type: InviteResponseDto })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   @ApiResponse({ status: 404, description: 'Miembro fantasma no encontrado en el grupo.' })
+  @ApiResponse({ status: 409, description: 'No se pudo generar un código único, reintenta.' })
   createInvite(
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,

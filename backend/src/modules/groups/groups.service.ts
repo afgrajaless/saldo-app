@@ -213,16 +213,17 @@ export class GroupsService {
   }
 
   /**
-   * Une al usuario a un grupo usando un codigo de invitacion.
+   * Une al usuario a un grupo usando un codigo de invitacion de forma atomica.
    * Si el invite apunta a un fantasma activo, lo reclama (asigna userId).
    * Si no, crea un miembro real nuevo.
+   * Toda la logica de membresia y consumo del invite ocurre en una sola transaccion.
    * Rechaza con 409 si el invite es invalido (vencido, consumido) o si el
    * usuario ya es miembro real del grupo.
    * @param userId - UUID del usuario autenticado que quiere unirse.
    * @param code - Codigo de invitacion de 8 caracteres.
    * @param emailFallback - Email del usuario, usado como respaldo para el displayName.
    * @returns El grupo al que se unio.
-   * @throws ConflictException si el invite es invalido o el usuario ya es miembro.
+   * @throws ConflictException si el invite es invalido, el usuario ya es miembro, o el fantasma ya fue reclamado.
    * @throws NotFoundException si el invite no existe o el grupo no existe.
    */
   async joinByCode(userId: string, code: string, emailFallback?: string): Promise<GroupResponseDto> {
@@ -243,24 +244,13 @@ export class GroupsService {
       throw new ConflictException('Ya eres miembro activo de este grupo.');
     }
 
-    if (invite.memberId) {
-      // Reclama el fantasma: asigna userId al miembro existente.
-      await this.groupsRepository.claimGhostMember(invite.memberId, userId);
-    } else {
-      // Crea un miembro real nuevo en el grupo.
-      const displayName = emailFallback
-        ? await this.groupsRepository.resolveDisplayName(userId, emailFallback)
-        : userId;
-      await this.groupsRepository.addRealMember(
-        invite.groupId,
-        userId,
-        displayName,
-        userId,
-      );
-    }
+    // Resuelve el displayName antes de la transaccion (solo se usa si no hay fantasma).
+    const displayName = emailFallback
+      ? await this.groupsRepository.resolveDisplayName(userId, emailFallback)
+      : userId;
 
-    // Marca el invite como consumido.
-    await this.groupsRepository.consumeInvite(invite.id, userId);
+    // Ejecuta reclamacion/insercion + consumo del invite en una sola transaccion atomica.
+    await this.groupsRepository.joinGroupAtomically(invite, userId, displayName);
 
     const group = await this.groupsRepository.findGroupById(invite.groupId);
     if (!group) {
