@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/group.dart';
 import '../providers/groups_providers.dart';
 import 'create_group_screen.dart';
+import 'group_detail_screen.dart';
 
 /// Pantalla principal del tab Compartido: lista los grupos del usuario.
 /// Muestra un estado vacio con CTA cuando no hay grupos, y un ListView
@@ -110,8 +111,11 @@ class _GroupsList extends StatelessWidget {
             title: Text(group.name),
             subtitle: group.isArchived ? const Text('Archivado') : null,
             trailing: const Icon(Icons.chevron_right),
-            // TODO(Task 5): navegar a GroupDetailScreen(group.id)
-            onTap: null,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => GroupDetailScreen(group: group),
+              ),
+            ),
           ),
         );
       },
