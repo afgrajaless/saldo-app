@@ -7,6 +7,7 @@ import { AccountsModule } from './modules/accounts/accounts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BudgetModule } from './modules/budget/budget.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { GroupsModule } from './modules/groups/groups.module';
 import { DebtsModule } from './modules/debts/debts.module';
 import { ImportModule } from './modules/import/import.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -38,6 +39,7 @@ import { UsuryModule } from './modules/usury/usury.module';
     TransfersModule,
     ImportModule,
     BudgetModule,
+    GroupsModule,
   ],
 })
 export class AppModule {}
