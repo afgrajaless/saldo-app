@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
 
@@ -15,6 +15,12 @@ function makeRepo(): Repo {
     addGhostMember: jest.fn(),
     removeMember: jest.fn(),
     listMembers: jest.fn().mockResolvedValue([]),
+    createInvite: jest.fn(),
+    findInviteByCode: jest.fn().mockResolvedValue(undefined),
+    claimGhostMember: jest.fn(),
+    consumeInvite: jest.fn(),
+    findGroupById: jest.fn().mockResolvedValue(undefined),
+    addRealMember: jest.fn(),
   } as unknown as Repo;
 }
 
@@ -89,6 +95,51 @@ describe('GroupsService.listMembers', () => {
     const members = await service.listMembers('grp', 'u1');
     expect(members).toHaveLength(1);
     expect(members[0].isGhost).toBe(false);
+  });
+});
+
+describe('GroupsService.joinByCode', () => {
+  it('al unirse con invite ligado a fantasma, reclama ese miembro', async () => {
+    const repo = makeRepo();
+    repo.findInviteByCode = jest.fn().mockResolvedValue({
+      id: 'inv', groupId: 'grp', memberId: 'ghost1', expiresAt: new Date(Date.now() + 1e6), consumedAt: null,
+    });
+    repo.findActiveMember.mockResolvedValue(undefined); // aun no es miembro
+    repo.claimGhostMember = jest.fn().mockResolvedValue({ id: 'ghost1', userId: 'u9' });
+    repo.consumeInvite = jest.fn();
+    repo.findGroupById = jest.fn().mockResolvedValue({ id: 'grp', name: 'Apto' });
+    const service = new GroupsService(repo);
+    const group = await service.joinByCode('u9', 'ABCD2345');
+    expect(group.id).toBe('grp');
+    expect(repo.claimGhostMember).toHaveBeenCalledWith('ghost1', 'u9');
+  });
+
+  it('lanza 409 si el invite ya fue consumido', async () => {
+    const repo = makeRepo();
+    repo.findInviteByCode = jest.fn().mockResolvedValue({
+      id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() + 1e6), consumedAt: new Date(),
+    });
+    const service = new GroupsService(repo);
+    await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('lanza 409 si el invite esta vencido', async () => {
+    const repo = makeRepo();
+    repo.findInviteByCode = jest.fn().mockResolvedValue({
+      id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() - 1000), consumedAt: null,
+    });
+    const service = new GroupsService(repo);
+    await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('lanza 409 si el usuario ya es miembro real del grupo', async () => {
+    const repo = makeRepo();
+    repo.findInviteByCode = jest.fn().mockResolvedValue({
+      id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() + 1e6), consumedAt: null,
+    });
+    repo.findActiveMember.mockResolvedValue({ id: 'm1', userId: 'u9' } as never);
+    const service = new GroupsService(repo);
+    await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
   });
 });
 

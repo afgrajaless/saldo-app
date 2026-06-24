@@ -1,10 +1,24 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { GroupMemberRow, GroupRow, GroupUpdateFields, GroupsRepository } from './groups.repository';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  GroupMemberRow,
+  GroupRow,
+  GroupUpdateFields,
+  GroupsRepository,
+  InviteRow,
+} from './groups.repository';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { MemberResponseDto } from './dto/member-response.dto';
+import { CreateInviteDto } from './dto/create-invite.dto';
+import { InviteResponseDto } from './dto/invite-response.dto';
+import { generateInviteCode } from './invite-code';
 
 /**
  * Servicio de grupos de gasto compartido. Todo acceso a un grupo se valida
@@ -144,6 +158,132 @@ export class GroupsService {
     await this.assertActiveMember(groupId, userId);
     const rows = await this.groupsRepository.listMembers(groupId);
     return rows.map((m) => this.toMemberResponse(m));
+  }
+
+  /**
+   * Genera un codigo de invitacion para un grupo. Reintenta si el codigo ya existe.
+   * Si se indica memberId, valida que el miembro sea un fantasma activo del grupo.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado que genera la invitacion.
+   * @param dto - DTO con el memberId opcional a ligar.
+   * @returns La invitacion creada con su codigo.
+   * @throws ForbiddenException si el usuario no es miembro activo del grupo.
+   * @throws NotFoundException si memberId no corresponde a un fantasma activo del grupo.
+   */
+  async createInvite(groupId: string, userId: string, dto: CreateInviteDto): Promise<InviteResponseDto> {
+    await this.assertActiveMember(groupId, userId);
+
+    // Si se especifica un memberId, valida que sea un fantasma activo de este grupo.
+    // Los fantasmas no tienen userId, por lo que findActiveMember no los encuentra.
+    // Usamos listMembers y filtramos manualmente.
+    if (dto.memberId) {
+      const members = await this.groupsRepository.listMembers(groupId);
+      const ghost = members.find(
+        (m) => m.id === dto.memberId && m.userId === null,
+      );
+      if (!ghost) {
+        throw new NotFoundException(
+          'El miembro indicado no existe en el grupo o no es un fantasma activo.',
+        );
+      }
+    }
+
+    // Reintenta si hay colision de codigo (improbable pero posible).
+    let invite: InviteRow | undefined;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateInviteCode();
+      try {
+        invite = await this.groupsRepository.createInvite(groupId, userId, code, dto.memberId);
+        break;
+      } catch (err: unknown) {
+        // Colision de unique constraint en el codigo: reintentar.
+        const isUniqueViolation =
+          err instanceof Error &&
+          'code' in err &&
+          (err as { code: string }).code === '23505';
+        if (!isUniqueViolation) throw err;
+      }
+    }
+
+    if (!invite) {
+      throw new ConflictException('No se pudo generar un codigo unico. Intenta de nuevo.');
+    }
+
+    return this.toInviteResponse(invite);
+  }
+
+  /**
+   * Une al usuario a un grupo usando un codigo de invitacion.
+   * Si el invite apunta a un fantasma activo, lo reclama (asigna userId).
+   * Si no, crea un miembro real nuevo.
+   * Rechaza con 409 si el invite es invalido (vencido, consumido) o si el
+   * usuario ya es miembro real del grupo.
+   * @param userId - UUID del usuario autenticado que quiere unirse.
+   * @param code - Codigo de invitacion de 8 caracteres.
+   * @param emailFallback - Email del usuario, usado como respaldo para el displayName.
+   * @returns El grupo al que se unio.
+   * @throws ConflictException si el invite es invalido o el usuario ya es miembro.
+   * @throws NotFoundException si el invite no existe o el grupo no existe.
+   */
+  async joinByCode(userId: string, code: string, emailFallback?: string): Promise<GroupResponseDto> {
+    const invite = await this.groupsRepository.findInviteByCode(code);
+    if (!invite) {
+      throw new NotFoundException('Codigo de invitacion no encontrado.');
+    }
+    if (invite.consumedAt !== null) {
+      throw new ConflictException('Este codigo de invitacion ya fue utilizado.');
+    }
+    if (invite.expiresAt < new Date()) {
+      throw new ConflictException('El codigo de invitacion ha vencido.');
+    }
+
+    // Valida que el usuario no sea ya miembro real activo del grupo.
+    const existing = await this.groupsRepository.findActiveMember(invite.groupId, userId);
+    if (existing) {
+      throw new ConflictException('Ya eres miembro activo de este grupo.');
+    }
+
+    if (invite.memberId) {
+      // Reclama el fantasma: asigna userId al miembro existente.
+      await this.groupsRepository.claimGhostMember(invite.memberId, userId);
+    } else {
+      // Crea un miembro real nuevo en el grupo.
+      const displayName = emailFallback
+        ? await this.groupsRepository.resolveDisplayName(userId, emailFallback)
+        : userId;
+      await this.groupsRepository.addRealMember(
+        invite.groupId,
+        userId,
+        displayName,
+        userId,
+      );
+    }
+
+    // Marca el invite como consumido.
+    await this.groupsRepository.consumeInvite(invite.id, userId);
+
+    const group = await this.groupsRepository.findGroupById(invite.groupId);
+    if (!group) {
+      throw new NotFoundException('El grupo de la invitacion no existe.');
+    }
+    return this.toResponse(group);
+  }
+
+  /**
+   * Mapea una fila de invitacion a su DTO de respuesta.
+   * @param invite - Fila de invitacion.
+   * @returns El DTO de respuesta.
+   */
+  private toInviteResponse(invite: InviteRow): InviteResponseDto {
+    return {
+      id: invite.id,
+      groupId: invite.groupId,
+      code: invite.code,
+      memberId: invite.memberId,
+      createdBy: invite.createdBy,
+      expiresAt: invite.expiresAt,
+      createdAt: invite.createdAt,
+    };
   }
 
   /**

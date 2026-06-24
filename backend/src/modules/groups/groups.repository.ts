@@ -1,12 +1,14 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { groups, groupMembers, users } from '../../db/schema';
+import { groups, groupMembers, groupInvites, users } from '../../db/schema';
 
 /** Fila de grupo tal como se almacena. */
 export type GroupRow = typeof groups.$inferSelect;
 /** Fila de miembro de grupo tal como se almacena. */
 export type GroupMemberRow = typeof groupMembers.$inferSelect;
+/** Fila de invitacion de grupo tal como se almacena. */
+export type InviteRow = typeof groupInvites.$inferSelect;
 
 /** Campos actualizables de un grupo (whitelist). */
 export interface GroupUpdateFields {
@@ -220,5 +222,121 @@ export class GroupsRepository {
           isNull(groupMembers.removedAt),
         ),
       );
+  }
+
+  /**
+   * Busca un grupo por su UUID.
+   * @param groupId - UUID del grupo.
+   * @returns El grupo, o `undefined` si no existe.
+   */
+  async findGroupById(groupId: string): Promise<GroupRow | undefined> {
+    const [group] = await this.db
+      .select()
+      .from(groups)
+      .where(eq(groups.id, groupId))
+      .limit(1);
+    return group;
+  }
+
+  /**
+   * Crea una invitacion con TTL de 7 dias. Si se indica memberId, la invitacion
+   * queda ligada a ese miembro fantasma para que pueda ser reclamado.
+   * @param groupId - UUID del grupo.
+   * @param createdBy - UUID del usuario que genera la invitacion.
+   * @param code - Codigo unico generado previamente.
+   * @param memberId - UUID del miembro fantasma a reclamar (opcional).
+   * @returns La fila de invitacion creada.
+   */
+  async createInvite(
+    groupId: string,
+    createdBy: string,
+    code: string,
+    memberId?: string,
+  ): Promise<InviteRow> {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const [invite] = await this.db
+      .insert(groupInvites)
+      .values({ groupId, createdBy, code, memberId: memberId ?? null, expiresAt })
+      .returning();
+    return invite;
+  }
+
+  /**
+   * Busca una invitacion activa por su codigo.
+   * @param code - Codigo de 8 caracteres de la invitacion.
+   * @returns La fila de invitacion, o `undefined` si no existe.
+   */
+  async findInviteByCode(code: string): Promise<InviteRow | undefined> {
+    const [invite] = await this.db
+      .select()
+      .from(groupInvites)
+      .where(eq(groupInvites.code, code))
+      .limit(1);
+    return invite;
+  }
+
+  /**
+   * Reclama un miembro fantasma asociando su cuenta de usuario real.
+   * No actualiza displayName; el llamador lo omite deliberadamente para
+   * mantener el nombre que el grupo ya conoce (puede cambiarse desde settings).
+   * @param memberId - UUID del miembro fantasma a reclamar.
+   * @param userId - UUID del usuario real que reclama el fantasma.
+   * @returns El miembro actualizado.
+   */
+  async claimGhostMember(memberId: string, userId: string): Promise<GroupMemberRow> {
+    const [member] = await this.db
+      .update(groupMembers)
+      .set({ userId })
+      .where(eq(groupMembers.id, memberId))
+      .returning();
+    return member;
+  }
+
+  /**
+   * Inserta un miembro real en el grupo (usuario con cuenta).
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario real que se une.
+   * @param displayName - Nombre visible dentro del grupo.
+   * @param addedByUserId - UUID del usuario que genero la accion (el mismo userId en este caso).
+   * @returns La fila del miembro creado.
+   */
+  async addRealMember(
+    groupId: string,
+    userId: string,
+    displayName: string,
+    addedByUserId: string,
+  ): Promise<GroupMemberRow> {
+    const [member] = await this.db
+      .insert(groupMembers)
+      .values({ groupId, userId, displayName, addedByUserId })
+      .returning();
+    return member;
+  }
+
+  /**
+   * Marca una invitacion como consumida (consumedAt = now, consumedBy = userId).
+   * @param inviteId - UUID de la invitacion.
+   * @param consumedBy - UUID del usuario que la consumio.
+   */
+  async consumeInvite(inviteId: string, consumedBy: string): Promise<void> {
+    await this.db
+      .update(groupInvites)
+      .set({ consumedAt: new Date(), consumedBy })
+      .where(eq(groupInvites.id, inviteId));
+  }
+
+  /**
+   * Resuelve el displayName de un usuario desde su fullName o email como respaldo.
+   * @param userId - UUID del usuario.
+   * @param emailFallback - Email del usuario como respaldo si fullName esta vacio.
+   * @returns El nombre visible del usuario.
+   */
+  async resolveDisplayName(userId: string, emailFallback: string): Promise<string> {
+    const [userRow] = await this.db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return userRow?.fullName?.trim() || emailFallback;
   }
 }

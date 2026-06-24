@@ -26,6 +26,9 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { MemberResponseDto } from './dto/member-response.dto';
+import { CreateInviteDto } from './dto/create-invite.dto';
+import { JoinGroupDto } from './dto/join-group.dto';
+import { InviteResponseDto } from './dto/invite-response.dto';
 
 /**
  * CRUD de grupos de gasto compartido. Todas las rutas exigen autenticacion.
@@ -186,5 +189,48 @@ export class GroupsController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
   ): Promise<void> {
     return this.groupsService.removeMember(id, userId, memberId);
+  }
+
+  /**
+   * Genera un codigo de invitacion para un grupo. Solo miembros reales activos pueden generar.
+   * Si se incluye memberId, el codigo queda ligado a ese fantasma para reclamarlo.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param dto - DTO con memberId opcional.
+   * @returns La invitacion generada con su codigo.
+   */
+  @Post(':id/invites')
+  @ApiOperation({ summary: 'Generar un codigo de invitacion para el grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 201, description: 'Invitacion creada.', type: InviteResponseDto })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  @ApiResponse({ status: 404, description: 'Miembro fantasma no encontrado en el grupo.' })
+  createInvite(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateInviteDto,
+  ): Promise<InviteResponseDto> {
+    return this.groupsService.createInvite(id, userId, dto);
+  }
+
+  /**
+   * El usuario se une a un grupo usando un codigo de invitacion.
+   * Si el codigo esta ligado a un fantasma, lo reclama; si no, crea un miembro real nuevo.
+   * @param userId - UUID del usuario autenticado.
+   * @param email - Email del usuario, usado como respaldo para el displayName.
+   * @param dto - DTO con el codigo de invitacion.
+   * @returns El grupo al que se unio el usuario.
+   */
+  @Post('join')
+  @ApiOperation({ summary: 'Unirse a un grupo usando un codigo de invitacion' })
+  @ApiResponse({ status: 201, description: 'Unido al grupo exitosamente.', type: GroupResponseDto })
+  @ApiResponse({ status: 404, description: 'Codigo de invitacion no encontrado.' })
+  @ApiResponse({ status: 409, description: 'Codigo vencido, ya consumido, o ya eres miembro del grupo.' })
+  joinGroup(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('email') email: string,
+    @Body() dto: JoinGroupDto,
+  ): Promise<GroupResponseDto> {
+    return this.groupsService.joinByCode(userId, dto.code, email);
   }
 }
