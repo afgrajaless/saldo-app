@@ -10,7 +10,7 @@ export interface MemberShare {
  * Reparte un monto en partes iguales entre los participantes. El residuo de
  * centavos se asigna de forma determinista a los primeros para que la suma de
  * las partes sea exactamente el total.
- * @param amount - Monto total del gasto.
+ * @param amount - Monto total del gasto; debe ser mayor que cero.
  * @param memberIds - Ids de los participantes (al menos uno).
  * @returns Una parte por participante; la suma es igual a `amount`.
  */
@@ -18,25 +18,34 @@ export function splitEqual(amount: number, memberIds: string[]): MemberShare[] {
   if (memberIds.length === 0) {
     throw new Error('Se requiere al menos un participante.');
   }
-  const n = memberIds.length;
-  const base = roundMoney(Math.floor((amount * 100) / n) / 100);
-  const shares = memberIds.map((memberId) => ({ memberId, shareAmount: base }));
-  // Residuo en centavos a repartir de a uno desde el primer participante.
-  let remainder = Math.round((amount - base * n) * 100);
-  for (let i = 0; remainder > 0; i = (i + 1) % n, remainder--) {
-    shares[i].shareAmount = roundMoney(shares[i].shareAmount + 0.01);
+  if (amount <= 0) {
+    throw new Error('El monto total debe ser mayor que cero.');
   }
+  const n = memberIds.length;
+  // Convierte a centavos enteros para evitar drift de punto flotante.
+  const totalCents = Math.round(amount * 100);
+  const baseCents = Math.floor(totalCents / n);
+  const remainderCents = totalCents % n;
+
+  const shares = memberIds.map((memberId, index) => {
+    const centavos = baseCents + (index < remainderCents ? 1 : 0);
+    return { memberId, shareAmount: centavos / 100 };
+  });
+
   return shares;
 }
 
 /**
  * Valida un reparto exacto: la suma de las partes debe ser el total y cada
- * parte debe ser positiva.
- * @param amount - Monto total del gasto.
+ * parte debe ser positiva. El monto total debe ser mayor que cero.
+ * @param amount - Monto total del gasto; debe ser mayor que cero.
  * @param shares - Partes por participante.
- * @throws Error si la suma no coincide o hay montos no positivos.
+ * @throws Error si la suma no coincide, hay montos no positivos o monto total <= 0.
  */
 export function validateExact(amount: number, shares: MemberShare[]): void {
+  if (amount <= 0) {
+    throw new Error('El monto total debe ser mayor que cero.');
+  }
   if (shares.length === 0) {
     throw new Error('Se requiere al menos un participante.');
   }

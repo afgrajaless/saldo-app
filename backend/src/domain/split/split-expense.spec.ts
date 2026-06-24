@@ -23,6 +23,14 @@ describe('splitEqual', () => {
   it('rechaza lista vacia de participantes', () => {
     expect(() => splitEqual(100, [])).toThrow();
   });
+
+  it('rechaza monto cero', () => {
+    expect(() => splitEqual(0, ['a'])).toThrow('El monto total debe ser mayor que cero.');
+  });
+
+  it('rechaza monto negativo', () => {
+    expect(() => splitEqual(-100, ['a', 'b'])).toThrow('El monto total debe ser mayor que cero.');
+  });
 });
 
 describe('validateExact', () => {
@@ -51,5 +59,17 @@ describe('validateExact', () => {
         { memberId: 'b', shareAmount: 0 },
       ]),
     ).toThrow();
+  });
+
+  it('rechaza monto total cero', () => {
+    expect(() =>
+      validateExact(0, [
+        { memberId: 'a', shareAmount: 0 },
+      ]),
+    ).toThrow('El monto total debe ser mayor que cero.');
+  });
+
+  it('rechaza lista vacia de participantes', () => {
+    expect(() => validateExact(100, [])).toThrow('Se requiere al menos un participante.');
   });
 });
