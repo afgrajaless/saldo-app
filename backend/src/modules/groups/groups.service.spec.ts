@@ -67,6 +67,10 @@ describe('GroupsService.removeMember', () => {
   it('llama al repositorio con los parametros correctos cuando el saldo es 0', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
+    // listMembers debe incluir el miembro objetivo para que pase la validacion de existencia.
+    repo.listMembers.mockResolvedValue([
+      { id: 'mem1', groupId: 'grp', userId: 'u2', displayName: 'Beta', removedAt: null } as never,
+    ]);
     repo.removeMember.mockResolvedValue(undefined);
     // neto = 0: el miembro esta saldado, la operacion debe pasar
     const service = new GroupsService(repo, makeBalanceSvc(0));
@@ -77,6 +81,10 @@ describe('GroupsService.removeMember', () => {
   it('lanza 409 si el miembro tiene saldo pendiente distinto de 0', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
+    // listMembers debe incluir el miembro objetivo para que el guard de saldo se ejecute.
+    repo.listMembers.mockResolvedValue([
+      { id: 'mem1', groupId: 'grp', userId: 'u2', displayName: 'Beta', removedAt: null } as never,
+    ]);
     // neto = -30000: el miembro debe dinero al grupo
     const service = new GroupsService(repo, makeBalanceSvc(-30000));
     await expect(service.removeMember('grp', 'u1', 'mem1')).rejects.toBeInstanceOf(

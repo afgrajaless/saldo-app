@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { groups, groupMembers, groupInvites, users } from '../../db/schema';
 
@@ -103,8 +103,9 @@ export class GroupsRepository {
 
   /**
    * Lista todos los grupos en los que el usuario es miembro real activo.
+   * Ordena de mas reciente a mas antiguo y limita a 200 resultados.
    * @param userId - UUID del usuario.
-   * @returns Lista de grupos.
+   * @returns Lista de grupos ordenada por fecha de creacion descendente.
    */
   async findGroupsForUser(userId: string): Promise<GroupRow[]> {
     return this.db
@@ -118,6 +119,8 @@ export class GroupsRepository {
           isNull(groupMembers.removedAt),
         ),
       )
+      .orderBy(desc(groups.createdAt))
+      .limit(200)
       .then((rows) => rows.map((r) => r.group));
   }
 
@@ -171,9 +174,10 @@ export class GroupsRepository {
   }
 
   /**
-   * Lista los miembros activos (vivos) de un grupo.
+   * Lista los miembros activos (vivos) de un grupo con orden determinista.
+   * El orden estable es necesario para que deriveDebts produzca resultados reproducibles.
    * @param groupId - UUID del grupo.
-   * @returns Lista de miembros activos (reales y fantasmas).
+   * @returns Lista de miembros activos ordenada por joinedAt y luego por id.
    */
   async listMembers(groupId: string): Promise<GroupMemberRow[]> {
     return this.db
@@ -184,7 +188,8 @@ export class GroupsRepository {
           eq(groupMembers.groupId, groupId),
           isNull(groupMembers.removedAt),
         ),
-      );
+      )
+      .orderBy(asc(groupMembers.joinedAt), asc(groupMembers.id));
   }
 
   /**

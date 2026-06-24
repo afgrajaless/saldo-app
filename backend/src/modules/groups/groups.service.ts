@@ -140,16 +140,26 @@ export class GroupsService {
 
   /**
    * Quita un miembro del grupo (soft delete). Solo miembros reales activos pueden operar.
+   * Primero valida que el miembro objetivo pertenezca al grupo, luego comprueba el saldo.
    * Bloquea la operacion si el miembro tiene saldo pendiente distinto de 0.
    * @param groupId - UUID del grupo.
    * @param userId - UUID del usuario autenticado que realiza la accion.
    * @param memberId - UUID del miembro a quitar.
    * @throws ForbiddenException si el usuario no es miembro activo del grupo.
-   * @throws NotFoundException si el miembro no existe en el grupo.
+   * @throws NotFoundException si el miembro no existe en el grupo o ya fue removido.
    * @throws ConflictException si el miembro tiene saldo pendiente (neto != 0).
    */
   async removeMember(groupId: string, userId: string, memberId: string): Promise<void> {
     await this.assertActiveMember(groupId, userId);
+
+    // Valida primero que el miembro objetivo pertenezca al grupo antes de calcular saldo.
+    // Sin esta validacion un memberId ajeno devuelve net 0 y pasa el guard de saldo,
+    // haciendo que el repositorio sea el unico que detecta el error (mas tarde).
+    const members = await this.groupsRepository.listMembers(groupId);
+    const targetMember = members.find((m) => m.id === memberId);
+    if (!targetMember) {
+      throw new NotFoundException('Miembro no encontrado en el grupo.');
+    }
 
     // Guard de saldo: no se puede quitar a un miembro con deudas pendientes.
     const net = await this.balanceService.getMemberNet(groupId, memberId);

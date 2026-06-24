@@ -31,6 +31,7 @@ import { JoinGroupDto } from './dto/join-group.dto';
 import { InviteResponseDto } from './dto/invite-response.dto';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { BalanceService } from './balance.service';
 import { BalanceResponseDto } from './dto/balance-response.dto';
@@ -333,7 +334,7 @@ export class GroupsController {
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('expenseId', ParseUUIDPipe) expenseId: string,
-    @Body() dto: Partial<CreateExpenseDto>,
+    @Body() dto: UpdateExpenseDto,
   ): Promise<ExpenseResponseDto> {
     return this.expensesService.updateExpense(id, userId, expenseId, dto);
   }

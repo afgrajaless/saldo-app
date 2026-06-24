@@ -3,6 +3,7 @@ import { splitEqual, validateExact, MemberShare } from '../../domain/split/split
 import { ExpensesRepository, ExpenseUpdateFields, SharedExpenseRow, SharedExpenseShareRow } from './expenses.repository';
 import { GroupsService } from './groups.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseResponseDto, ShareResponseDto } from './dto/expense-response.dto';
 
 /**
@@ -15,6 +16,19 @@ export class ExpensesService {
     private readonly expensesRepository: ExpensesRepository,
     private readonly groupsService: GroupsService,
   ) {}
+
+  /**
+   * Valida que el pagador indicado sea un miembro activo del grupo.
+   * Centraliza la verificacion para ser reutilizada en create y update.
+   * @param paidByMemberId - UUID del miembro que pago el gasto.
+   * @param memberIds - IDs de todos los miembros activos del grupo.
+   * @throws BadRequestException si el pagador no pertenece al grupo.
+   */
+  private assertPaidByMemberBelongsToGroup(paidByMemberId: string, memberIds: string[]): void {
+    if (!memberIds.includes(paidByMemberId)) {
+      throw new BadRequestException('El miembro pagador no pertenece al grupo o fue removido.');
+    }
+  }
 
   /**
    * Crea un gasto compartido en el grupo. Valida que el usuario sea miembro activo,
@@ -39,9 +53,7 @@ export class ExpensesService {
     const memberIds = members.map((m) => m.id);
 
     // Valida que el pagador sea miembro activo del grupo.
-    if (!memberIds.includes(dto.paidByMemberId)) {
-      throw new BadRequestException('El miembro pagador no pertenece al grupo o fue removido.');
-    }
+    this.assertPaidByMemberBelongsToGroup(dto.paidByMemberId, memberIds);
 
     // Calcula las partes segun el metodo de reparto seleccionado.
     const shares = this.resolveShares(dto, memberIds);
@@ -96,21 +108,21 @@ export class ExpensesService {
 
   /**
    * Actualiza los campos editables de un gasto. Recalcula las partes si se cambia
-   * el monto o el metodo de reparto.
+   * el monto o el metodo de reparto. Revalida el pagador si se incluye en el DTO.
    * @param groupId - UUID del grupo.
    * @param userId - UUID del usuario autenticado.
    * @param expenseId - UUID del gasto a actualizar.
-   * @param dto - Campos a actualizar.
+   * @param dto - Campos a actualizar (PartialType de CreateExpenseDto).
    * @returns El gasto actualizado con sus partes.
    * @throws ForbiddenException si el usuario no es miembro activo.
    * @throws NotFoundException si el gasto no existe.
-   * @throws BadRequestException si los datos de reparto son invalidos.
+   * @throws BadRequestException si el pagador o los participantes no pertenecen al grupo.
    */
   async updateExpense(
     groupId: string,
     userId: string,
     expenseId: string,
-    dto: Partial<CreateExpenseDto>,
+    dto: UpdateExpenseDto,
   ): Promise<ExpenseResponseDto> {
     await this.groupsService.assertActiveMember(groupId, userId);
 
@@ -119,11 +131,18 @@ export class ExpensesService {
       throw new NotFoundException('Gasto no encontrado en el grupo.');
     }
 
-    // Solo recalcula las partes si se cambia el monto o el metodo de reparto.
+    // Obtiene los miembros activos una sola vez para validar pagador y participantes.
+    const members = await this.groupsService.listMembers(groupId, userId);
+    const memberIds = members.map((m) => m.id);
+
+    // Revalida el pagador si se incluye en el DTO para evitar corrupcion de saldos.
+    if (dto.paidByMemberId !== undefined) {
+      this.assertPaidByMemberBelongsToGroup(dto.paidByMemberId, memberIds);
+    }
+
+    // Solo recalcula las partes si se cambia el monto, metodo de reparto o participantes.
     let newShares: MemberShare[] | undefined;
     if (dto.amount !== undefined || dto.splitMethod !== undefined || dto.participantMemberIds || dto.exactShares) {
-      const members = await this.groupsService.listMembers(groupId, userId);
-      const memberIds = members.map((m) => m.id);
       const effectiveDto: CreateExpenseDto = {
         paidByMemberId: dto.paidByMemberId ?? existing.paidByMemberId,
         amount: dto.amount ?? parseFloat(existing.amount),

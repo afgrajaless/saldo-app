@@ -5,6 +5,7 @@ import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
 import { BalanceService } from './balance.service';
 import { MemberShare } from '../../domain/split/split-expense';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 type ExpensesRepo = jest.Mocked<ExpensesRepository>;
 type GroupsRepo = jest.Mocked<GroupsRepository>;
@@ -190,5 +191,104 @@ describe('ExpensesService.createExpense', () => {
     await expect(service.createExpense('grp', 'u1', dto)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+describe('ExpensesService.updateExpense', () => {
+  /** Construye un gasto existente base para los tests de update. */
+  function makeExistingExpense() {
+    return {
+      id: 'exp1',
+      groupId: 'grp',
+      paidByMemberId: 'a',
+      description: null,
+      amount: '90000.00',
+      occurredOn: '2026-06-10',
+      splitMethod: 'equal',
+      createdByUserId: 'u1',
+      createdAt: new Date(),
+      deletedAt: null,
+    };
+  }
+
+  it('lanza 400 si paidByMemberId en update no pertenece al grupo', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // u1 es miembro activo del grupo
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    // El gasto existe en el grupo
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeExistingExpense());
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    // 'extranjero' no es miembro del grupo (a, b, c)
+    const dto: UpdateExpenseDto = { paidByMemberId: 'extranjero' };
+
+    await expect(service.updateExpense('grp', 'u1', 'exp1', dto)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('lanza 400 si participantMemberIds en update contiene un miembro ajeno', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeExistingExpense());
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    // 'externo' no existe en los miembros del grupo (a, b, c)
+    const dto: UpdateExpenseDto = {
+      splitMethod: 'equal',
+      participantMemberIds: ['a', 'externo'],
+    };
+
+    await expect(service.updateExpense('grp', 'u1', 'exp1', dto)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('actualiza correctamente cuando paidByMemberId es valido', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    const updatedExpense = { ...makeExistingExpense(), paidByMemberId: 'b' };
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeExistingExpense());
+    expensesRepo.updateExpense = jest.fn().mockResolvedValue(updatedExpense);
+    expensesRepo.findExpenseShares = jest.fn().mockResolvedValue([]);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    // 'b' si es miembro del grupo
+    const dto: UpdateExpenseDto = { paidByMemberId: 'b' };
+
+    await expect(service.updateExpense('grp', 'u1', 'exp1', dto)).resolves.toBeDefined();
   });
 });
