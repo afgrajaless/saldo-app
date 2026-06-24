@@ -34,6 +34,9 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { BalanceService } from './balance.service';
 import { BalanceResponseDto } from './dto/balance-response.dto';
+import { SettlementsService } from './settlements.service';
+import { CreateSettlementDto } from './dto/create-settlement.dto';
+import { SettlementResponseDto } from './dto/settlement-response.dto';
 
 /**
  * CRUD de grupos de gasto compartido. Todas las rutas exigen autenticacion.
@@ -48,6 +51,7 @@ export class GroupsController {
     private readonly groupsService: GroupsService,
     private readonly expensesService: ExpensesService,
     private readonly balanceService: BalanceService,
+    private readonly settlementsService: SettlementsService,
   ) {}
 
   /**
@@ -354,5 +358,50 @@ export class GroupsController {
     @Param('expenseId', ParseUUIDPipe) expenseId: string,
   ): Promise<void> {
     return this.expensesService.softDeleteExpense(id, userId, expenseId);
+  }
+
+  // ──────────────────────────── Liquidaciones de deuda ─────────────────────────
+
+  /**
+   * Registra la liquidacion de una deuda entre dos miembros del grupo.
+   * Si se indica recordPersonal, crea ademas un movimiento en las finanzas personales
+   * del usuario (egreso si es el pagador, ingreso si es el receptor).
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param dto - Datos de la liquidacion.
+   * @returns La liquidacion creada.
+   */
+  @Post(':id/settlements')
+  @ApiOperation({ summary: 'Registrar la liquidacion de una deuda entre miembros del grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 201, description: 'Liquidacion registrada.', type: SettlementResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos invalidos o miembros iguales.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  @ApiResponse({ status: 404, description: 'Miembro, cuenta o categoria no encontrados.' })
+  createSettlement(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateSettlementDto,
+  ): Promise<SettlementResponseDto> {
+    return this.settlementsService.createSettlement(id, userId, dto);
+  }
+
+  /**
+   * Lista las liquidaciones registradas en el grupo.
+   * Solo miembros activos pueden consultar.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @returns Lista de liquidaciones del grupo.
+   */
+  @Get(':id/settlements')
+  @ApiOperation({ summary: 'Listar las liquidaciones de deuda del grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Lista de liquidaciones.', type: [SettlementResponseDto] })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  listSettlements(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SettlementResponseDto[]> {
+    return this.settlementsService.listSettlements(id, userId);
   }
 }
