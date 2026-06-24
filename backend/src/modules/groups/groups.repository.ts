@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { groups, groupMembers, users } from '../../db/schema';
@@ -117,6 +117,67 @@ export class GroupsRepository {
         ),
       )
       .then((rows) => rows.map((r) => r.group));
+  }
+
+  /**
+   * Inserta un miembro fantasma (sin cuenta de usuario) en el grupo.
+   * @param groupId - UUID del grupo.
+   * @param addedBy - UUID del usuario real que lo agrega.
+   * @param displayName - Nombre visible del fantasma dentro del grupo.
+   * @returns La fila del miembro creado.
+   */
+  async addGhostMember(groupId: string, addedBy: string, displayName: string): Promise<GroupMemberRow> {
+    const [member] = await this.db
+      .insert(groupMembers)
+      .values({ groupId, userId: null, displayName, addedByUserId: addedBy })
+      .returning();
+    return member;
+  }
+
+  /**
+   * Soft-delete de un miembro del grupo (marca removedAt = now).
+   * Valida que el miembro pertenezca al grupo antes de eliminarlo.
+   * @param groupId - UUID del grupo.
+   * @param memberId - UUID del miembro a quitar.
+   * @throws NotFoundException si el miembro no existe en el grupo o ya fue removido.
+   */
+  async removeMember(groupId: string, memberId: string): Promise<void> {
+    // TODO(Task 8): impedir quitar miembro con saldo != 0 una vez exista el calculo de saldo
+    const [existing] = await this.db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(
+        and(
+          eq(groupMembers.id, memberId),
+          eq(groupMembers.groupId, groupId),
+          isNull(groupMembers.removedAt),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      throw new NotFoundException('Miembro no encontrado en el grupo.');
+    }
+    await this.db
+      .update(groupMembers)
+      .set({ removedAt: new Date() })
+      .where(eq(groupMembers.id, memberId));
+  }
+
+  /**
+   * Lista los miembros activos (vivos) de un grupo.
+   * @param groupId - UUID del grupo.
+   * @returns Lista de miembros activos (reales y fantasmas).
+   */
+  async listMembers(groupId: string): Promise<GroupMemberRow[]> {
+    return this.db
+      .select()
+      .from(groupMembers)
+      .where(
+        and(
+          eq(groupMembers.groupId, groupId),
+          isNull(groupMembers.removedAt),
+        ),
+      );
   }
 
   /**

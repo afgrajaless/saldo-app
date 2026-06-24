@@ -3,6 +3,8 @@ import { GroupMemberRow, GroupRow, GroupUpdateFields, GroupsRepository } from '.
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { AddMemberDto } from './dto/add-member.dto';
+import { MemberResponseDto } from './dto/member-response.dto';
 
 /**
  * Servicio de grupos de gasto compartido. Todo acceso a un grupo se valida
@@ -102,6 +104,62 @@ export class GroupsService {
   async leave(groupId: string, userId: string): Promise<void> {
     await this.assertActiveMember(groupId, userId);
     await this.groupsRepository.leaveGroup(groupId, userId);
+  }
+
+  /**
+   * Agrega un miembro fantasma al grupo. Solo miembros reales activos pueden agregar fantasmas.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado que realiza la accion.
+   * @param dto - Datos del fantasma (displayName).
+   * @returns El miembro creado como DTO de respuesta.
+   * @throws ForbiddenException si el usuario no es miembro activo del grupo.
+   */
+  async addMember(groupId: string, userId: string, dto: AddMemberDto): Promise<MemberResponseDto> {
+    await this.assertActiveMember(groupId, userId);
+    const member = await this.groupsRepository.addGhostMember(groupId, userId, dto.displayName);
+    return this.toMemberResponse(member);
+  }
+
+  /**
+   * Quita un miembro del grupo (soft delete). Solo miembros reales activos pueden operar.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado que realiza la accion.
+   * @param memberId - UUID del miembro a quitar.
+   * @throws ForbiddenException si el usuario no es miembro activo del grupo.
+   * @throws NotFoundException si el miembro no existe en el grupo.
+   */
+  async removeMember(groupId: string, userId: string, memberId: string): Promise<void> {
+    await this.assertActiveMember(groupId, userId);
+    await this.groupsRepository.removeMember(groupId, memberId);
+  }
+
+  /**
+   * Lista los miembros activos del grupo. Solo miembros reales activos pueden listar.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado.
+   * @returns Lista de miembros activos (reales y fantasmas).
+   * @throws ForbiddenException si el usuario no es miembro activo del grupo.
+   */
+  async listMembers(groupId: string, userId: string): Promise<MemberResponseDto[]> {
+    await this.assertActiveMember(groupId, userId);
+    const rows = await this.groupsRepository.listMembers(groupId);
+    return rows.map((m) => this.toMemberResponse(m));
+  }
+
+  /**
+   * Mapea una fila de miembro a su DTO de respuesta.
+   * @param member - Fila del miembro.
+   * @returns El DTO de respuesta.
+   */
+  private toMemberResponse(member: GroupMemberRow): MemberResponseDto {
+    return {
+      id: member.id,
+      groupId: member.groupId,
+      userId: member.userId,
+      displayName: member.displayName,
+      isGhost: member.userId === null,
+      joinedAt: member.joinedAt,
+    };
   }
 
   /**
