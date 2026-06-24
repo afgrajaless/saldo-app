@@ -11,6 +11,7 @@ import '../widgets/balance_card.dart';
 import '../widgets/expense_tile.dart';
 import 'add_member_screen.dart';
 import 'new_expense_screen.dart';
+import 'settle_screen.dart';
 
 /// Pantalla de detalle de un grupo compartido.
 /// Muestra dos pestañas: Saldos (netos + deudas entre miembros)
@@ -164,9 +165,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             ? FloatingActionButton.extended(
                 heroTag: 'fab-settle',
                 onPressed: () {
-                  // TODO(Task 8): navegar a la pantalla de saldar
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Proximamente: saldar deuda')),
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SettleScreen(groupId: widget.group.id),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.handshake_outlined),
