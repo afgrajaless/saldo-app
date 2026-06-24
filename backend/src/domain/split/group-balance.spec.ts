@@ -64,4 +64,30 @@ describe('deriveDebts', () => {
       { memberId: 'b', net: 0 },
     ])).toEqual([]);
   });
+
+  it('multi-acreedor/multi-deudor: empareja deterministicamente', () => {
+    const debts = deriveDebts([
+      { memberId: 'a', net: 50 },
+      { memberId: 'b', net: 50 },
+      { memberId: 'c', net: -60 },
+      { memberId: 'd', net: -40 },
+    ]);
+    // c debe 60: paga 50 a a, luego 10 a b.
+    // d debe 40: paga 40 a b.
+    expect(debts).toEqual([
+      { fromMemberId: 'c', toMemberId: 'a', amount: 50 },
+      { fromMemberId: 'c', toMemberId: 'b', amount: 10 },
+      { fromMemberId: 'd', toMemberId: 'b', amount: 40 },
+    ]);
+    // Verificar suma de montos: suma de pagos por deudor = su deuda.
+    const cPayments = debts.filter((d) => d.fromMemberId === 'c').reduce((s, d) => s + d.amount, 0);
+    const dPayments = debts.filter((d) => d.fromMemberId === 'd').reduce((s, d) => s + d.amount, 0);
+    expect(cPayments).toBe(60);
+    expect(dPayments).toBe(40);
+    // Verificar suma de montos: suma recibida por acreedor = su acreencia.
+    const aReceived = debts.filter((d) => d.toMemberId === 'a').reduce((s, d) => s + d.amount, 0);
+    const bReceived = debts.filter((d) => d.toMemberId === 'b').reduce((s, d) => s + d.amount, 0);
+    expect(aReceived).toBe(50);
+    expect(bReceived).toBe(50);
+  });
 });

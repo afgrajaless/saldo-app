@@ -28,7 +28,8 @@ export interface Debt {
 
 /**
  * Calcula el neto de cada miembro a partir de gastos y saldados.
- * neto = pagado − lo que le tocaba + recibido (settlements) − pagado (settlements).
+ * neto = pagado − lo que le tocaba. Un settlement reduce el neto del receptor (cobra su acreencia)
+ * e incrementa el del pagador (salda su deuda).
  * @param expenses - Gastos vivos del grupo con su reparto.
  * @param settlements - Pagos de saldo entre miembros.
  * @param memberIds - Todos los miembros del grupo.
@@ -80,6 +81,7 @@ export function deriveDebts(balances: MemberBalance[]): Debt[] {
     creditors[j].amount = roundMoney(creditors[j].amount - pay);
     if (debtors[i].amount === 0) i++;
     if (creditors[j].amount === 0) j++;
+    if (pay === 0) break;
   }
   return debts;
 }
