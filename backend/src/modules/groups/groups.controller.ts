@@ -29,6 +29,9 @@ import { MemberResponseDto } from './dto/member-response.dto';
 import { CreateInviteDto } from './dto/create-invite.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { InviteResponseDto } from './dto/invite-response.dto';
+import { ExpensesService } from './expenses.service';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseResponseDto } from './dto/expense-response.dto';
 
 /**
  * CRUD de grupos de gasto compartido. Todas las rutas exigen autenticacion.
@@ -39,7 +42,10 @@ import { InviteResponseDto } from './dto/invite-response.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(
+    private readonly groupsService: GroupsService,
+    private readonly expensesService: ExpensesService,
+  ) {}
 
   /**
    * Crea un grupo nuevo y agrega al usuario como primer miembro.
@@ -233,5 +239,95 @@ export class GroupsController {
     @Body() dto: JoinGroupDto,
   ): Promise<GroupResponseDto> {
     return this.groupsService.joinByCode(userId, dto.code, email);
+  }
+
+  // ────────────────────────────── Gastos compartidos ──────────────────────────
+
+  /**
+   * Registra un gasto compartido en el grupo. Calcula las partes segun el metodo
+   * de reparto indicado (igual o exacto). Solo miembros activos pueden registrar gastos.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param dto - Datos del gasto a crear.
+   * @returns El gasto creado con sus partes.
+   */
+  @Post(':id/expenses')
+  @ApiOperation({ summary: 'Registrar un gasto compartido en el grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 201, description: 'Gasto registrado.', type: ExpenseResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos invalidos o reparto incorrecto.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  createExpense(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateExpenseDto,
+  ): Promise<ExpenseResponseDto> {
+    return this.expensesService.createExpense(id, userId, dto);
+  }
+
+  /**
+   * Lista los gastos activos de un grupo. Solo miembros activos pueden listar.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @returns Lista de gastos activos del grupo con sus partes.
+   */
+  @Get(':id/expenses')
+  @ApiOperation({ summary: 'Listar los gastos compartidos del grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Lista de gastos.', type: [ExpenseResponseDto] })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  listExpenses(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ExpenseResponseDto[]> {
+    return this.expensesService.listExpenses(id, userId);
+  }
+
+  /**
+   * Actualiza los campos editables de un gasto compartido.
+   * Si se cambia el monto o el metodo de reparto, las partes se recalculan.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param expenseId - UUID del gasto.
+   * @param dto - Campos a actualizar.
+   * @returns El gasto actualizado con sus partes.
+   */
+  @Patch(':id/expenses/:expenseId')
+  @ApiOperation({ summary: 'Editar un gasto compartido del grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiParam({ name: 'expenseId', description: 'UUID del gasto', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Gasto actualizado.', type: ExpenseResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos invalidos o reparto incorrecto.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  @ApiResponse({ status: 404, description: 'Gasto no encontrado.' })
+  updateExpense(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+    @Body() dto: Partial<CreateExpenseDto>,
+  ): Promise<ExpenseResponseDto> {
+    return this.expensesService.updateExpense(id, userId, expenseId, dto);
+  }
+
+  /**
+   * Elimina un gasto compartido (soft delete). Solo miembros activos pueden eliminar.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param expenseId - UUID del gasto a eliminar.
+   */
+  @Delete(':id/expenses/:expenseId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un gasto compartido del grupo' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiParam({ name: 'expenseId', description: 'UUID del gasto', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Gasto eliminado.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  @ApiResponse({ status: 404, description: 'Gasto no encontrado.' })
+  deleteExpense(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+  ): Promise<void> {
+    return this.expensesService.softDeleteExpense(id, userId, expenseId);
   }
 }
