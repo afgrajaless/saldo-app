@@ -32,6 +32,8 @@ import { InviteResponseDto } from './dto/invite-response.dto';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { BalanceService } from './balance.service';
+import { BalanceResponseDto } from './dto/balance-response.dto';
 
 /**
  * CRUD de grupos de gasto compartido. Todas las rutas exigen autenticacion.
@@ -45,6 +47,7 @@ export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
     private readonly expensesService: ExpensesService,
+    private readonly balanceService: BalanceService,
   ) {}
 
   /**
@@ -239,6 +242,27 @@ export class GroupsController {
     @Body() dto: JoinGroupDto,
   ): Promise<GroupResponseDto> {
     return this.groupsService.joinByCode(userId, dto.code, email);
+  }
+
+  // ────────────────────────────── Saldo del grupo ──────────────────────────────
+
+  /**
+   * Calcula el saldo neto de cada miembro y las deudas pairwise del grupo.
+   * Solo miembros reales activos pueden consultar el saldo.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @returns DTO con netos por miembro y lista de deudas.
+   */
+  @Get(':id/balance')
+  @ApiOperation({ summary: 'Consultar el saldo del grupo: netos por miembro y deudas pairwise' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Saldo calculado correctamente.', type: BalanceResponseDto })
+  @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
+  getBalance(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BalanceResponseDto> {
+    return this.balanceService.getBalance(id, userId);
   }
 
   // ────────────────────────────── Gastos compartidos ──────────────────────────

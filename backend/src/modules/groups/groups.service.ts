@@ -1,6 +1,8 @@
 import {
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,6 +21,7 @@ import { MemberResponseDto } from './dto/member-response.dto';
 import { CreateInviteDto } from './dto/create-invite.dto';
 import { InviteResponseDto } from './dto/invite-response.dto';
 import { generateInviteCode } from './invite-code';
+import { BalanceService } from './balance.service';
 
 /**
  * Servicio de grupos de gasto compartido. Todo acceso a un grupo se valida
@@ -26,7 +29,11 @@ import { generateInviteCode } from './invite-code';
  */
 @Injectable()
 export class GroupsService {
-  constructor(private readonly groupsRepository: GroupsRepository) {}
+  constructor(
+    readonly groupsRepository: GroupsRepository,
+    @Inject(forwardRef(() => BalanceService))
+    private readonly balanceService: BalanceService,
+  ) {}
 
   /**
    * Verifica que el usuario sea miembro real activo del grupo.
@@ -136,14 +143,23 @@ export class GroupsService {
 
   /**
    * Quita un miembro del grupo (soft delete). Solo miembros reales activos pueden operar.
+   * Bloquea la operacion si el miembro tiene saldo pendiente distinto de 0.
    * @param groupId - UUID del grupo.
    * @param userId - UUID del usuario autenticado que realiza la accion.
    * @param memberId - UUID del miembro a quitar.
    * @throws ForbiddenException si el usuario no es miembro activo del grupo.
    * @throws NotFoundException si el miembro no existe en el grupo.
+   * @throws ConflictException si el miembro tiene saldo pendiente (neto != 0).
    */
   async removeMember(groupId: string, userId: string, memberId: string): Promise<void> {
     await this.assertActiveMember(groupId, userId);
+
+    // Guard de saldo: no se puede quitar a un miembro con deudas pendientes.
+    const net = await this.balanceService.getMemberNet(groupId, memberId);
+    if (net !== 0) {
+      throw new ConflictException('No puedes quitar un miembro con saldo pendiente.');
+    }
+
     await this.groupsRepository.removeMember(groupId, memberId);
   }
 

@@ -1,8 +1,10 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
+import { BalanceService } from './balance.service';
 
 type Repo = jest.Mocked<GroupsRepository>;
+type BalanceSvc = jest.Mocked<BalanceService>;
 
 function makeRepo(): Repo {
   return {
@@ -23,12 +25,20 @@ function makeRepo(): Repo {
   } as unknown as Repo;
 }
 
+/** Mock de BalanceService con neto 0 por defecto (miembro saldado). */
+function makeBalanceSvc(net = 0): BalanceSvc {
+  return {
+    getMemberNet: jest.fn().mockResolvedValue(net),
+    getBalance: jest.fn(),
+  } as unknown as BalanceSvc;
+}
+
 describe('GroupsService.addMember', () => {
   it('agrega un miembro fantasma (userId null)', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
     repo.addGhostMember = jest.fn().mockResolvedValue({ id: 'g1', userId: null, displayName: 'Juan' });
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     const member = await service.addMember('grp', 'u1', { displayName: 'Juan' });
     expect(member.userId).toBeNull();
     expect(repo.addGhostMember).toHaveBeenCalledWith('grp', 'u1', 'Juan');
@@ -37,7 +47,7 @@ describe('GroupsService.addMember', () => {
   it('lanza 403 si el usuario que agrega no es miembro activo', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue(undefined);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.addMember('grp', 'u1', { displayName: 'Juan' })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
@@ -48,19 +58,32 @@ describe('GroupsService.removeMember', () => {
   it('lanza 403 si el usuario no es miembro activo', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue(undefined);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.removeMember('grp', 'u1', 'mem1')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
-  it('llama al repositorio con los parametros correctos', async () => {
+  it('llama al repositorio con los parametros correctos cuando el saldo es 0', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
     repo.removeMember.mockResolvedValue(undefined);
-    const service = new GroupsService(repo);
+    // neto = 0: el miembro esta saldado, la operacion debe pasar
+    const service = new GroupsService(repo, makeBalanceSvc(0));
     await service.removeMember('grp', 'u1', 'mem1');
     expect(repo.removeMember).toHaveBeenCalledWith('grp', 'mem1');
+  });
+
+  it('lanza 409 si el miembro tiene saldo pendiente distinto de 0', async () => {
+    const repo = makeRepo();
+    repo.findActiveMember.mockResolvedValue({ id: 'm1' } as never);
+    // neto = -30000: el miembro debe dinero al grupo
+    const service = new GroupsService(repo, makeBalanceSvc(-30000));
+    await expect(service.removeMember('grp', 'u1', 'mem1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    // El repositorio NO debe haber sido llamado
+    expect(repo.removeMember).not.toHaveBeenCalled();
   });
 });
 
@@ -68,7 +91,7 @@ describe('GroupsService.listMembers', () => {
   it('lanza 403 si el usuario no es miembro activo', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue(undefined);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.listMembers('grp', 'u1')).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -78,7 +101,7 @@ describe('GroupsService.listMembers', () => {
     repo.listMembers.mockResolvedValue([
       { id: 'g1', userId: null, displayName: 'Juan' } as never,
     ]);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     const members = await service.listMembers('grp', 'u1');
     expect(members).toHaveLength(1);
     expect(members[0].isGhost).toBe(true);
@@ -90,7 +113,7 @@ describe('GroupsService.listMembers', () => {
     repo.listMembers.mockResolvedValue([
       { id: 'm2', groupId: 'grp', userId: 'u2', displayName: 'Ana', removedAt: null } as never,
     ]);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     const members = await service.listMembers('grp', 'u1');
     expect(members).toHaveLength(1);
     expect(members[0].isGhost).toBe(false);
@@ -118,7 +141,7 @@ describe('GroupsService.joinByCode', () => {
       updatedAt: new Date(),
       archivedAt: null,
     });
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     const group = await service.joinByCode('u9', 'ABCD2345');
     expect(group.id).toBe('grp');
     // Verifica que se haya invocado joinGroupAtomically con el invite que tiene memberId
@@ -133,7 +156,7 @@ describe('GroupsService.joinByCode', () => {
     repo.findInviteByCode = jest.fn().mockResolvedValue({
       id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() + 1e6), consumedAt: new Date(),
     });
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -142,7 +165,7 @@ describe('GroupsService.joinByCode', () => {
     repo.findInviteByCode = jest.fn().mockResolvedValue({
       id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() - 1000), consumedAt: null,
     });
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -152,7 +175,7 @@ describe('GroupsService.joinByCode', () => {
       id: 'inv', groupId: 'grp', memberId: null, expiresAt: new Date(Date.now() + 1e6), consumedAt: null,
     });
     repo.findActiveMember.mockResolvedValue({ id: 'm1', userId: 'u9' } as never);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.joinByCode('u9', 'ABCD2345')).rejects.toBeInstanceOf(ConflictException);
   });
 });
@@ -160,7 +183,7 @@ describe('GroupsService.joinByCode', () => {
 describe('GroupsService.assertActiveMember', () => {
   it('lanza 403 si el usuario no es miembro del grupo', async () => {
     const repo = makeRepo();
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     await expect(service.assertActiveMember('g1', 'u1')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
@@ -169,7 +192,7 @@ describe('GroupsService.assertActiveMember', () => {
   it('devuelve el miembro si pertenece', async () => {
     const repo = makeRepo();
     repo.findActiveMember.mockResolvedValue({ id: 'm1', groupId: 'g1', userId: 'u1' } as never);
-    const service = new GroupsService(repo);
+    const service = new GroupsService(repo, makeBalanceSvc());
     const member = await service.assertActiveMember('g1', 'u1');
     expect(member.id).toBe('m1');
   });

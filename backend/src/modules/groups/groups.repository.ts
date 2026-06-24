@@ -144,7 +144,6 @@ export class GroupsRepository {
    * @throws NotFoundException si el miembro no existe en el grupo o ya fue removido.
    */
   async removeMember(groupId: string, memberId: string): Promise<void> {
-    // TODO(Task 8): impedir quitar miembro con saldo != 0 una vez exista el calculo de saldo
     const [existing] = await this.db
       .select({ id: groupMembers.id })
       .from(groupMembers)

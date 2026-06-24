@@ -3,10 +3,19 @@ import { ExpensesService } from './expenses.service';
 import { ExpensesRepository } from './expenses.repository';
 import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
+import { BalanceService } from './balance.service';
 import { MemberShare } from '../../domain/split/split-expense';
 
 type ExpensesRepo = jest.Mocked<ExpensesRepository>;
 type GroupsRepo = jest.Mocked<GroupsRepository>;
+
+/** Mock minimo de BalanceService con neto 0 (miembro saldado). */
+function makeBalanceSvc(): jest.Mocked<BalanceService> {
+  return {
+    getMemberNet: jest.fn().mockResolvedValue(0),
+    getBalance: jest.fn(),
+  } as unknown as jest.Mocked<BalanceService>;
+}
 
 /** Crea un mock del repositorio de gastos. */
 function makeExpensesRepo(): ExpensesRepo {
@@ -70,7 +79,7 @@ describe('ExpensesService.createExpense', () => {
       removedAt: null,
     });
 
-    const groupsService = new GroupsService(groupsRepo);
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
     const service = new ExpensesService(expensesRepo, groupsService);
 
     const dto = {
@@ -109,7 +118,7 @@ describe('ExpensesService.createExpense', () => {
       removedAt: null,
     });
 
-    const groupsService = new GroupsService(groupsRepo);
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
     const service = new ExpensesService(expensesRepo, groupsService);
 
     const dto = {
@@ -134,7 +143,7 @@ describe('ExpensesService.createExpense', () => {
 
     groupsRepo.findActiveMember = jest.fn().mockResolvedValue(undefined);
 
-    const groupsService = new GroupsService(groupsRepo);
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
     const service = new ExpensesService(expensesRepo, groupsService);
 
     const dto = {
@@ -163,7 +172,7 @@ describe('ExpensesService.createExpense', () => {
       removedAt: null,
     });
 
-    const groupsService = new GroupsService(groupsRepo);
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
     const service = new ExpensesService(expensesRepo, groupsService);
 
     const dto = {
