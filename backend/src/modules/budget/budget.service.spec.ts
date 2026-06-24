@@ -11,6 +11,7 @@ function makeCategory(overrides: Partial<CategoryRow>): CategoryRow {
     userId: 'user',
     name: 'Cat',
     type: 'expense',
+    parentId: null,
     color: '#000000',
     monthlyBudget: null,
     createdAt: new Date(),
@@ -60,6 +61,31 @@ describe('BudgetService', () => {
 
     const food = summary.categories.find((c) => c.categoryId === 'food')!;
     expect(food.budgetUsage).toBeNull(); // sin meta
+  });
+
+  it('agrupa subcategorias: el gasto del padre es la suma de los hijos', async () => {
+    categoriesRepo.findAllByUser.mockResolvedValue([
+      makeCategory({ id: 'food', name: 'Alimentacion', monthlyBudget: '1000000.00' }),
+      makeCategory({ id: 'market', name: 'Mercado', parentId: 'food' }),
+      makeCategory({ id: 'resto', name: 'Restaurantes', parentId: 'food' }),
+    ]);
+    transactionsRepo.sumByCategoryForMonth.mockResolvedValue([
+      { categoryId: 'market', total: '600000.00' },
+      { categoryId: 'resto', total: '300000.00' },
+    ]);
+
+    const summary = await service.getSummary('user', '2026-06');
+
+    // Solo el padre aparece en el primer nivel.
+    expect(summary.categories).toHaveLength(1);
+    const food = summary.categories[0];
+    expect(food.categoryId).toBe('food');
+    expect(food.spent).toBe(900000); // 600k + 300k
+    expect(food.budgetUsage).toBe(90); // 900k / 1M
+    expect(food.subcategories?.map((s) => s.categoryId)).toEqual(['market', 'resto']);
+    expect(food.subcategories?.find((s) => s.categoryId === 'market')?.spent).toBe(600000);
+    // El total del mes no cuenta dos veces (padre + hijos).
+    expect(summary.totalExpense).toBe(900000);
   });
 
   it('devuelve ceros cuando no hay movimientos', async () => {

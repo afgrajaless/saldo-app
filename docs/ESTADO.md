@@ -17,6 +17,39 @@ Monorepo: `backend/` (NestJS + Drizzle + Neon) y `app/` (Flutter, iOS/Android).
 
 ---
 
+## 1.a Subcategorías de categorías (última sesión)
+
+Las categorías ahora soportan **un nivel de subcategorías** (padre → hijo). Decisiones
+de producto: jerarquía de **un solo nivel**, los **movimientos van solo en las hojas**
+(una categoría con hijos agrupa, no recibe gasto directo) y las **metas viven en padre
+e hijos**. Implementado, probado (backend **118 tests**, `flutter analyze` limpio) y
+verificado end-to-end contra Neon.
+
+- **BD**: columna `categories.parent_id` (autoreferencia, `ON DELETE SET NULL`) + índice
+  `idx_categories_parent`. Migración **0006** (aditiva). Rollback: `DROP INDEX
+  idx_categories_parent; ALTER TABLE categories DROP COLUMN parent_id;`.
+- **Regla hoja-only**: `TransactionsService` (y el lookup de `import`) rechazan registrar
+  en una categoría con subcategorías vivas (`hasLiveChildren`).
+- **Auto-mover a "General"**: al colgarle el primer hijo a una categoría que ya tenía
+  movimientos directos, esos movimientos pasan a una subcategoría **"General"** (preserva
+  la invariante padre = suma de hijos). Misma idea que el "Otros" del borrado.
+- **Duplicados**: la unicidad de nombre pasó a ser por **(usuario, tipo, parent_id)** —
+  hermanas únicas; el mismo nombre se permite bajo padres distintos (`findByNameInScope`).
+- **Borrado en cascada**: borrar un padre hace soft-delete de sus hijos (cada uno reasigna
+  sus movimientos a "Otros").
+- **Resumen** (`/budget/summary`): `BudgetCategorySummaryDto` trae `parentId` y
+  `subcategories[]`; el `spent` del padre es la suma de los hijos (sin doble conteo).
+- **Reparent** (`PATCH /categories/:id` con `parentId`): mover bajo otro padre o volver a
+  primer nivel (`null`). Una categoría con hijos no puede convertirse en subcategoría.
+- **Flutter**: `Category` (+`parentId`,`hasChildren`), `BudgetCategorySummary`
+  (+`parentId`,`subcategories`). `categories_screen` anida hijos con acción "+ subcategoría";
+  `add_category_screen` con selector de padre (o banner de padre fijo); `add_transaction_screen`
+  lista solo hojas (subcategoría rotulada "Padre › Hijo"); `budget_screen` indenta las
+  subcategorías en "Metas de gasto". Las **donas del Resumen** siguen mostrando el primer
+  nivel (rollup), sin cambios.
+
+---
+
 ## 1.b Novedades de la última sesión (resumen para retomar)
 
 Todo lo de abajo ya está implementado, probado (`flutter analyze` limpio, backend
@@ -226,8 +259,12 @@ interest_payment. `account_snapshots`: balance + as_of_date (único por cuenta+f
 
 Migraciones: 0000 (6 tablas), 0001 (categories+transactions), 0002 (seguro),
 0003 (interest_mode), **0004 (accounts, transfers, transactions.account_id)**,
-**0005 (yield_type/EA en accounts, account_rates, account_snapshots, cdt_terms)**.
-Rollback de 0004/0005 documentado en su momento (DROP de las tablas/columnas nuevas).
+**0005 (yield_type/EA en accounts, account_rates, account_snapshots, cdt_terms)**,
+**0006 (categories.parent_id + idx_categories_parent — subcategorías)**.
+Rollback de 0004/0005/0006 documentado en su momento (DROP de las tablas/columnas nuevas).
+
+`categories` incluye `parent_id` (autoreferencia, null = primer nivel). Unicidad de
+nombre por (user_id, type, parent_id). Movimientos solo en hojas; metas en padre e hijos.
 
 ---
 

@@ -14,11 +14,15 @@ import '../widgets/delete_category_dialog.dart';
 
 /// Pantalla para crear o editar una categoria de ingreso o egreso.
 /// Si recibe [category], opera en modo edicion (el tipo no se cambia).
+/// Si recibe [parent], crea una subcategoria de esa categoria.
 class AddCategoryScreen extends ConsumerStatefulWidget {
-  const AddCategoryScreen({super.key, this.category});
+  const AddCategoryScreen({super.key, this.category, this.parent});
 
   /// Categoria a editar; null para crear una nueva.
   final Category? category;
+
+  /// Categoria padre fija cuando se crea una subcategoria; null en otro caso.
+  final Category? parent;
 
   @override
   ConsumerState<AddCategoryScreen> createState() => _AddCategoryScreenState();
@@ -30,22 +34,31 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
   final _budgetController = TextEditingController();
   String _type = 'expense';
   Color _color = chartPalette.first;
+  String? _parentId;
   bool _submitting = false;
 
   /// Indica si la pantalla esta editando una categoria existente.
   bool get _isEditing => widget.category != null;
 
+  /// Indica si se crea una subcategoria con padre fijo.
+  bool get _hasFixedParent => widget.parent != null;
+
   @override
   void initState() {
     super.initState();
     final category = widget.category;
+    final parent = widget.parent;
     if (category != null) {
       _nameController.text = category.name;
       _type = category.type;
       _color = hexToColor(category.color);
+      _parentId = category.parentId;
       if (category.monthlyBudget != null) {
         _budgetController.text = category.monthlyBudget!.toStringAsFixed(0);
       }
+    } else if (parent != null) {
+      _type = parent.type;
+      _parentId = parent.id;
     }
   }
 
@@ -88,21 +101,27 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
         type: _type,
         color: colorToHex(_color),
         monthlyBudget: _parsedBudget(),
+        parentId: _parentId,
       ),
     );
   }
 
   /// Actualiza la categoria en edicion con los datos del formulario.
   /// En egresos, si la meta queda vacia se envia el borrado de la meta.
+  /// Si cambio la categoria padre, se incluye el movimiento.
   Future<void> _update() async {
     final budget = _parsedBudget();
+    final original = widget.category!;
+    final parentChanged = _parentId != original.parentId;
     await getIt<BudgetRepository>().updateCategory(
-      widget.category!.id,
+      original.id,
       UpdateCategoryParams(
         name: _nameController.text.trim(),
         color: colorToHex(_color),
         monthlyBudget: budget,
         clearMonthlyBudget: _type == 'expense' && budget == null,
+        parentId: _parentId,
+        changeParent: parentChanged,
       ),
     );
   }
@@ -130,11 +149,82 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
     return text.isNotEmpty ? double.tryParse(text) : null;
   }
 
+  /// Construye la seccion de categoria padre: un banner fijo al crear una
+  /// subcategoria, o un selector opcional al crear/editar una categoria.
+  /// @param theme - Tema actual.
+  /// @return Los widgets de la seccion (vacio si no aplica).
+  List<Widget> _parentSection(ThemeData theme) {
+    final fixedParent = widget.parent;
+    if (fixedParent != null) {
+      return [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.subdirectory_arrow_right, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Subcategoria de "${fixedParent.name}"',
+                    style: theme.textTheme.bodyMedium),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ];
+    }
+    // Una categoria que ya es padre no puede convertirse en subcategoria.
+    if (_isEditing && widget.category!.hasChildren) return const [];
+
+    final categoriesAsync = ref.watch(categoriesListProvider);
+    final parents = categoriesAsync.maybeWhen(
+      data: (categories) => categories
+          .where((c) =>
+              c.parentId == null && c.type == _type && c.id != widget.category?.id)
+          .toList(),
+      orElse: () => <Category>[],
+    );
+    if (parents.isEmpty) return const [];
+    // Si el padre actual ya no es valido (cambio de tipo), se trata como ninguno.
+    final value = parents.any((p) => p.id == _parentId) ? _parentId : null;
+    return [
+      DropdownButtonFormField<String?>(
+        value: value,
+        decoration: const InputDecoration(
+          labelText: 'Categoria padre (opcional)',
+          border: OutlineInputBorder(),
+          helperText: 'Conviertela en subcategoria de otra',
+        ),
+        items: [
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('Ninguna (categoria principal)'),
+          ),
+          for (final parent in parents)
+            DropdownMenuItem<String?>(value: parent.id, child: Text(parent.name)),
+        ],
+        onChanged: (v) => setState(() => _parentId = v),
+      ),
+      const SizedBox(height: 20),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = _isEditing
+        ? 'Editar categoria'
+        : _hasFixedParent
+            ? 'Nueva subcategoria'
+            : 'Nueva categoria';
+    // El tipo no se cambia al editar ni al colgar de un padre fijo.
+    final lockType = _isEditing || _hasFixedParent;
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Editar categoria' : 'Nueva categoria')),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -147,11 +237,15 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
                   ButtonSegment(value: 'income', label: Text('Ingreso')),
                 ],
                 selected: {_type},
-                // El tipo no se puede cambiar al editar.
-                onSelectionChanged:
-                    _isEditing ? null : (s) => setState(() => _type = s.first),
+                onSelectionChanged: lockType
+                    ? null
+                    : (s) => setState(() {
+                          _type = s.first;
+                          _parentId = null; // los padres dependen del tipo
+                        }),
               ),
               const SizedBox(height: 20),
+              ..._parentSection(theme),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(

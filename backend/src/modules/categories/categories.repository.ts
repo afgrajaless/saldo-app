@@ -15,6 +15,8 @@ export interface CategoryUpdateFields {
   name?: string;
   color?: string;
   monthlyBudget?: string | null;
+  // undefined = no tocar; null = volver de primer nivel; uuid = mover bajo un padre.
+  parentId?: string | null;
 }
 
 /**
@@ -53,17 +55,19 @@ export class CategoriesRepository {
   }
 
   /**
-   * Busca una categoria viva del usuario por nombre (sin distinguir mayusculas)
-   * y tipo. Sirve para evitar duplicados.
+   * Busca una categoria viva del usuario por nombre (sin distinguir mayusculas),
+   * tipo y categoria padre. Sirve para evitar duplicados entre hermanas.
    * @param userId - Dueno de la categoria.
    * @param name - Nombre a buscar.
    * @param type - Tipo de la categoria (income o expense).
+   * @param parentId - Padre bajo el que se busca; null = primer nivel.
    * @returns La categoria si existe, o `undefined`.
    */
-  async findByNameAndType(
+  async findByNameInScope(
     userId: string,
     name: string,
     type: CategoryRow['type'],
+    parentId: string | null,
   ): Promise<CategoryRow | undefined> {
     const [category] = await this.db
       .select()
@@ -73,11 +77,48 @@ export class CategoriesRepository {
           eq(categories.userId, userId),
           eq(categories.type, type),
           sql`lower(${categories.name}) = ${name.toLowerCase()}`,
+          parentId === null
+            ? isNull(categories.parentId)
+            : eq(categories.parentId, parentId),
           isNull(categories.deletedAt),
         ),
       )
       .limit(1);
     return category;
+  }
+
+  /**
+   * Lista las subcategorias vivas de una categoria padre.
+   * @param userId - Dueno de las categorias.
+   * @param parentId - Categoria padre.
+   * @returns Las subcategorias no eliminadas.
+   */
+  async findChildren(userId: string, parentId: string): Promise<CategoryRow[]> {
+    return this.db
+      .select()
+      .from(categories)
+      .where(
+        and(
+          eq(categories.userId, userId),
+          eq(categories.parentId, parentId),
+          isNull(categories.deletedAt),
+        ),
+      )
+      .orderBy(desc(categories.createdAt));
+  }
+
+  /**
+   * Indica si una categoria tiene subcategorias vivas (es decir, es un padre).
+   * @param id - UUID de la categoria.
+   * @returns true si tiene al menos una subcategoria viva.
+   */
+  async hasLiveChildren(id: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.parentId, id), isNull(categories.deletedAt)))
+      .limit(1);
+    return row !== undefined;
   }
 
   /**
@@ -173,6 +214,27 @@ export class CategoriesRepository {
           when ${transactions.description} is null or ${transactions.description} = '' then ''
           else ' · ' || ${transactions.description} end`,
       })
+      .where(
+        and(eq(transactions.userId, userId), eq(transactions.categoryId, fromCategoryId)),
+      );
+  }
+
+  /**
+   * Mueve las transacciones de una categoria a otra, sin alterar su descripcion.
+   * Se usa al convertir una categoria hoja (con movimientos) en padre: sus
+   * movimientos directos pasan a una subcategoria "General".
+   * @param userId - Dueno de las transacciones.
+   * @param fromCategoryId - Categoria origen.
+   * @param toCategoryId - Categoria destino.
+   */
+  async moveTransactions(
+    userId: string,
+    fromCategoryId: string,
+    toCategoryId: string,
+  ): Promise<void> {
+    await this.db
+      .update(transactions)
+      .set({ categoryId: toCategoryId })
       .where(
         and(eq(transactions.userId, userId), eq(transactions.categoryId, fromCategoryId)),
       );

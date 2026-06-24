@@ -59,7 +59,8 @@ class CategoriesScreen extends ConsumerWidget {
     );
   }
 
-  /// Construye una seccion (ingresos o egresos) con su encabezado y categorias.
+  /// Construye una seccion (ingresos o egresos) con su encabezado y categorias,
+  /// anidando las subcategorias bajo su categoria padre.
   Widget _section(
     BuildContext context,
     String title,
@@ -70,6 +71,13 @@ class CategoriesScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final isIncome = title == 'Ingresos';
     final accent = isIncome ? theme.colorScheme.primary : theme.colorScheme.error;
+
+    final topLevel = items.where((c) => c.parentId == null).toList();
+    final childrenByParent = <String, List<Category>>{};
+    for (final c in items.where((c) => c.parentId != null)) {
+      childrenByParent.putIfAbsent(c.parentId!, () => []).add(c);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -87,21 +95,30 @@ class CategoriesScreen extends ConsumerWidget {
             ],
           ),
         ),
-        ...items.map((c) => _CategoryTile(category: c)),
+        for (final parent in topLevel) ...[
+          _CategoryTile(category: parent),
+          for (final child in childrenByParent[parent.id] ?? const <Category>[])
+            _CategoryTile(category: child, isChild: true),
+        ],
       ],
     );
   }
 }
 
 /// Fila de una categoria: tap para editar, swipe para eliminar.
+/// Las subcategorias ([isChild]) se muestran indentadas.
 class _CategoryTile extends ConsumerWidget {
-  const _CategoryTile({required this.category});
+  const _CategoryTile({required this.category, this.isChild = false});
 
   final Category category;
+  final bool isChild;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final budget = category.monthlyBudget;
+    // Solo las categorias de primer nivel pueden recibir subcategorias.
+    final canAddChild = category.parentId == null;
     return Dismissible(
       key: ValueKey(category.id),
       direction: DismissDirection.endToStart,
@@ -109,16 +126,34 @@ class _CategoryTile extends ConsumerWidget {
       onDismissed: (_) => deleteCategory(ref, category.id),
       background: Container(
         alignment: Alignment.centerRight,
-        color: Theme.of(context).colorScheme.errorContainer,
+        color: theme.colorScheme.errorContainer,
         padding: const EdgeInsets.only(right: 24),
-        child: Icon(Icons.delete_outline,
-            color: Theme.of(context).colorScheme.onErrorContainer),
+        child: Icon(Icons.delete_outline, color: theme.colorScheme.onErrorContainer),
       ),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: hexToColor(category.color), radius: 14),
+        contentPadding: EdgeInsets.only(left: isChild ? 40 : 16, right: 8),
+        leading: isChild
+            ? Icon(Icons.subdirectory_arrow_right,
+                size: 18, color: theme.colorScheme.onSurfaceVariant)
+            : CircleAvatar(backgroundColor: hexToColor(category.color), radius: 14),
         title: Text(category.name),
         subtitle: _subtitle(budget, category.transactionCount),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canAddChild)
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Agregar subcategoria',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AddCategoryScreen(parent: category),
+                  ),
+                ),
+              ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => AddCategoryScreen(category: category),

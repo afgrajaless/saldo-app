@@ -98,9 +98,11 @@ Category categoryFromJson(Map<String, dynamic> json) {
     id: json['id'] as String,
     name: json['name'] as String,
     type: json['type'] as String,
+    parentId: json['parentId'] as String?,
     color: json['color'] as String,
     monthlyBudget: _toDoubleOrNull(json['monthlyBudget']),
     transactionCount: (json['transactionCount'] as int?) ?? 0,
+    hasChildren: (json['hasChildren'] as bool?) ?? false,
   );
 }
 
@@ -126,10 +128,15 @@ BudgetCategorySummary categorySummaryFromJson(Map<String, dynamic> json) {
     categoryId: json['categoryId'] as String,
     name: json['name'] as String,
     type: json['type'] as String,
+    parentId: json['parentId'] as String?,
     color: json['color'] as String,
     spent: _toDouble(json['spent']),
     monthlyBudget: _toDoubleOrNull(json['monthlyBudget']),
     budgetUsage: _toDoubleOrNull(json['budgetUsage']),
+    subcategories: (json['subcategories'] as List<dynamic>?)
+            ?.map((e) => categorySummaryFromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
   );
 }
 

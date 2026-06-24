@@ -147,6 +147,8 @@ export class ImportRepository {
         and(
           eq(categories.userId, userId),
           eq(categories.type, type),
+          // La importacion trabaja con categorias de primer nivel (hojas sin hijos).
+          isNull(categories.parentId),
           sql`lower(${categories.name}) = ${name.toLowerCase()}`,
           isNull(categories.deletedAt),
         ),

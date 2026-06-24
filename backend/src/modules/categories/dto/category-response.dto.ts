@@ -11,6 +11,13 @@ export class CategoryResponseDto {
   @ApiProperty({ example: 'expense' })
   type!: string;
 
+  @ApiPropertyOptional({
+    description: 'UUID de la categoria padre; null si es de primer nivel.',
+    format: 'uuid',
+    nullable: true,
+  })
+  parentId!: string | null;
+
   @ApiProperty({ example: '#C0392B' })
   color!: string;
 
@@ -25,4 +32,10 @@ export class CategoryResponseDto {
     example: 3,
   })
   transactionCount!: number;
+
+  @ApiProperty({
+    description: 'Indica si la categoria tiene subcategorias vivas (es un padre).',
+    example: false,
+  })
+  hasChildren!: boolean;
 }

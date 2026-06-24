@@ -30,6 +30,13 @@ export class TransactionsService {
     if (!category) {
       throw new BadRequestException('La categoria no existe o no es del usuario.');
     }
+    // Regla hoja-only: una categoria con subcategorias agrupa; el gasto se
+    // registra en una de sus subcategorias, no directamente en ella.
+    if (await this.categoriesRepository.hasLiveChildren(category.id)) {
+      throw new BadRequestException(
+        'Esta categoria tiene subcategorias; elige una subcategoria para el movimiento.',
+      );
+    }
     // Si se indica cuenta, debe existir y ser del usuario.
     let account = null;
     if (dto.accountId) {

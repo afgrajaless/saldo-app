@@ -147,6 +147,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   /// Construye el formulario con la lista de categorias.
   Widget _form(BuildContext context, List<Category> categories) {
+    // Solo las hojas reciben movimientos: una categoria con subcategorias agrupa.
+    final byId = {for (final c in categories) c.id: c};
+    final leaves = categories.where((c) => !c.hasChildren).toList();
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -155,24 +158,32 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DropdownButtonFormField<String>(
-              value: _categoryId,
+              value: leaves.any((c) => c.id == _categoryId) ? _categoryId : null,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Categoria',
                 border: OutlineInputBorder(),
               ),
-              items: categories
-                  .map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Row(
-                          children: [
-                            CircleAvatar(radius: 6, backgroundColor: hexToColor(c.color)),
-                            const SizedBox(width: 10),
-                            Text('${c.name}  ·  ${c.isIncome ? 'Ingreso' : 'Egreso'}'),
-                          ],
+              items: leaves.map((c) {
+                final parentName =
+                    c.parentId != null ? byId[c.parentId]?.name : null;
+                final label = parentName != null ? '$parentName › ${c.name}' : c.name;
+                return DropdownMenuItem(
+                  value: c.id,
+                  child: Row(
+                    children: [
+                      CircleAvatar(radius: 6, backgroundColor: hexToColor(c.color)),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          '$label  ·  ${c.isIncome ? 'Ingreso' : 'Egreso'}',
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ))
-                  .toList(),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
               onChanged: (v) => setState(() => _categoryId = v),
               validator: (v) => v == null ? 'Elige una categoria.' : null,
             ),
