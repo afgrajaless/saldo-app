@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -73,6 +74,8 @@ export const interestModeEnum = pgEnum('interest_mode', ['monthly', 'daily']);
 export const yieldTypeEnum = pgEnum('yield_type', ['none', 'savings', 'cdt']);
 // Forma de pago del interes de un CDT: mensual (devengo) o al vencimiento.
 export const cdtInterestPaymentEnum = pgEnum('cdt_interest_payment', ['monthly', 'at_maturity']);
+// Metodo de division de un gasto compartido: partes iguales o montos exactos.
+export const splitMethodEnum = pgEnum('split_method', ['equal', 'exact']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -430,6 +433,95 @@ export const transfers = pgTable(
   }),
 );
 
+// ---------- groups (espacios de gasto compartido) ----------
+export const groups = pgTable('groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull().defaultNow().$onUpdate(() => new Date()),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+});
+
+export const groupMembers = pgTable(
+  'group_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }), // null = fantasma
+    displayName: text('display_name').notNull(),
+    addedByUserId: uuid('added_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    groupIdx: index('idx_group_members_group').on(t.groupId).where(sql`${t.removedAt} IS NULL`),
+    userIdx: index('idx_group_members_user').on(t.userId).where(sql`${t.removedAt} IS NULL`),
+    uniqueRealMember: uniqueIndex('uq_group_members_real')
+      .on(t.groupId, t.userId).where(sql`${t.userId} IS NOT NULL AND ${t.removedAt} IS NULL`),
+  }),
+);
+
+export const groupInvites = pgTable('group_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  code: text('code').notNull().unique(),
+  memberId: uuid('member_id').references(() => groupMembers.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  consumedBy: uuid('consumed_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sharedExpenses = pgTable(
+  'shared_expenses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+    paidByMemberId: uuid('paid_by_member_id').notNull().references(() => groupMembers.id, { onDelete: 'restrict' }),
+    description: text('description'),
+    amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+    occurredOn: date('occurred_on').notNull(),
+    splitMethod: splitMethodEnum('split_method').notNull(),
+    createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    groupIdx: index('idx_shared_expenses_group').on(t.groupId).where(sql`${t.deletedAt} IS NULL`),
+    amountPositive: check('shared_expenses_amount_check', sql`${t.amount} > 0`),
+  }),
+);
+
+export const sharedExpenseShares = pgTable(
+  'shared_expense_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    expenseId: uuid('expense_id').notNull().references(() => sharedExpenses.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').notNull().references(() => groupMembers.id, { onDelete: 'restrict' }),
+    shareAmount: numeric('share_amount', { precision: 15, scale: 2 }).notNull(),
+  },
+  (t) => ({
+    expenseIdx: index('idx_shares_expense').on(t.expenseId),
+    uniqueShare: unique('uq_share_expense_member').on(t.expenseId, t.memberId),
+  }),
+);
+
+export const settlements = pgTable('settlements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  fromMemberId: uuid('from_member_id').notNull().references(() => groupMembers.id, { onDelete: 'restrict' }),
+  toMemberId: uuid('to_member_id').notNull().references(() => groupMembers.id, { onDelete: 'restrict' }),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  settledOn: date('settled_on').notNull(),
+  fromTransactionId: uuid('from_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  toTransactionId: uuid('to_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  createdByUserId: uuid('created_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Esquema completo agrupado para inyectar en el cliente Drizzle. */
 export const schema = {
   users,
@@ -445,4 +537,10 @@ export const schema = {
   cdtTerms,
   transactions,
   transfers,
+  groups,
+  groupMembers,
+  groupInvites,
+  sharedExpenses,
+  sharedExpenseShares,
+  settlements,
 };
