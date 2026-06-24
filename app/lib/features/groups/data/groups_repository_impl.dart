@@ -132,7 +132,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
 
   @override
   Future<void> leaveGroup(String groupId) {
-    return _send(() => _dio.post<void>('/groups/$groupId/leave'));
+    return _send(() => _dio.delete<void>('/groups/$groupId/leave'));
   }
 
   /// Ejecuta una llamada traduciendo los DioException a ApiException.
