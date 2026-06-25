@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { addDays, daysBetween, today } from '../../shared/date/add-months';
 import { accrualSchedule, projectCdt } from '../../domain/yield/yield-projection';
 import { AccountResponseDto } from './dto/account-response.dto';
@@ -143,18 +143,24 @@ export class AccountsService {
 
   /**
    * Registra (o reemplaza) el saldo real de una cuenta en una fecha.
+   * Solo es valido para cuentas de tipo asset; las tarjetas de credito (kind='credit_card')
+   * no admiten snapshots de saldo manual.
    * @param userId - Dueno de la cuenta.
    * @param accountId - UUID de la cuenta.
    * @param dto - Saldo y fecha.
    * @returns El snapshot guardado.
    * @throws NotFoundException si la cuenta no existe o no es del usuario.
+   * @throws BadRequestException si la cuenta es una tarjeta de credito.
    */
   async addSnapshot(
     userId: string,
     accountId: string,
     dto: CreateSnapshotDto,
   ): Promise<SnapshotResponseDto> {
-    await this.getOwnedAccount(userId, accountId);
+    const account = await this.getOwnedAccount(userId, accountId);
+    if (account.kind === 'credit_card') {
+      throw new BadRequestException('No puedes registrar saldo en una tarjeta de credito.');
+    }
     const row = await this.accountsRepository.upsertSnapshot(
       userId,
       accountId,
@@ -326,6 +332,7 @@ export class AccountsService {
       id: account.id,
       name: account.name,
       color: account.color,
+      kind: account.kind,
       yieldType: account.yieldType,
       effectiveAnnualRate:
         account.effectiveAnnualRate === null ? null : Number(account.effectiveAnnualRate),

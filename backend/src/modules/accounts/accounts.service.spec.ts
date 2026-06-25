@@ -1,15 +1,44 @@
+import { BadRequestException } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { AccountsRepository } from './accounts.repository';
+import { AccountRow } from './accounts.repository';
+
+/** Construye una fila de cuenta de prueba. */
+function makeAccountRow(overrides: Partial<AccountRow> = {}): AccountRow {
+  return {
+    id: 'acc-1',
+    userId: 'user-1',
+    name: 'Nequi',
+    color: '#2D6FB0',
+    kind: 'asset',
+    yieldType: 'none',
+    effectiveAnnualRate: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+    deletedAt: null,
+    ...overrides,
+  };
+}
 
 type RepoMock = jest.Mocked<
-  Pick<AccountsRepository, 'netWorthSeries' | 'sumCreditCardLiabilities'>
+  Pick<
+    AccountsRepository,
+    | 'netWorthSeries'
+    | 'sumCreditCardLiabilities'
+    | 'findByIdForUser'
+    | 'upsertSnapshot'
+    | 'findAllByUser'
+  >
 >;
 
-/** Crea un repositorio de cuentas parcialmente mockeado para pruebas de netWorthSeries. */
+/** Crea un repositorio de cuentas parcialmente mockeado para pruebas de servicio. */
 function makeRepo(): RepoMock {
   return {
     netWorthSeries: jest.fn(),
     sumCreditCardLiabilities: jest.fn().mockResolvedValue('0'),
+    findByIdForUser: jest.fn(),
+    upsertSnapshot: jest.fn(),
+    findAllByUser: jest.fn(),
   };
 }
 
@@ -43,5 +72,73 @@ describe('AccountsService — netWorthSeries', () => {
     const result = await service.netWorthSeries('user-1');
 
     expect(result[0].total).toBe(3_000_000);
+  });
+});
+
+describe('AccountsService — findAll expone kind en la respuesta', () => {
+  let service: AccountsService;
+  let repo: RepoMock;
+
+  beforeEach(() => {
+    repo = makeRepo();
+    service = new AccountsService(repo as unknown as AccountsRepository);
+  });
+
+  it('incluye kind=asset en la respuesta de una cuenta de activo', async () => {
+    repo.findAllByUser.mockResolvedValue([makeAccountRow({ kind: 'asset' })]);
+
+    const [result] = await service.findAll('user-1');
+
+    expect(result.kind).toBe('asset');
+  });
+
+  it('incluye kind=credit_card en la respuesta de una tarjeta de credito', async () => {
+    repo.findAllByUser.mockResolvedValue([makeAccountRow({ kind: 'credit_card' })]);
+
+    const [result] = await service.findAll('user-1');
+
+    expect(result.kind).toBe('credit_card');
+  });
+});
+
+describe('AccountsService — addSnapshot rechaza tarjetas de credito', () => {
+  let service: AccountsService;
+  let repo: RepoMock;
+
+  beforeEach(() => {
+    repo = makeRepo();
+    service = new AccountsService(repo as unknown as AccountsRepository);
+  });
+
+  it('lanza BadRequestException al registrar snapshot en una tarjeta de credito', async () => {
+    repo.findByIdForUser.mockResolvedValue(makeAccountRow({ kind: 'credit_card' }));
+
+    await expect(
+      service.addSnapshot('user-1', 'acc-1', { balance: 1_000_000, asOfDate: '2026-06-01' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // El repositorio NO debe intentar guardar el snapshot
+    expect(repo.upsertSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('permite registrar snapshot en una cuenta de activo (kind=asset)', async () => {
+    repo.findByIdForUser.mockResolvedValue(makeAccountRow({ kind: 'asset' }));
+    repo.upsertSnapshot.mockResolvedValue({
+      id: 'snap-1',
+      userId: 'user-1',
+      accountId: 'acc-1',
+      balance: '1000000.00',
+      asOfDate: '2026-06-01',
+      source: 'manual',
+      createdAt: new Date(),
+    });
+
+    const result = await service.addSnapshot('user-1', 'acc-1', {
+      balance: 1_000_000,
+      asOfDate: '2026-06-01',
+    });
+
+    expect(result.balance).toBe(1_000_000);
+    expect(repo.upsertSnapshot).toHaveBeenCalledTimes(1);
   });
 });

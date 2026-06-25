@@ -253,6 +253,8 @@ export class AccountsRepository {
 
   /**
    * Suma los saldos de los snapshots del usuario por fecha (serie de patrimonio).
+   * Solo incluye cuentas de tipo asset; las tarjetas de credito son pasivos y
+   * se restan aparte via sumCreditCardLiabilities.
    * @param userId - Dueno de los datos.
    * @returns Lista de { asOfDate, total } ordenada por fecha.
    */
@@ -263,7 +265,14 @@ export class AccountsRepository {
         total: sql<string>`sum(${accountSnapshots.balance})`,
       })
       .from(accountSnapshots)
-      .where(eq(accountSnapshots.userId, userId))
+      .innerJoin(accounts, eq(accountSnapshots.accountId, accounts.id))
+      .where(
+        and(
+          eq(accountSnapshots.userId, userId),
+          eq(accounts.kind, 'asset'),
+          isNull(accounts.deletedAt),
+        ),
+      )
       .groupBy(accountSnapshots.asOfDate)
       .orderBy(asc(accountSnapshots.asOfDate));
   }

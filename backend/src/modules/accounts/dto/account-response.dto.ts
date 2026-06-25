@@ -11,6 +11,13 @@ export class AccountResponseDto {
   @ApiProperty({ example: '#2D6FB0' })
   color!: string;
 
+  @ApiProperty({
+    description: 'Tipo de cuenta: asset para cuentas de activo (ahorros, corriente, CDT) o credit_card para tarjetas de credito.',
+    enum: ['asset', 'credit_card'],
+    example: 'asset',
+  })
+  kind!: string;
+
   @ApiProperty({ description: 'Tipo de rendimiento: none, savings o cdt.', example: 'savings' })
   yieldType!: string;
 

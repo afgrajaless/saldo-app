@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsHexColor,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -31,13 +32,13 @@ export class CreateCardDto {
   creditLimit!: number;
 
   @ApiProperty({ description: 'Dia del mes en que cierra el periodo de facturacion (1-31).', example: 15 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(31)
   statementDay!: number;
 
   @ApiProperty({ description: 'Dia del mes en que vence el pago (1-31).', example: 25 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(31)
   paymentDay!: number;
