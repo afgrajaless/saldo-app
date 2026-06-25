@@ -86,6 +86,14 @@ export const cardFeePeriodEnum = pgEnum('card_fee_period', ['none', 'monthly', '
 export const cardPlanStatusEnum = pgEnum('card_plan_status', ['active', 'paid']);
 // Estado del extracto mensual de una tarjeta de credito.
 export const cardStatementStatusEnum = pgEnum('card_statement_status', ['open', 'closed', 'paid']);
+// Estado de una conexión de Open Finance.
+export const openFinanceStatusEnum = pgEnum('open_finance_status', [
+  'pending',
+  'active',
+  'expired',
+  'revoked',
+  'error',
+]);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -99,6 +107,36 @@ export const users = pgTable('users', {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+// ---------- open_finance_connections (conexión a un banco vía Open Finance) ----------
+export const openFinanceConnections = pgTable(
+  'open_finance_connections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    institutionId: text('institution_id').notNull(),
+    institutionName: text('institution_name').notNull(),
+    provider: text('provider').notNull().default('mock'),
+    externalConnectionId: text('external_connection_id'),
+    status: openFinanceStatusEnum('status').notNull().default('pending'),
+    consentGrantedAt: timestamp('consent_granted_at', { withTimezone: true }),
+    consentExpiresAt: timestamp('consent_expires_at', { withTimezone: true }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    userIdx: index('idx_of_connections_user')
+      .on(table.userId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  }),
+);
 
 // ---------- income_sources ----------
 export const incomeSources = pgTable(
@@ -155,6 +193,11 @@ export const debts = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
     deletedAt: timestamp('deleted_at', { withTimezone: true }), // soft delete
+    source: text('source').notNull().default('manual'),
+    connectionId: uuid('connection_id').references(() => openFinanceConnections.id, {
+      onDelete: 'set null',
+    }),
+    externalId: text('external_id'),
   },
   (table) => ({
     // Indice parcial: solo deudas vivas; acelera el caso de uso mas comun.
@@ -168,6 +211,9 @@ export const debts = pgTable(
       sql`${table.effectiveAnnualRate} >= 0`,
     ),
     termPositive: check('debts_term_check', sql`${table.termMonths} > 0`),
+    ofUnique: uniqueIndex('debts_of_unique')
+      .on(table.connectionId, table.externalId)
+      .where(sql`${table.connectionId} IS NOT NULL`),
   }),
 );
 
@@ -306,11 +352,22 @@ export const accounts = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
     deletedAt: timestamp('deleted_at', { withTimezone: true }), // soft delete
+    // Origen del registro: 'manual' o 'open_finance'.
+    source: text('source').notNull().default('manual'),
+    // Conexión OF que originó el registro (null si es manual).
+    connectionId: uuid('connection_id').references(() => openFinanceConnections.id, {
+      onDelete: 'set null',
+    }),
+    // Id del producto en el banco (para conciliar idempotentemente).
+    externalId: text('external_id'),
   },
   (table) => ({
     userIdx: index('idx_accounts_user')
       .on(table.userId)
       .where(sql`${table.deletedAt} IS NULL`),
+    ofUnique: uniqueIndex('accounts_of_unique')
+      .on(table.connectionId, table.externalId)
+      .where(sql`${table.connectionId} IS NOT NULL`),
   }),
 );
 
@@ -700,6 +757,7 @@ export const cardStatements = pgTable(
 /** Esquema completo agrupado para inyectar en el cliente Drizzle. */
 export const schema = {
   users,
+  openFinanceConnections,
   incomeSources,
   debts,
   installments,

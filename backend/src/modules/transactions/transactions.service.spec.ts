@@ -35,6 +35,9 @@ function makeAccount(overrides: Partial<AccountRow> = {}): AccountRow {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    source: 'manual',
+    connectionId: null,
+    externalId: null,
     ...overrides,
   };
 }
@@ -51,6 +54,9 @@ function makeCard(overrides: Partial<CardRow> = {}): CardRow {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    source: 'manual',
+    connectionId: null,
+    externalId: null,
     creditLimit: '5000000.00',
     statementDay: 15,
     paymentDay: 25,

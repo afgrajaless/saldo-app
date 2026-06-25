@@ -16,6 +16,9 @@ function makeAccountRow(overrides: Partial<AccountRow> = {}): AccountRow {
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     deletedAt: null,
+    source: 'manual',
+    connectionId: null,
+    externalId: null,
     ...overrides,
   };
 }

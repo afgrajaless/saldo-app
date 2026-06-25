@@ -78,6 +78,13 @@
       "when": 1782364062867,
       "tag": "0010_fix_card_schema_align",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782414188029,
+      "tag": "0011_panoramic_komodo",
+      "breakpoints": true
     }
   ]
 }

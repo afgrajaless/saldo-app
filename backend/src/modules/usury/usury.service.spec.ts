@@ -34,6 +34,9 @@ function makeDebt(overrides: Partial<DebtRow> = {}): DebtRow {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    source: 'manual',
+    connectionId: null,
+    externalId: null,
     ...overrides,
   };
 }
