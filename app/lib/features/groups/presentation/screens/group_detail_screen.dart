@@ -325,7 +325,7 @@ class _DebtRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            formatCop(debt.amount),
+            formatCop(debt.owed),
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.error,
               fontWeight: FontWeight.w600,

@@ -693,5 +693,27 @@ class _GroupSettlementsProviderElement
   @override
   String get groupId => (origin as GroupSettlementsProvider).groupId;
 }
+
+String _$myGroupDebtsHash() => r'b638011537b1f3a498f49100ac4f9d6da6db0607';
+
+/// Lista todas las deudas activas del usuario autenticado en todos sus grupos.
+/// @param ref - Referencia del provider.
+/// @return Lista de resumenes de deuda por grupo.
+///
+/// Copied from [myGroupDebts].
+@ProviderFor(myGroupDebts)
+final myGroupDebtsProvider =
+    AutoDisposeFutureProvider<List<GroupDebtSummary>>.internal(
+  myGroupDebts,
+  name: r'myGroupDebtsProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$myGroupDebtsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef MyGroupDebtsRef = AutoDisposeFutureProviderRef<List<GroupDebtSummary>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

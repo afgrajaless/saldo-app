@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import '../../../core/error/api_exception.dart';
 import '../domain/entities/group.dart';
 import '../domain/entities/group_balance.dart';
+import '../domain/entities/group_debt_summary.dart';
 import '../domain/entities/group_invite.dart';
 import '../domain/entities/group_member.dart';
 import '../domain/entities/group_params.dart';
@@ -104,6 +105,21 @@ class GroupsRepositoryImpl implements GroupsRepository {
   }
 
   @override
+  Future<void> confirmShare(String groupId, String expenseId) {
+    return _send(
+      () => _dio.post<void>('/groups/$groupId/expenses/$expenseId/confirm'),
+    );
+  }
+
+  @override
+  Future<void> disputeShare(String groupId, String expenseId, {String? note}) {
+    return _send(() {
+      final body = note != null ? {'note': note} : <String, dynamic>{};
+      return _dio.post<void>('/groups/$groupId/expenses/$expenseId/dispute', data: body);
+    });
+  }
+
+  @override
   Future<GroupBalance> getBalance(String groupId) {
     return _send(() async {
       final res = await _dio.get<Map<String, dynamic>>('/groups/$groupId/balance');
@@ -133,6 +149,16 @@ class GroupsRepositoryImpl implements GroupsRepository {
   @override
   Future<void> leaveGroup(String groupId) {
     return _send(() => _dio.delete<void>('/groups/$groupId/leave'));
+  }
+
+  @override
+  Future<List<GroupDebtSummary>> getMyGroupDebts() {
+    return _send(() async {
+      final res = await _dio.get<List<dynamic>>('/groups/me/debts');
+      return res.data!
+          .map((e) => groupDebtSummaryFromJson(e as Map<String, dynamic>))
+          .toList();
+    });
   }
 
   /// Ejecuta una llamada traduciendo los DioException a ApiException.

@@ -1,14 +1,30 @@
+/// Estado de confirmacion de una parte del gasto por el miembro correspondiente.
+enum ShareStatus {
+  /// El miembro confirmo que debe su parte.
+  confirmed,
+
+  /// El miembro aun no ha confirmado ni disputado su parte.
+  pending,
+
+  /// El miembro disputa el monto asignado.
+  disputed,
+}
+
 /// Parte proporcional de un gasto compartido asignada a un miembro.
 class ExpenseShare {
   const ExpenseShare({
     required this.memberId,
     required this.shareAmount,
+    this.status = ShareStatus.confirmed,
   });
 
   final String memberId;
 
   /// Monto que le corresponde a este miembro.
   final double shareAmount;
+
+  /// Estado de confirmacion de la parte por el miembro.
+  final ShareStatus status;
 }
 
 /// Gasto compartido registrado dentro de un grupo.

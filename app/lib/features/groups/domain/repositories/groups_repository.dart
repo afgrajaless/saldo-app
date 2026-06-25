@@ -1,5 +1,6 @@
 import '../entities/group.dart';
 import '../entities/group_balance.dart';
+import '../entities/group_debt_summary.dart';
 import '../entities/group_invite.dart';
 import '../entities/group_member.dart';
 import '../entities/group_params.dart';
@@ -60,6 +61,17 @@ abstract class GroupsRepository {
   /// @param expenseId - UUID del gasto a eliminar.
   Future<void> deleteExpense(String groupId, String expenseId);
 
+  /// Confirma la parte asignada al usuario autenticado en un gasto compartido.
+  /// @param groupId - UUID del grupo.
+  /// @param expenseId - UUID del gasto a confirmar.
+  Future<void> confirmShare(String groupId, String expenseId);
+
+  /// Disputa la parte asignada al usuario autenticado en un gasto compartido.
+  /// @param groupId - UUID del grupo.
+  /// @param expenseId - UUID del gasto a disputar.
+  /// @param note - Nota opcional explicando la disputa.
+  Future<void> disputeShare(String groupId, String expenseId, {String? note});
+
   /// Obtiene el balance de deudas entre miembros de un grupo.
   /// @param groupId - UUID del grupo.
   /// @return Balance con netos y deudas entre miembros.
@@ -79,4 +91,8 @@ abstract class GroupsRepository {
   /// Abandona un grupo (el usuario autenticado deja de pertenecer al grupo).
   /// @param groupId - UUID del grupo a abandonar.
   Future<void> leaveGroup(String groupId);
+
+  /// Lista todas las deudas activas del usuario autenticado en todos sus grupos.
+  /// @return Lista de resumenes de deuda por grupo.
+  Future<List<GroupDebtSummary>> getMyGroupDebts();
 }

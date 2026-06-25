@@ -13,14 +13,16 @@ class MemberBalance {
   final double net;
 }
 
-/// Deuda simplificada entre dos miembros del grupo.
+/// Deuda simplificada entre dos miembros del grupo, con informacion de pendientes.
 class Debt {
   const Debt({
     required this.fromMemberId,
     required this.fromName,
     required this.toMemberId,
     required this.toName,
-    required this.amount,
+    required this.owed,
+    this.pendingOwed = 0,
+    this.hasPending = false,
   });
 
   /// ID del miembro que debe.
@@ -31,7 +33,14 @@ class Debt {
   final String toMemberId;
   final String toName;
 
-  final double amount;
+  /// Monto total que se adeuda (ya confirmado + pendiente).
+  final double owed;
+
+  /// Monto pendiente de confirmacion dentro de la deuda total.
+  final double pendingOwed;
+
+  /// Indica si hay partes pendientes de confirmacion en esta deuda.
+  final bool hasPending;
 }
 
 /// Balance consolidado del grupo: netos individuales y deudas simplificadas.
@@ -39,8 +48,12 @@ class GroupBalance {
   const GroupBalance({
     required this.members,
     required this.debts,
+    this.myPendingCount = 0,
   });
 
   final List<MemberBalance> members;
   final List<Debt> debts;
+
+  /// Cantidad de partes pendientes de confirmacion para el usuario autenticado.
+  final int myPendingCount;
 }

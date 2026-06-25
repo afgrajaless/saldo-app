@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../../core/di/injection.dart';
 import '../../domain/entities/group.dart';
 import '../../domain/entities/group_balance.dart';
+import '../../domain/entities/group_debt_summary.dart';
 import '../../domain/entities/group_member.dart';
 import '../../domain/entities/settlement.dart';
 import '../../domain/entities/shared_expense.dart';
@@ -53,4 +54,12 @@ Future<List<SharedExpense>> groupExpenses(Ref ref, String groupId) {
 @riverpod
 Future<List<Settlement>> groupSettlements(Ref ref, String groupId) {
   return getIt<GroupsRepository>().getSettlements(groupId);
+}
+
+/// Lista todas las deudas activas del usuario autenticado en todos sus grupos.
+/// @param ref - Referencia del provider.
+/// @return Lista de resumenes de deuda por grupo.
+@riverpod
+Future<List<GroupDebtSummary>> myGroupDebts(Ref ref) {
+  return getIt<GroupsRepository>().getMyGroupDebts();
 }
