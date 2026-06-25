@@ -94,7 +94,7 @@ describe('normalizeCreditProduct', () => {
       balance: 100000,
     };
     const r = normalizeCreditProduct(of);
-    expect(r.kind).toBe('skipped');
+    expect(r).toEqual({ kind: 'skipped', reason: 'tarjeta sin datos mínimos: card-x' });
   });
 
   it('omite un tipo de producto desconocido', () => {

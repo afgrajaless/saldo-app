@@ -19,6 +19,16 @@ export interface OFAccount {
 /** Tipo de producto de crédito reportado por Open Finance. */
 export type OFCreditProductType = 'credit_card' | 'loan' | string;
 
+/** Valores válidos del enum debt_type. */
+export type DebtType =
+  | 'libre_inversion'
+  | 'tarjeta_credito'
+  | 'libranza'
+  | 'hipotecario'
+  | 'vehiculo'
+  | 'educativo'
+  | 'gota_gota';
+
 /** Producto de crédito (forma canónica Open Finance). */
 export interface OFCreditProduct {
   externalId: string;
@@ -67,7 +77,7 @@ export interface NormalizedCard {
 export interface NormalizedDebt {
   externalId: string;
   creditor: string;
-  debtType: string;
+  debtType: DebtType;
   balance: number;
   effectiveAnnualRate: number;
   monthlyPayment: number;

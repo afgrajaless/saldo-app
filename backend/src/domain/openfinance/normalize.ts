@@ -1,4 +1,5 @@
 import {
+  DebtType,
   NormalizedAccount,
   NormalizedCreditProduct,
   OFAccount,
@@ -21,9 +22,9 @@ const KNOWN_DEBT_TYPES = new Set([
  * @param loanKind - Tipo de préstamo según el banco (puede venir indefinido).
  * @returns Un valor válido del enum debt_type.
  */
-export function mapLoanKindToDebtType(loanKind: string | undefined): string {
+export function mapLoanKindToDebtType(loanKind: string | undefined): DebtType {
   if (loanKind && KNOWN_DEBT_TYPES.has(loanKind)) {
-    return loanKind;
+    return loanKind as DebtType;
   }
   return 'libre_inversion';
 }
