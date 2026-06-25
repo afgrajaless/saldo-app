@@ -10,6 +10,7 @@ import { BudgetModule } from './modules/budget/budget.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { DebtsModule } from './modules/debts/debts.module';
+import { OpenFinanceModule } from './modules/openfinance/open-finance.module';
 import { ImportModule } from './modules/import/import.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
@@ -42,6 +43,7 @@ import { UsuryModule } from './modules/usury/usury.module';
     ImportModule,
     BudgetModule,
     GroupsModule,
+    OpenFinanceModule,
   ],
 })
 export class AppModule {}
