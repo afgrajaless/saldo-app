@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/money_format.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../groups/domain/entities/group_debt_summary.dart';
+import '../../../groups/presentation/providers/groups_providers.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/usecases/prioritize_debts.dart';
 import '../providers/debts_controller.dart';
 import '../widgets/debt_card.dart';
+import '../widgets/group_debt_card.dart';
 import 'create_debt_screen.dart';
 import 'debt_detail_screen.dart';
 
@@ -14,7 +17,8 @@ import 'debt_detail_screen.dart';
 final debtStrategyProvider =
     StateProvider<PayoffStrategy>((ref) => PayoffStrategy.avalanche);
 
-/// Pantalla principal: resumen del usuario y lista de obligaciones.
+/// Pantalla principal: resumen del usuario y lista de obligaciones formales
+/// mezclada con un bloque de deudas de grupos compartidos.
 class DebtsListScreen extends ConsumerWidget {
   const DebtsListScreen({super.key});
 
@@ -49,18 +53,18 @@ class DebtsListScreen extends ConsumerWidget {
         ),
         data: (debts) => RefreshIndicator(
           onRefresh: () => ref.read(debtsControllerProvider.notifier).refresh(),
-          child: debts.isEmpty
-              ? const _EmptyState()
-              : _DebtsList(debts: debts),
+          child: _CombinedList(debts: debts),
         ),
       ),
     );
   }
 }
 
-/// Lista con encabezado de resumen (total y cantidad).
-class _DebtsList extends ConsumerWidget {
-  const _DebtsList({required this.debts});
+/// Lista combinada: créditos formales (con estrategia) + bloque "Compartido"
+/// con las deudas de grupo del usuario. Si el provider de grupos falla,
+/// se muestra solo la lista formal sin romper la pantalla.
+class _CombinedList extends ConsumerWidget {
+  const _CombinedList({required this.debts});
 
   final List<Debt> debts;
 
@@ -69,49 +73,89 @@ class _DebtsList extends ConsumerWidget {
     final strategy = ref.watch(debtStrategyProvider);
     final ordered = prioritizeDebts(debts, strategy);
     final total = ordered.fold<double>(0, (sum, d) => sum + d.currentBalance);
+
+    // Deudas de grupo: se carga en paralelo; si falla, lista vacia.
+    final groupDebtsAsync = ref.watch(myGroupDebtsProvider);
+    final groupDebts = groupDebtsAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => <GroupDebtSummary>[],
+    );
+    final groupDebtsLoading = groupDebtsAsync is AsyncLoading;
+
+    // Total de items: header + creditos formales + (si hay grupo) encabezado + items
+    final hasGroupDebts = groupDebts.isNotEmpty || groupDebtsLoading;
+    final formalCount = ordered.length;
+    // indice 0 = header, 1..formalCount = creditos formales
+    // Si hay bloque de grupo: formalCount+1 = encabezado "Compartido", formalCount+2..n = tarjetas
+    final groupBlockStart = formalCount + 1;
+    final itemCount = formalCount +
+        1 + // header
+        (hasGroupDebts ? 1 + (groupDebtsLoading ? 1 : groupDebts.length) : 0);
+
+    // Si no hay nada ni formales ni grupos, estado vacio
+    if (formalCount == 0 && !hasGroupDebts) {
+      return const _EmptyState();
+    }
+
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: ordered.length + 1,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
+        // Indice 0: encabezado con total y selector de estrategia
         if (index == 0) {
           return _ListHeader(
             total: total,
-            count: ordered.length,
+            count: formalCount,
             strategy: strategy,
           );
         }
-        final debt = ordered[index - 1];
-        // La primera deuda con saldo es la prioridad bajo la estrategia activa.
-        final isPriority = index == 1 && debt.currentBalance > 0;
-        return Dismissible(
-          key: ValueKey(debt.id),
-          direction: DismissDirection.endToStart,
-          confirmDismiss: (_) => _confirmDelete(context),
-          onDismissed: (_) =>
-              ref.read(debtsControllerProvider.notifier).deleteDebt(debt.id),
-          background: Container(
-            alignment: Alignment.centerRight,
-            color: Theme.of(context).colorScheme.errorContainer,
-            padding: const EdgeInsets.only(right: 24),
-            child: Icon(Icons.delete_outline,
-                color: Theme.of(context).colorScheme.onErrorContainer),
-          ),
-          child: DebtCard(
-            debt: debt,
-            isPriority: isPriority,
-            priorityLabel: isPriority ? priorityReason(debt, strategy) : null,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => DebtDetailScreen(debtId: debt.id),
+
+        // Creditos formales
+        if (index <= formalCount) {
+          final debt = ordered[index - 1];
+          final isPriority = index == 1 && debt.currentBalance > 0;
+          return Dismissible(
+            key: ValueKey(debt.id),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (_) => _confirmDelete(context),
+            onDismissed: (_) =>
+                ref.read(debtsControllerProvider.notifier).deleteDebt(debt.id),
+            background: Container(
+              alignment: Alignment.centerRight,
+              color: Theme.of(context).colorScheme.errorContainer,
+              padding: const EdgeInsets.only(right: 24),
+              child: Icon(Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.onErrorContainer),
+            ),
+            child: DebtCard(
+              debt: debt,
+              isPriority: isPriority,
+              priorityLabel: isPriority ? priorityReason(debt, strategy) : null,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DebtDetailScreen(debtId: debt.id),
+                ),
               ),
             ),
-          ),
-        );
+          );
+        }
+
+        // Encabezado del bloque "Compartido"
+        if (index == groupBlockStart) {
+          return _GroupSectionHeader(isLoading: groupDebtsLoading);
+        }
+
+        // Si aun cargando, ya se mostro el encabezado con indicador
+        if (groupDebtsLoading) return const SizedBox.shrink();
+
+        // Tarjetas de deuda de grupo
+        final groupIndex = index - groupBlockStart - 1;
+        return GroupDebtCard(summary: groupDebts[groupIndex]);
       },
     );
   }
 
-  /// Pide confirmacion antes de eliminar una deuda.
+  /// Pide confirmacion antes de eliminar una deuda formal.
   /// @param context - Contexto de la pantalla.
   /// @return `true` si el usuario confirma.
   Future<bool> _confirmDelete(BuildContext context) async {
@@ -134,7 +178,49 @@ class _DebtsList extends ConsumerWidget {
   }
 }
 
-/// Encabezado con la deuda total, la cantidad de obligaciones y el selector
+/// Encabezado del bloque de deudas compartidas.
+/// Muestra el titulo "Compartido" y, mientras carga, un indicador de progreso inline.
+/// @param isLoading - true mientras myGroupDebtsProvider aun esta cargando.
+class _GroupSectionHeader extends StatelessWidget {
+  const _GroupSectionHeader({required this.isLoading});
+
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Icon(Icons.group_outlined,
+              size: 18, color: theme.colorScheme.secondary),
+          const SizedBox(width: 6),
+          Text(
+            'Compartido',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.secondary,
+            ),
+          ),
+          if (isLoading) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Encabezado con la deuda total formal, la cantidad de obligaciones y el selector
 /// de estrategia de pago que ordena la lista.
 class _ListHeader extends ConsumerWidget {
   const _ListHeader({
@@ -179,6 +265,17 @@ class _ListHeader extends ConsumerWidget {
           ),
         ),
         if (count > 1) _StrategySelector(strategy: strategy),
+        if (count > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              'Creditos formales',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -229,7 +326,7 @@ class _StrategySelector extends ConsumerWidget {
   }
 }
 
-/// Estado vacio cuando el usuario no tiene deudas.
+/// Estado vacio cuando el usuario no tiene deudas formales ni de grupo.
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
