@@ -498,6 +498,95 @@ describe('ExpensesService.confirmShare', () => {
   });
 });
 
+describe('ExpensesService — status en la respuesta de gastos', () => {
+  it('createExpense devuelve shares con status correcto: pagador=confirmed, miembro real=pending, fantasma=confirmed', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // a = pagador (real), b = miembro real no pagador, g = fantasma
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+    groupsRepo.listMembers = jest.fn().mockResolvedValue([
+      { id: 'a', groupId: 'grp', userId: 'u1', displayName: 'Ana', removedAt: null },
+      { id: 'b', groupId: 'grp', userId: 'u2', displayName: 'Beto', removedAt: null },
+      { id: 'g', groupId: 'grp', userId: null, displayName: 'Fantasma', removedAt: null },
+    ]);
+
+    // insertExpenseWithShares devuelve el gasto
+    expensesRepo.insertExpenseWithShares = jest.fn().mockResolvedValue({
+      id: 'exp1',
+      groupId: 'grp',
+      paidByMemberId: 'a',
+      description: null,
+      amount: '90.00',
+      occurredOn: '2026-06-24',
+      splitMethod: 'equal',
+      createdByUserId: 'u1',
+      createdAt: new Date(),
+      deletedAt: null,
+    });
+
+    // Las shares guardadas en BD incluyen status para que toResponse las serialice
+    expensesRepo.findExpenseShares = jest.fn().mockResolvedValue([
+      { id: 'sh1', expenseId: 'exp1', memberId: 'a', shareAmount: '30.00', status: 'confirmed', disputedNote: null, statusChangedAt: null },
+      { id: 'sh2', expenseId: 'exp1', memberId: 'b', shareAmount: '30.00', status: 'pending',   disputedNote: null, statusChangedAt: null },
+      { id: 'sh3', expenseId: 'exp1', memberId: 'g', shareAmount: '30.00', status: 'confirmed', disputedNote: null, statusChangedAt: null },
+    ]);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    const result = await service.createExpense('grp', 'u1', {
+      paidByMemberId: 'a',
+      amount: 90,
+      occurredOn: '2026-06-24',
+      splitMethod: 'equal',
+      participantMemberIds: ['a', 'b', 'g'],
+    });
+
+    const byMember = Object.fromEntries(result.shares.map((s) => [s.memberId, s.status]));
+    expect(byMember['a']).toBe('confirmed'); // pagador
+    expect(byMember['b']).toBe('pending');   // miembro real no pagador
+    expect(byMember['g']).toBe('confirmed'); // fantasma
+  });
+
+  it('listExpenses devuelve shares con status serializado desde BD', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a', groupId: 'grp', userId: 'u1', displayName: 'Ana', removedAt: null,
+    });
+
+    expensesRepo.listExpenses = jest.fn().mockResolvedValue([{
+      id: 'exp1', groupId: 'grp', paidByMemberId: 'a', description: null,
+      amount: '90.00', occurredOn: '2026-06-24', splitMethod: 'equal',
+      createdByUserId: 'u1', createdAt: new Date(), deletedAt: null,
+    }]);
+
+    expensesRepo.findSharesForExpenses = jest.fn().mockResolvedValue([
+      { id: 'sh1', expenseId: 'exp1', memberId: 'a', shareAmount: '30.00', status: 'confirmed', disputedNote: null, statusChangedAt: null },
+      { id: 'sh2', expenseId: 'exp1', memberId: 'b', shareAmount: '30.00', status: 'pending',   disputedNote: null, statusChangedAt: null },
+      { id: 'sh3', expenseId: 'exp1', memberId: 'g', shareAmount: '30.00', status: 'confirmed', disputedNote: null, statusChangedAt: null },
+    ]);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    const [expense] = await service.listExpenses('grp', 'u1');
+
+    const byMember = Object.fromEntries(expense.shares.map((s) => [s.memberId, s.status]));
+    expect(byMember['a']).toBe('confirmed');
+    expect(byMember['b']).toBe('pending');
+    expect(byMember['g']).toBe('confirmed');
+  });
+});
+
 describe('ExpensesService.disputeShare', () => {
   it('(b) pone la share del usuario en disputed con nota', async () => {
     const expensesRepo = makeExpensesRepo();

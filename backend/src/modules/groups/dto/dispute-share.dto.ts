@@ -5,7 +5,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 export class DisputeShareDto {
   @ApiPropertyOptional({
     description: 'Nota opcional que explica el motivo de la disputa.',
-    example: 'El monto no corresponde a lo que ordene.',
+    example: 'El monto no corresponde a lo que ordené.',
     maxLength: 500,
   })
   @IsOptional()

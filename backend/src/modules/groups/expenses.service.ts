@@ -351,6 +351,8 @@ export class ExpensesService {
       id: s.id,
       memberId: s.memberId,
       shareAmount: parseFloat(s.shareAmount),
+      status: s.status,
+      disputedNote: s.disputedNote ?? null,
     }));
 
     return {

@@ -49,7 +49,7 @@ export class BalanceService {
    * @returns El neto del miembro (positivo = le deben, negativo = debe, 0 = saldado).
    */
   async getMemberNet(groupId: string, memberId: string): Promise<number> {
-    // Para uso interno no necesitamos myPendingCount; usamos un memberId vacío.
+    // Para uso interno pasamos el memberId real; el myPendingCount resultante no se usa en esta ruta.
     const result = await this.computeGroupBalance(groupId, memberId);
     const found = result.members.find((m) => m.memberId === memberId);
     return found?.net ?? 0;

@@ -10,6 +10,12 @@ export class ShareResponseDto {
 
   @ApiProperty({ description: 'Monto asignado a este miembro.', example: 30000 })
   shareAmount!: number;
+
+  @ApiProperty({ description: 'Estado de la parte: confirmed, pending o disputed.', enum: ['confirmed', 'pending', 'disputed'] })
+  status!: string;
+
+  @ApiPropertyOptional({ description: 'Nota que explica el motivo de la disputa. Solo presente cuando status es disputed.', example: 'El monto no corresponde a lo que pedí.' })
+  disputedNote!: string | null;
 }
 
 /** Respuesta de un gasto compartido con su distribucion de partes. */

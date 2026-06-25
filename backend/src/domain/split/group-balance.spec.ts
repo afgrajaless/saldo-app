@@ -90,6 +90,21 @@ describe('computeDirectDebts', () => {
     expect(debts.find((d) => d.fromMemberId === 'a')).toBeUndefined(); // el pagador no se debe
   });
 
+  it('una parte disputed del deudor NO contribuye a owed ni pendingOwed', () => {
+    const debts = computeDirectDebts(
+      [{
+        paidByMemberId: 'a',
+        shares: [
+          { memberId: 'a', shareAmount: 0, status: 'confirmed' },
+          { memberId: 'b', shareAmount: 100, status: 'disputed' },
+        ],
+      }],
+      [],
+    );
+    // b tiene su parte en disputed: no debe nada en el libro de saldos
+    expect(debts.find((d) => d.fromMemberId === 'b')).toBeUndefined();
+  });
+
   it('un settlement reduce primero la porcion confirmada', () => {
     const debts = computeDirectDebts(
       [{
