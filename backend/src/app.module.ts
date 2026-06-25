@@ -4,6 +4,7 @@ import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
+import { CardsModule } from './modules/cards/cards.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BudgetModule } from './modules/budget/budget.module';
 import { CategoriesModule } from './modules/categories/categories.module';
@@ -35,6 +36,7 @@ import { UsuryModule } from './modules/usury/usury.module';
     UsuryModule,
     CategoriesModule,
     AccountsModule,
+    CardsModule,
     TransactionsModule,
     TransfersModule,
     ImportModule,
