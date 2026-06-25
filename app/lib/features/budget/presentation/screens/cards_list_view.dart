@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/budget_providers.dart';
 import '../widgets/credit_card_tile.dart';
+import 'card_detail_screen.dart';
 
 /// Vista de lista de tarjetas de credito del usuario.
 /// Muestra estados de carga, error, lista vacia y lista con datos.
@@ -25,8 +26,11 @@ class CardsListView extends ConsumerWidget {
             final card = cards[index];
             return CreditCardTile(
               card: card,
-              // TODO(Task 13): navegar a CardDetailScreen
-              onTap: () {},
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CardDetailScreen(card: card),
+                ),
+              ),
             );
           },
         );
