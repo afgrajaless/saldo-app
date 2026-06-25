@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { accounts, creditCardDetails } from '../../db/schema';
+import { accounts, creditCardDetails, transactions, transfers } from '../../db/schema';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 
@@ -174,6 +174,36 @@ export class CardsRepository {
       .limit(1);
 
     return rows[0] as CardRow | undefined;
+  }
+
+  /**
+   * Suma todos los cargos (transacciones de egreso) asociados a una cuenta de
+   * tarjeta de credito. Un cargo es cualquier transaccion cuyo `account_id`
+   * apunte a la tarjeta; representa compras y cargos que incrementan la deuda.
+   * @param accountId - UUID de la tarjeta/cuenta.
+   * @returns El total de cargos en pesos (0 si no hay ninguno).
+   */
+  async sumCardCharges(accountId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), '0')` })
+      .from(transactions)
+      .where(eq(transactions.accountId, accountId));
+    return Number(row?.total ?? 0);
+  }
+
+  /**
+   * Suma todos los pagos recibidos por una tarjeta de credito. Un pago es una
+   * transferencia cuyo `to_account_id` apunte a la tarjeta; representa abonos
+   * que reducen la deuda.
+   * @param accountId - UUID de la tarjeta/cuenta.
+   * @returns El total de pagos en pesos (0 si no hay ninguno).
+   */
+  async sumCardPayments(accountId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<string>`COALESCE(SUM(${transfers.amount}), '0')` })
+      .from(transfers)
+      .where(eq(transfers.toAccountId, accountId));
+    return Number(row?.total ?? 0);
   }
 
   /**

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-/** Respuesta de una tarjeta de credito con sus parametros de configuracion. */
+/** Respuesta de una tarjeta de credito con sus parametros de configuracion y saldo actual. */
 export class CardResponseDto {
   @ApiProperty({ description: 'UUID de la cuenta/tarjeta.', format: 'uuid' })
   id!: string;
@@ -45,6 +45,37 @@ export class CardResponseDto {
     example: 'monthly',
   })
   managementFeePeriod!: 'none' | 'monthly' | 'annual';
+
+  // --- Saldo y cupo (calculados en tiempo real) ---
+
+  @ApiProperty({
+    description: 'Saldo adeudado actual en pesos (Σcargos − Σpagos recibidos por la tarjeta).',
+    example: 1500000,
+  })
+  usedAmount!: number;
+
+  @ApiProperty({
+    description: 'Cupo disponible en pesos (cupo total − saldo adeudado).',
+    example: 3500000,
+  })
+  available!: number;
+
+  // --- Proximo pago ---
+
+  @ApiProperty({
+    description: 'Fecha limite de pago del ciclo actual en formato YYYY-MM-DD.',
+    example: '2025-07-25',
+  })
+  paymentDueDate!: string;
+
+  // --- Alerta de usura ---
+
+  @ApiProperty({
+    description:
+      'Indica si la tasa de interes rotativo supera la tasa de usura vigente para consumo ordinario.',
+    example: false,
+  })
+  exceedsUsury!: boolean;
 
   @ApiProperty({ description: 'Fecha de creacion de la tarjeta.' })
   createdAt!: Date;
