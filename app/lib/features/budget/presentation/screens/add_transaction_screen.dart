@@ -28,6 +28,10 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _descriptionController = TextEditingController();
   String? _categoryId;
   String? _accountId;
+
+  /// Cuotas de diferido: null = una sola cuota (sin diferir).
+  int? _installments;
+
   late DateTime _date;
   bool _submitting = false;
 
@@ -76,6 +80,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       occurredOn: _formatDate(_date),
       description: _descriptionController.text.trim(),
       accountId: _accountId,
+      installments: _installments,
     );
 
     try {
@@ -110,38 +115,84 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   /// Dropdown opcional de cuenta; vacio si el usuario no tiene cuentas.
+  /// Cuando la cuenta seleccionada es una tarjeta, muestra el selector de cuotas.
   Widget _accountField() {
     final accountsAsync = ref.watch(accountsListProvider);
     return accountsAsync.maybeWhen(
       data: (accounts) {
         if (accounts.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: DropdownButtonFormField<String?>(
-            value: _accountId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Cuenta (opcional)',
-              border: OutlineInputBorder(),
+
+        // Cuenta seleccionada actualmente (puede ser null = "Sin cuenta").
+        final selected = accounts.where((a) => a.id == _accountId).firstOrNull;
+        final isCard = selected?.isCard ?? false;
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: DropdownButtonFormField<String?>(
+                value: _accountId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Cuenta (opcional)',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('Sin cuenta')),
+                  ...accounts.map((a) => DropdownMenuItem<String?>(
+                        value: a.id,
+                        child: Row(
+                          children: [
+                            CircleAvatar(radius: 6, backgroundColor: hexToColor(a.color)),
+                            const SizedBox(width: 10),
+                            Flexible(child: Text(a.name, overflow: TextOverflow.ellipsis)),
+                            if (a.isCard) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.credit_card_outlined, size: 14),
+                            ],
+                          ],
+                        ),
+                      )),
+                ],
+                onChanged: (v) => setState(() {
+                  _accountId = v;
+                  // Al cambiar de cuenta, resetea el diferido si la nueva no es tarjeta.
+                  final newSelected = accounts.where((a) => a.id == v).firstOrNull;
+                  if (newSelected == null || !newSelected.isCard) _installments = null;
+                }),
+              ),
             ),
-            items: [
-              const DropdownMenuItem<String?>(value: null, child: Text('Sin cuenta')),
-              ...accounts.map((a) => DropdownMenuItem<String?>(
-                    value: a.id,
-                    child: Row(
-                      children: [
-                        CircleAvatar(radius: 6, backgroundColor: hexToColor(a.color)),
-                        const SizedBox(width: 10),
-                        Text(a.name),
-                      ],
-                    ),
-                  )),
-            ],
-            onChanged: (v) => setState(() => _accountId = v),
-          ),
+            // Selector de cuotas: solo visible cuando la cuenta es una tarjeta.
+            if (isCard) _installmentsField(),
+          ],
         );
       },
       orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  /// Dropdown para diferir una compra de tarjeta a N cuotas.
+  /// Opciones: una sola cuota (sin diferir) o 2, 3, 6, 12, 24, 36.
+  Widget _installmentsField() {
+    const options = [2, 3, 6, 12, 24, 36];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<int?>(
+        value: _installments,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Diferir a N cuotas',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.calendar_view_month_outlined),
+        ),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('Una sola cuota (sin diferir)')),
+          ...options.map(
+            (n) => DropdownMenuItem<int?>(value: n, child: Text('$n cuotas')),
+          ),
+        ],
+        onChanged: (v) => setState(() => _installments = v),
+      ),
     );
   }
 

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/money_format.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../budget/domain/entities/upcoming_card_payment.dart';
+import '../../../budget/presentation/providers/budget_providers.dart';
+import '../../../budget/presentation/screens/card_detail_screen.dart';
 import '../../../groups/domain/entities/group_debt_summary.dart';
 import '../../../groups/presentation/providers/groups_providers.dart';
 import '../../domain/entities/debt.dart';
@@ -61,7 +64,8 @@ class DebtsListScreen extends ConsumerWidget {
 }
 
 /// Lista combinada: créditos formales (con estrategia) + bloque "Compartido"
-/// con las deudas de grupo del usuario. Si el provider de grupos falla,
+/// con las deudas de grupo del usuario + bloque "Tarjetas" con recordatorios
+/// de pago de tarjeta de credito. Si cualquier provider secundario falla,
 /// se muestra solo la lista formal sin romper la pantalla.
 class _CombinedList extends ConsumerWidget {
   const _CombinedList({required this.debts});
@@ -82,18 +86,36 @@ class _CombinedList extends ConsumerWidget {
     );
     final groupDebtsLoading = groupDebtsAsync is AsyncLoading;
 
-    // Total de items: header + creditos formales + (si hay grupo) encabezado + items
-    final hasGroupDebts = groupDebts.isNotEmpty || groupDebtsLoading;
-    final formalCount = ordered.length;
-    // indice 0 = header, 1..formalCount = creditos formales
-    // Si hay bloque de grupo: formalCount+1 = encabezado "Compartido", formalCount+2..n = tarjetas
-    final groupBlockStart = formalCount + 1;
-    final itemCount = formalCount +
-        1 + // header
-        (hasGroupDebts ? 1 + (groupDebtsLoading ? 1 : groupDebts.length) : 0);
+    // Proximos pagos de tarjetas: se carga en paralelo; si falla, lista vacia.
+    // Esto evita que un error en el provider de tarjetas rompa la pantalla.
+    final cardPaymentsAsync = ref.watch(upcomingCardPaymentsProvider);
+    final cardPayments = cardPaymentsAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => <UpcomingCardPayment>[],
+    );
+    final cardPaymentsLoading = cardPaymentsAsync is AsyncLoading;
 
-    // Si no hay nada ni formales ni grupos, estado vacio
-    if (formalCount == 0 && !hasGroupDebts) {
+    // Construccion de items del ListView:
+    // 0           = header (total + estrategia)
+    // 1..formal   = creditos formales
+    // formal+1    = (si hay grupo) encabezado "Compartido"
+    // formal+2..n = items de grupo
+    // m+1         = (si hay tarjetas) encabezado "Tarjetas"
+    // m+2..k      = items de tarjeta
+    final formalCount = ordered.length;
+    final hasGroupDebts = groupDebts.isNotEmpty || groupDebtsLoading;
+    final hasCardPayments = cardPayments.isNotEmpty || cardPaymentsLoading;
+
+    final groupBlockStart = formalCount + 1;
+    final groupBlockSize = hasGroupDebts ? 1 + (groupDebtsLoading ? 1 : groupDebts.length) : 0;
+
+    final cardBlockStart = groupBlockStart + groupBlockSize;
+    final cardBlockSize = hasCardPayments ? 1 + (cardPaymentsLoading ? 1 : cardPayments.length) : 0;
+
+    final itemCount = 1 + formalCount + groupBlockSize + cardBlockSize;
+
+    // Si no hay nada en ninguna seccion, estado vacio.
+    if (formalCount == 0 && !hasGroupDebts && !hasCardPayments) {
       return const _EmptyState();
     }
 
@@ -101,7 +123,7 @@ class _CombinedList extends ConsumerWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: itemCount,
       itemBuilder: (context, index) {
-        // Indice 0: encabezado con total y selector de estrategia
+        // Indice 0: encabezado con total y selector de estrategia.
         if (index == 0) {
           return _ListHeader(
             total: total,
@@ -110,7 +132,7 @@ class _CombinedList extends ConsumerWidget {
           );
         }
 
-        // Creditos formales
+        // Creditos formales.
         if (index <= formalCount) {
           final debt = ordered[index - 1];
           final isPriority = index == 1 && debt.currentBalance > 0;
@@ -140,17 +162,86 @@ class _CombinedList extends ConsumerWidget {
           );
         }
 
-        // Encabezado del bloque "Compartido"
-        if (index == groupBlockStart) {
-          return _GroupSectionHeader(isLoading: groupDebtsLoading);
+        // Bloque "Compartido": encabezado + items de grupo.
+        if (hasGroupDebts) {
+          if (index == groupBlockStart) {
+            return _GroupSectionHeader(isLoading: groupDebtsLoading);
+          }
+          if (groupDebtsLoading && index == groupBlockStart + 1) {
+            return const SizedBox.shrink();
+          }
+          if (!groupDebtsLoading && index < cardBlockStart) {
+            final groupIndex = index - groupBlockStart - 1;
+            return GroupDebtCard(summary: groupDebts[groupIndex]);
+          }
         }
 
-        // Si aun cargando, ya se mostro el encabezado con indicador
-        if (groupDebtsLoading) return const SizedBox.shrink();
+        // Bloque "Tarjetas": encabezado + recordatorios de pago.
+        if (hasCardPayments) {
+          if (index == cardBlockStart) {
+            return _CardSectionHeader(isLoading: cardPaymentsLoading);
+          }
+          if (cardPaymentsLoading) return const SizedBox.shrink();
+          final cardIndex = index - cardBlockStart - 1;
+          return _CardPaymentReminderTile(
+            payment: cardPayments[cardIndex],
+            onTap: () => _openCardDetail(context, ref, cardPayments[cardIndex]),
+          );
+        }
 
-        // Tarjetas de deuda de grupo
-        final groupIndex = index - groupBlockStart - 1;
-        return GroupDebtCard(summary: groupDebts[groupIndex]);
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  /// Navega al detalle de la tarjeta del recordatorio.
+  ///
+  /// Estrategia de navegacion: se busca la tarjeta en el provider [cardsListProvider].
+  /// Si ya esta en cache, la navegacion es inmediata. Si aun no cargó o falla,
+  /// se hace un push con un FutureBuilder dentro de CardDetailScreen no es posible
+  /// sin la entidad — en ese caso se muestra un SnackBar informativo.
+  /// @param context - Contexto de la pantalla.
+  /// @param ref - WidgetRef para leer providers.
+  /// @param payment - Recordatorio del que se desea ver el detalle.
+  Future<void> _openCardDetail(
+    BuildContext context,
+    WidgetRef ref,
+    UpcomingCardPayment payment,
+  ) async {
+    final cardsAsync = ref.read(cardsListProvider);
+    await cardsAsync.when(
+      loading: () async {
+        // Intentar cargar antes de navegar.
+        try {
+          final cards = await ref.read(cardsListProvider.future);
+          final card = cards.where((c) => c.id == payment.cardId).firstOrNull;
+          if (card != null && context.mounted) {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => CardDetailScreen(card: card)),
+            );
+          }
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('No se pudo cargar el detalle de ${payment.name}.')),
+            );
+          }
+        }
+      },
+      error: (_, __) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('No se pudo cargar el detalle de ${payment.name}.')),
+          );
+        }
+      },
+      data: (cards) {
+        final card = cards.where((c) => c.id == payment.cardId).firstOrNull;
+        if (card != null && context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => CardDetailScreen(card: card)),
+          );
+        }
       },
     );
   }
@@ -175,6 +266,97 @@ class _CombinedList extends ConsumerWidget {
       ),
     );
     return result ?? false;
+  }
+}
+
+/// Encabezado del bloque de recordatorios de tarjeta.
+/// Muestra el titulo "Tarjetas" y, mientras carga, un indicador de progreso inline.
+/// @param isLoading - true mientras upcomingCardPaymentsProvider aun esta cargando.
+class _CardSectionHeader extends StatelessWidget {
+  const _CardSectionHeader({required this.isLoading});
+
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Icon(Icons.credit_card_outlined,
+              size: 18, color: theme.colorScheme.tertiary),
+          const SizedBox(width: 6),
+          Text(
+            'Tarjetas',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.tertiary,
+            ),
+          ),
+          if (isLoading) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.tertiary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta de recordatorio de pago de tarjeta de credito (solo lectura).
+/// Muestra el nombre de la tarjeta, la fecha de vencimiento y el minimo estimado.
+/// @param payment - Proximo pago estimado de la tarjeta.
+/// @param onTap - Callback al tocar la tarjeta (navega al detalle).
+class _CardPaymentReminderTile extends StatelessWidget {
+  const _CardPaymentReminderTile({
+    required this.payment,
+    required this.onTap,
+  });
+
+  final UpcomingCardPayment payment;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.tertiaryContainer,
+          child: Icon(
+            Icons.credit_card_outlined,
+            color: theme.colorScheme.onTertiaryContainer,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          'Pago tarjeta ${payment.name}',
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'Vence ${payment.paymentDueDate}',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        trailing: Text(
+          formatCop(payment.estimatedMinPayment),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.tertiary,
+          ),
+        ),
+        onTap: onTap,
+      ),
+    );
   }
 }
 

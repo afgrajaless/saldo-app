@@ -105,15 +105,28 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
         child: accountsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),
-          data: (accounts) =>
-              accounts.length < 2 ? const _NeedAccounts() : _form(accounts),
+          data: (accounts) {
+            // Para "pagar tarjeta" el destino puede ser una tarjeta de credito
+            // (cuenta con kind='credit_card'). El origen siempre debe ser una
+            // cuenta de activo (efectivo, banco, etc.), no otra tarjeta.
+            final assetAccounts = accounts.where((a) => !a.isCard).toList();
+            // Si no hay al menos una cuenta de activo y una cuenta de destino, pedir cuentas.
+            if (assetAccounts.isEmpty || accounts.length < 2) {
+              return const _NeedAccounts();
+            }
+            return _form(assetAccounts: assetAccounts, allAccounts: accounts);
+          },
         ),
       ),
     );
   }
 
   /// Construye el formulario con las cuentas disponibles.
-  Widget _form(List<Account> accounts) {
+  /// [assetAccounts] = cuentas de activo (origen); [allAccounts] = todas (destino).
+  Widget _form({
+    required List<Account> assetAccounts,
+    required List<Account> allAccounts,
+  }) {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -122,16 +135,18 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _accountDropdown(
+              // Origen: solo cuentas de activo (no tarjetas).
               label: 'Desde',
               value: _fromId,
-              accounts: accounts,
+              accounts: assetAccounts,
               onChanged: (v) => setState(() => _fromId = v),
             ),
             const SizedBox(height: 16),
             _accountDropdown(
+              // Destino: todas las cuentas, incluidas tarjetas (pago de tarjeta).
               label: 'Hacia',
               value: _toId,
-              accounts: accounts,
+              accounts: allAccounts,
               onChanged: (v) => setState(() => _toId = v),
             ),
             const SizedBox(height: 16),
@@ -204,7 +219,11 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
                   children: [
                     CircleAvatar(radius: 6, backgroundColor: hexToColor(a.color)),
                     const SizedBox(width: 10),
-                    Text(a.name),
+                    Flexible(child: Text(a.name, overflow: TextOverflow.ellipsis)),
+                    if (a.isCard) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.credit_card_outlined, size: 14),
+                    ],
                   ],
                 ),
               ))
