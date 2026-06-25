@@ -29,7 +29,11 @@ function makeCard(overrides: Partial<CardRow> = {}): CardRow {
   };
 }
 
-type RepoMock = jest.Mocked<CardsRepository>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RepoMock = jest.Mocked<CardsRepository> & {
+  upsertEstimatedStatement: jest.MockedFunction<CardsRepository['upsertEstimatedStatement']>;
+  upsertReconciledStatement: jest.MockedFunction<CardsRepository['upsertReconciledStatement']>;
+};
 type UsuryRepoMock = jest.Mocked<Pick<UsuryRepository, 'findCurrent'>>;
 
 /** Crea un repositorio de tarjetas completamente mockeado. */
@@ -45,7 +49,8 @@ function makeRepo(): RepoMock {
     sumInstallmentsDueInCycle: jest.fn().mockResolvedValue(0),
     findPreviousClosedStatement: jest.fn().mockResolvedValue(undefined),
     findStatementByCutoff: jest.fn().mockResolvedValue(undefined),
-    upsertStatement: jest.fn(),
+    upsertEstimatedStatement: jest.fn(),
+    upsertReconciledStatement: jest.fn(),
   } as unknown as RepoMock;
 }
 
@@ -224,14 +229,15 @@ describe('CardsService', () => {
   });
 
   describe('getStatement', () => {
-    it('retorna cutoffDate y paymentDueDate correctos', async () => {
+    it('retorna cutoffDate y paymentDueDate correctos, y el status viene de la fila guardada', async () => {
       const card = makeCard({ statementDay: 15, paymentDay: 25 });
       repo.findCardForUser.mockResolvedValue(card);
       repo.findStatementByCutoff.mockResolvedValue(undefined);
       repo.sumChargesInCycle.mockResolvedValue(0);
       repo.sumInstallmentsDueInCycle.mockResolvedValue(0);
       repo.findPreviousClosedStatement.mockResolvedValue(undefined);
-      repo.upsertStatement.mockResolvedValue({
+      // El repositorio devuelve 'open' tal como lo guardo la BD.
+      repo.upsertEstimatedStatement.mockResolvedValue({
         id: 'st-1',
         accountId: 'acc-1',
         cutoffDate: '2025-07-15',
@@ -250,18 +256,19 @@ describe('CardsService', () => {
 
       expect(result.cutoffDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(result.paymentDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      // El status debe venir de la fila guardada, NO hardcodeado en el servicio.
       expect(result.status).toBe('open');
     });
 
-    it('retorna estimatedBalance coherente con cargos mockeados', async () => {
+    it('retorna estimatedBalance exacto segun los cargos mockeados (600_000)', async () => {
       const card = makeCard({ statementDay: 15, paymentDay: 25 });
       repo.findCardForUser.mockResolvedValue(card);
       repo.findStatementByCutoff.mockResolvedValue(undefined);
       repo.sumChargesInCycle.mockResolvedValue(500_000);
       repo.sumInstallmentsDueInCycle.mockResolvedValue(100_000);
       repo.findPreviousClosedStatement.mockResolvedValue(undefined);
-      repo.upsertStatement.mockImplementation(
-        async (data: Parameters<CardsRepository['upsertStatement']>[0]) => ({
+      repo.upsertEstimatedStatement.mockImplementation(
+        async (data: Parameters<CardsRepository['upsertEstimatedStatement']>[0]) => ({
           id: 'st-1',
           accountId: 'acc-1',
           cutoffDate: data.cutoffDate,
@@ -279,9 +286,9 @@ describe('CardsService', () => {
 
       const result = await service.getStatement('acc-1', 'user-1');
 
-      // 500_000 cargos + 100_000 cuotas = 600_000 (sin rotativo ni cuota de manejo)
-      expect(result.estimatedBalance).toBeGreaterThan(0);
-      expect(result.estimatedMinPayment).toBeGreaterThan(0);
+      // 500_000 cargos + 100_000 cuotas diferidas = 600_000 (sin rotativo ni cuota de manejo).
+      expect(result.estimatedBalance).toBe(600_000);
+      expect(result.estimatedMinPayment).toBe(30_000); // 600_000 * 0.05
     });
 
     it('lanza NotFoundException si la tarjeta no es del usuario', async () => {
@@ -321,20 +328,22 @@ describe('CardsService', () => {
       const card = makeCard();
       repo.findCardForUser.mockResolvedValue(card);
       repo.findStatementByCutoff.mockResolvedValue(undefined);
-      repo.upsertStatement.mockImplementation(
-        async (data: Parameters<CardsRepository['upsertStatement']>[0]) => ({
+      repo.sumChargesInCycle.mockResolvedValue(0);
+      repo.sumInstallmentsDueInCycle.mockResolvedValue(0);
+      repo.findPreviousClosedStatement.mockResolvedValue(undefined);
+      repo.upsertReconciledStatement.mockImplementation(
+        async (data: Parameters<CardsRepository['upsertReconciledStatement']>[0]) => ({
           id: 'st-1',
           accountId: 'acc-1',
           cutoffDate: data.cutoffDate,
           paymentDueDate: data.paymentDueDate,
-          estimatedBalance: '0.00',
-          estimatedMinPayment: '0.00',
-          reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
-          reconciledMinPayment:
-            data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
+          estimatedBalance: data.estimatedBalance.toFixed(2),
+          estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
+          reconciledBalance: data.reconciledBalance.toFixed(2),
+          reconciledMinPayment: data.reconciledMinPayment.toFixed(2),
           reconciledTotalPayment:
             data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
-          status: (data.status ?? 'closed') as 'open' | 'closed' | 'paid',
+          status: data.status as 'open' | 'closed' | 'paid',
           createdAt: new Date(),
           updatedAt: new Date(),
         }),
@@ -349,6 +358,70 @@ describe('CardsService', () => {
       expect(result.reconciledBalance).toBe(460000);
       expect(result.reconciledMinPayment).toBe(23000);
       expect(result.status).toBe('closed');
+    });
+
+    it('reconciliar NO pisa los campos estimados: el extracto conserva estimated_* tras reconciliar', async () => {
+      const card = makeCard();
+      repo.findCardForUser.mockResolvedValue(card);
+
+      // Simula que ya existe un extracto con valores estimados.
+      const existingStatement = {
+        id: 'st-1',
+        accountId: 'acc-1',
+        cutoffDate: '2025-07-15',
+        paymentDueDate: '2025-07-25',
+        estimatedBalance: '520000.00',
+        estimatedMinPayment: '26000.00',
+        reconciledBalance: null,
+        reconciledMinPayment: null,
+        reconciledTotalPayment: null,
+        status: 'open' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      repo.findStatementByCutoff.mockResolvedValue(existingStatement);
+
+      // El upsertReconciledStatement on conflict solo actualiza reconciled_*, no estimated_*.
+      repo.upsertReconciledStatement.mockImplementation(
+        async (data: Parameters<CardsRepository['upsertReconciledStatement']>[0]) => ({
+          id: 'st-1',
+          accountId: 'acc-1',
+          cutoffDate: data.cutoffDate,
+          paymentDueDate: data.paymentDueDate,
+          // Los estimated_* deben provenir del extracto existente, sin modificarse.
+          estimatedBalance: existingStatement.estimatedBalance,
+          estimatedMinPayment: existingStatement.estimatedMinPayment,
+          reconciledBalance: data.reconciledBalance.toFixed(2),
+          reconciledMinPayment: data.reconciledMinPayment.toFixed(2),
+          reconciledTotalPayment: null,
+          status: data.status as 'open' | 'closed' | 'paid',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      const result = await service.reconcileStatement('acc-1', 'user-1', {
+        cutoffDate: '2025-07-15',
+        reconciledBalance: 530000,
+        reconciledMinPayment: 26500,
+      });
+
+      // Los valores estimados deben conservarse intactos.
+      expect(result.estimatedBalance).toBe(520000);
+      expect(result.estimatedMinPayment).toBe(26000);
+      // Los valores reconciliados deben reflejar lo enviado.
+      expect(result.reconciledBalance).toBe(530000);
+      expect(result.reconciledMinPayment).toBe(26500);
+      expect(result.status).toBe('closed');
+
+      // Verificar que el upsertReconciledStatement fue llamado con los estimated del extracto existente.
+      expect(repo.upsertReconciledStatement).toHaveBeenCalledWith(
+        expect.objectContaining({
+          estimatedBalance: 520000,
+          estimatedMinPayment: 26000,
+          reconciledBalance: 530000,
+        }),
+      );
     });
 
     it('lanza BadRequestException si reconciledBalance es negativo', async () => {

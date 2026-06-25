@@ -9,7 +9,11 @@ import { CreateCardDto } from './dto/create-card.dto';
 import { ReconcileStatementDto } from './dto/reconcile-statement.dto';
 import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
+import { cardStatements } from '../../db/schema';
 import { CardRow, CardsRepository } from './cards.repository';
+
+/** Tipo inferido de la fila de extractos de tarjeta. */
+type StatementRow = typeof cardStatements.$inferSelect;
 
 /** Modalidad de usura usada para tarjetas de credito (consumo y ordinario). */
 const CREDIT_CARD_USURY_MODALITY = 'consumo_ordinario' as const;
@@ -123,18 +127,7 @@ export class CardsService {
     // Si ya existe un extracto para este corte, devolverlo directamente.
     const existing = await this.cardsRepository.findStatementByCutoff(accountId, cutoffDate);
     if (existing) {
-      return {
-        cutoffDate: existing.cutoffDate,
-        paymentDueDate: existing.paymentDueDate,
-        estimatedBalance: Number(existing.estimatedBalance),
-        estimatedMinPayment: Number(existing.estimatedMinPayment),
-        reconciledBalance: existing.reconciledBalance != null ? Number(existing.reconciledBalance) : null,
-        reconciledMinPayment:
-          existing.reconciledMinPayment != null ? Number(existing.reconciledMinPayment) : null,
-        reconciledTotalPayment:
-          existing.reconciledTotalPayment != null ? Number(existing.reconciledTotalPayment) : null,
-        status: existing.status,
-      };
+      return this.toStatementDto(existing);
     }
 
     // Calcular ventana del ciclo actual.
@@ -154,27 +147,15 @@ export class CardsService {
     const revolvingBase =
       prevStatement?.reconciledBalance != null ? Number(prevStatement.reconciledBalance) : 0;
 
-    // Cuota de manejo aplicable en este ciclo.
-    const managementFeeThisCycle = this.computeManagementFeeForCycle(
-      card.managementFee != null ? Number(card.managementFee) : null,
-      card.managementFeePeriod,
-      today,
-    );
-
-    const monthlyRate = effectiveAnnualToMonthly(Number(card.rotativoRateEa));
-    const minPaymentPct = Number(card.minPaymentPct);
-
-    const { estimatedBalance, estimatedMinPayment } = estimateStatement({
+    const { estimatedBalance, estimatedMinPayment } = this.computeEstimatedStatement(card, {
       chargesInCycle,
       installmentDueInCycle,
       revolvingBase,
-      monthlyRate,
-      managementFeeThisCycle,
-      minPaymentPct,
+      referenceMonth: today,
     });
 
-    // Persistir la estimacion en BD.
-    await this.cardsRepository.upsertStatement({
+    // Persistir la estimacion en BD; on conflict solo actualiza los campos estimados.
+    const saved = await this.cardsRepository.upsertEstimatedStatement({
       accountId,
       cutoffDate,
       paymentDueDate,
@@ -182,22 +163,17 @@ export class CardsService {
       estimatedMinPayment,
     });
 
-    return {
-      cutoffDate,
-      paymentDueDate,
-      estimatedBalance,
-      estimatedMinPayment,
-      reconciledBalance: null,
-      reconciledMinPayment: null,
-      reconciledTotalPayment: null,
-      status: 'open',
-    };
+    return this.toStatementDto(saved);
   }
 
   /**
    * Reconcilia el extracto de una tarjeta con los valores reales recibidos del banco.
    * Actualiza (o crea) el extracto con los montos oficiales y cambia el status a
    * 'closed' o 'paid' segun si se incluye el pago total.
+   * En el caso de actualizacion (on conflict), solo pisa los campos reconciliados;
+   * los campos estimados se conservan intactos.
+   * En el caso de insercion (no existe la fila), calcula el estimado como respaldo
+   * para los campos NOT NULL.
    * @param accountId - UUID de la tarjeta.
    * @param userId - Dueno esperado; lanza NotFoundException si no coincide.
    * @param dto - Valores reales del extracto bancario.
@@ -224,16 +200,49 @@ export class CardsService {
     const cycleMonth = dto.cutoffDate.slice(0, 7); // YYYY-MM
     const { paymentDueDate } = computeCycleDates(card.statementDay, card.paymentDay, cycleMonth);
 
-    // Conservar los valores estimados si ya existe el extracto.
+    // Obtener valores estimados existentes; si no hay fila, calcular el estimado como respaldo
+    // para el caso de insercion (los campos estimated_* son NOT NULL en la BD).
     const existing = await this.cardsRepository.findStatementByCutoff(accountId, dto.cutoffDate);
-    const estimatedBalance = existing?.estimatedBalance != null ? Number(existing.estimatedBalance) : 0;
-    const estimatedMinPayment =
-      existing?.estimatedMinPayment != null ? Number(existing.estimatedMinPayment) : 0;
+    let estimatedBalance: number;
+    let estimatedMinPayment: number;
+
+    if (existing) {
+      estimatedBalance = Number(existing.estimatedBalance);
+      estimatedMinPayment = Number(existing.estimatedMinPayment);
+    } else {
+      // No existe extracto previo: calcular el estimado on-the-fly como respaldo.
+      const prevMonth = this.previousMonth(cycleMonth);
+      const { cutoffDate: prevCutoff } = computeCycleDates(
+        card.statementDay,
+        card.paymentDay,
+        prevMonth,
+      );
+      const cycleStart = this.addOneDay(prevCutoff);
+
+      const [chargesInCycle, installmentDueInCycle, prevStatement] = await Promise.all([
+        this.cardsRepository.sumChargesInCycle(accountId, cycleStart, dto.cutoffDate),
+        this.cardsRepository.sumInstallmentsDueInCycle(accountId, cycleStart, dto.cutoffDate),
+        this.cardsRepository.findPreviousClosedStatement(accountId, dto.cutoffDate),
+      ]);
+
+      const revolvingBase =
+        prevStatement?.reconciledBalance != null ? Number(prevStatement.reconciledBalance) : 0;
+
+      const computed = this.computeEstimatedStatement(card, {
+        chargesInCycle,
+        installmentDueInCycle,
+        revolvingBase,
+        referenceMonth: cycleMonth,
+      });
+      estimatedBalance = computed.estimatedBalance;
+      estimatedMinPayment = computed.estimatedMinPayment;
+    }
 
     // status: 'paid' si se provee el pago total; 'closed' si solo se reconcilia el saldo.
     const status: 'open' | 'closed' | 'paid' = dto.reconciledTotalPayment != null ? 'paid' : 'closed';
 
-    const saved = await this.cardsRepository.upsertStatement({
+    // On conflict: solo actualiza reconciled_* y status, sin tocar estimated_*.
+    const saved = await this.cardsRepository.upsertReconciledStatement({
       accountId,
       cutoffDate: dto.cutoffDate,
       paymentDueDate,
@@ -245,17 +254,63 @@ export class CardsService {
       status,
     });
 
+    return this.toStatementDto(saved);
+  }
+
+  /**
+   * Calcula los valores estimados de balance y pago minimo para el ciclo actual.
+   * Centraliza la logica de estimacion para reutilizarla en getStatement y en
+   * reconcileStatement cuando no existe extracto previo.
+   * @param card - Fila combinada de la tarjeta con tasa, porcentaje minimo y cuota de manejo.
+   * @param params - Cargos del ciclo, cuotas diferidas, base rotativa y mes de referencia.
+   * @returns Objeto con estimatedBalance y estimatedMinPayment.
+   */
+  private computeEstimatedStatement(
+    card: CardRow,
+    params: {
+      chargesInCycle: number;
+      installmentDueInCycle: number;
+      revolvingBase: number;
+      referenceMonth: string;
+    },
+  ): { estimatedBalance: number; estimatedMinPayment: number } {
+    const managementFeeThisCycle = this.computeManagementFeeForCycle(
+      card.managementFee != null ? Number(card.managementFee) : null,
+      card.managementFeePeriod,
+      params.referenceMonth,
+    );
+
+    const monthlyRate = effectiveAnnualToMonthly(Number(card.rotativoRateEa));
+    const minPaymentPct = Number(card.minPaymentPct);
+
+    return estimateStatement({
+      chargesInCycle: params.chargesInCycle,
+      installmentDueInCycle: params.installmentDueInCycle,
+      revolvingBase: params.revolvingBase,
+      monthlyRate,
+      managementFeeThisCycle,
+      minPaymentPct,
+    });
+  }
+
+  /**
+   * Mapea una fila de card_statements al DTO de respuesta, convirtiendo strings
+   * numericos a number y preservando nulls en los campos reconciliados.
+   * @param row - Fila de cardStatements tal como la devuelve Drizzle.
+   * @returns El DTO de respuesta del extracto.
+   */
+  private toStatementDto(row: StatementRow): StatementResponseDto {
     return {
-      cutoffDate: saved.cutoffDate,
-      paymentDueDate: saved.paymentDueDate,
-      estimatedBalance: Number(saved.estimatedBalance),
-      estimatedMinPayment: Number(saved.estimatedMinPayment),
-      reconciledBalance: saved.reconciledBalance != null ? Number(saved.reconciledBalance) : null,
+      cutoffDate: row.cutoffDate,
+      paymentDueDate: row.paymentDueDate,
+      estimatedBalance: Number(row.estimatedBalance),
+      estimatedMinPayment: Number(row.estimatedMinPayment),
+      reconciledBalance: row.reconciledBalance != null ? Number(row.reconciledBalance) : null,
       reconciledMinPayment:
-        saved.reconciledMinPayment != null ? Number(saved.reconciledMinPayment) : null,
+        row.reconciledMinPayment != null ? Number(row.reconciledMinPayment) : null,
       reconciledTotalPayment:
-        saved.reconciledTotalPayment != null ? Number(saved.reconciledTotalPayment) : null,
-      status: saved.status,
+        row.reconciledTotalPayment != null ? Number(row.reconciledTotalPayment) : null,
+      status: row.status,
     };
   }
 

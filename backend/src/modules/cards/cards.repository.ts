@@ -310,21 +310,19 @@ export class CardsRepository {
   }
 
   /**
-   * Upsert del extracto de la tarjeta: inserta si no existe, actualiza si ya existe.
+   * Upsert del extracto estimado: inserta la fila si no existe, o actualiza solo los campos
+   * estimados (estimated_balance, estimated_min_payment, payment_due_date) si ya existe.
+   * NO toca reconciled_* ni status para no pisar una reconciliacion previa.
    * La unicidad se basa en (account_id, cutoff_date).
-   * @param data - Datos del extracto (account_id + cutoff_date identifican el registro).
-   * @returns El extracto insertado o actualizado.
+   * @param data - Datos estimados del ciclo (accountId + cutoffDate identifican el registro).
+   * @returns La fila insertada o actualizada.
    */
-  async upsertStatement(data: {
+  async upsertEstimatedStatement(data: {
     accountId: string;
     cutoffDate: string;
     paymentDueDate: string;
     estimatedBalance: number;
     estimatedMinPayment: number;
-    reconciledBalance?: number | null;
-    reconciledMinPayment?: number | null;
-    reconciledTotalPayment?: number | null;
-    status?: 'open' | 'closed' | 'paid';
   }): Promise<typeof cardStatements.$inferSelect> {
     const [row] = await this.db
       .insert(cardStatements)
@@ -334,12 +332,10 @@ export class CardsRepository {
         paymentDueDate: data.paymentDueDate,
         estimatedBalance: data.estimatedBalance.toFixed(2),
         estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
-        reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
-        reconciledMinPayment:
-          data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
-        reconciledTotalPayment:
-          data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
-        status: data.status ?? 'open',
+        reconciledBalance: null,
+        reconciledMinPayment: null,
+        reconciledTotalPayment: null,
+        status: 'open',
       })
       .onConflictDoUpdate({
         target: [cardStatements.accountId, cardStatements.cutoffDate],
@@ -347,12 +343,54 @@ export class CardsRepository {
           paymentDueDate: data.paymentDueDate,
           estimatedBalance: data.estimatedBalance.toFixed(2),
           estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
-          reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
-          reconciledMinPayment:
-            data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  /**
+   * Upsert del extracto reconciliado: inserta la fila si no existe (usando los valores
+   * estimados provistos para los campos NOT NULL), o actualiza solo los campos reconciliados
+   * (reconciled_balance, reconciled_min_payment, reconciled_total_payment, status) si ya existe.
+   * NO toca estimated_* para preservar el estimado calculado previamente.
+   * La unicidad se basa en (account_id, cutoff_date).
+   * @param data - Datos reconciliados + valores estimados de respaldo para el caso de insercion.
+   * @returns La fila insertada o actualizada.
+   */
+  async upsertReconciledStatement(data: {
+    accountId: string;
+    cutoffDate: string;
+    paymentDueDate: string;
+    estimatedBalance: number;
+    estimatedMinPayment: number;
+    reconciledBalance: number;
+    reconciledMinPayment: number;
+    reconciledTotalPayment: number | null;
+    status: 'open' | 'closed' | 'paid';
+  }): Promise<typeof cardStatements.$inferSelect> {
+    const [row] = await this.db
+      .insert(cardStatements)
+      .values({
+        accountId: data.accountId,
+        cutoffDate: data.cutoffDate,
+        paymentDueDate: data.paymentDueDate,
+        estimatedBalance: data.estimatedBalance.toFixed(2),
+        estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
+        reconciledBalance: data.reconciledBalance.toFixed(2),
+        reconciledMinPayment: data.reconciledMinPayment.toFixed(2),
+        reconciledTotalPayment:
+          data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
+        status: data.status,
+      })
+      .onConflictDoUpdate({
+        target: [cardStatements.accountId, cardStatements.cutoffDate],
+        set: {
+          reconciledBalance: data.reconciledBalance.toFixed(2),
+          reconciledMinPayment: data.reconciledMinPayment.toFixed(2),
           reconciledTotalPayment:
             data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
-          status: data.status ?? 'open',
+          status: data.status,
         },
       })
       .returning();
