@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   computeBalances,
-  deriveDebts,
+  computeDirectDebts,
   ExpenseInput,
   SettlementInput,
 } from '../../domain/split/group-balance';
@@ -12,7 +12,7 @@ import { GroupsRepository } from './groups.repository';
 /**
  * Servicio de saldo del grupo.
  * Obtiene los datos crudos del repositorio, los mapea a los inputs del dominio
- * y delega el calculo a `computeBalances` / `deriveDebts`.
+ * y delega el calculo a `computeBalances` / `computeDirectDebts`.
  */
 @Injectable()
 export class BalanceService {
@@ -22,11 +22,12 @@ export class BalanceService {
   ) {}
 
   /**
-   * Calcula el saldo neto de cada miembro activo y la lista de deudas pairwise del grupo.
+   * Calcula el saldo neto de cada miembro activo, la lista de deudas directas del grupo
+   * y cuántas partes pendientes tiene el usuario autenticado.
    * Solo miembros reales activos pueden consultar el saldo.
    * @param groupId - UUID del grupo.
    * @param userId - UUID del usuario autenticado.
-   * @returns DTO con netos por miembro y deudas derivadas.
+   * @returns DTO con netos por miembro, deudas directas enriquecidas y conteo de pendientes propios.
    * @throws ForbiddenException si el usuario no es miembro activo del grupo.
    */
   async getBalance(groupId: string, userId: string): Promise<BalanceResponseDto> {
@@ -36,7 +37,7 @@ export class BalanceService {
       throw new ForbiddenException('No eres miembro activo del grupo.');
     }
 
-    return this.computeGroupBalance(groupId);
+    return this.computeGroupBalance(groupId, member.id);
   }
 
   /**
@@ -48,23 +49,30 @@ export class BalanceService {
    * @returns El neto del miembro (positivo = le deben, negativo = debe, 0 = saldado).
    */
   async getMemberNet(groupId: string, memberId: string): Promise<number> {
-    const result = await this.computeGroupBalance(groupId);
+    // Para uso interno no necesitamos myPendingCount; usamos un memberId vacío.
+    const result = await this.computeGroupBalance(groupId, memberId);
     const found = result.members.find((m) => m.memberId === memberId);
     return found?.net ?? 0;
   }
 
   /**
-   * Calculo interno del saldo del grupo. Lee gastos+shares, settlements y miembros activos
-   * en paralelo; delega el calculo al dominio y construye el DTO completo con displayNames.
+   * Calculo interno del saldo del grupo. Lee gastos+shares, settlements, miembros activos
+   * y el conteo de shares pendientes del miembro del usuario en paralelo;
+   * delega el calculo al dominio y construye el DTO completo con displayNames.
    * @param groupId - UUID del grupo.
-   * @returns DTO completo con netos y deudas.
+   * @param currentMemberId - UUID del miembro correspondiente al usuario autenticado.
+   * @returns DTO completo con netos, deudas directas enriquecidas y myPendingCount.
    */
-  private async computeGroupBalance(groupId: string): Promise<BalanceResponseDto> {
-    // Carga miembros, gastos y settlements en paralelo (lecturas independientes).
-    const [members, rawExpenses, rawSettlements] = await Promise.all([
+  private async computeGroupBalance(
+    groupId: string,
+    currentMemberId: string,
+  ): Promise<BalanceResponseDto> {
+    // Carga miembros, gastos, settlements y pendientes del usuario en paralelo.
+    const [members, rawExpenses, rawSettlements, myPendingCount] = await Promise.all([
       this.groupsRepository.listMembers(groupId),
       this.balanceRepository.findExpensesWithShares(groupId),
       this.balanceRepository.findSettlements(groupId),
+      this.balanceRepository.countMyPendingShares(groupId, currentMemberId),
     ]);
 
     const memberIds = members.map((m) => m.id);
@@ -92,7 +100,7 @@ export class BalanceService {
 
     // Delega el calculo al dominio puro.
     const balances = computeBalances(expenses, settlementsInput, memberIds);
-    const debts = deriveDebts(balances);
+    const directDebts = computeDirectDebts(expenses, settlementsInput);
 
     // Construye el DTO de respuesta adjuntando displayNames.
     const memberDtos: MemberBalanceDto[] = balances.map((b) => ({
@@ -101,14 +109,16 @@ export class BalanceService {
       net: b.net,
     }));
 
-    const debtDtos: DebtDto[] = debts.map((d) => ({
+    const debtDtos: DebtDto[] = directDebts.map((d) => ({
       fromMemberId: d.fromMemberId,
       fromName: nameByMember.get(d.fromMemberId) ?? d.fromMemberId,
       toMemberId: d.toMemberId,
       toName: nameByMember.get(d.toMemberId) ?? d.toMemberId,
-      amount: d.amount,
+      owed: d.owed,
+      pendingOwed: d.pendingOwed,
+      hasPending: d.hasPending,
     }));
 
-    return { members: memberDtos, debts: debtDtos };
+    return { members: memberDtos, debts: debtDtos, myPendingCount };
   }
 }

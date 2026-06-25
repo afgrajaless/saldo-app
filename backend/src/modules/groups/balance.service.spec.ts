@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { GroupsRepository } from './groups.repository';
 import { BalanceRepository } from './balance.repository';
 import { BalanceService } from './balance.service';
+import { DebtDto } from './dto/balance-response.dto';
 
 type GroupsRepo = jest.Mocked<GroupsRepository>;
 type BalanceRepo = jest.Mocked<BalanceRepository>;
@@ -29,6 +30,7 @@ function makeBalanceRepo(): BalanceRepo {
   return {
     findExpensesWithShares: jest.fn().mockResolvedValue([]),
     findSettlements: jest.fn().mockResolvedValue([]),
+    countMyPendingShares: jest.fn().mockResolvedValue(0),
   } as unknown as BalanceRepo;
 }
 
@@ -62,14 +64,14 @@ describe('BalanceService.getBalance', () => {
     { id: mC, groupId: GROUP_ID, userId: null, displayName: 'Carlos', removedAt: null },
   ];
 
-  it('calcula netos y deudas para el caso 90000 entre 3', async () => {
+  it('calcula netos y deudas directas para el caso 90000 entre 3', async () => {
     const groupsRepo = makeGroupsRepo();
     const balanceRepo = makeBalanceRepo();
 
-    // El usuario es miembro activo
+    // El usuario es miembro mA
     groupsRepo.findActiveMember.mockResolvedValue({ id: mA, groupId: GROUP_ID, userId: USER_ID } as never);
-    // listMembers devuelve los 3 miembros
     groupsRepo.listMembers.mockResolvedValue(members as never);
+    balanceRepo.countMyPendingShares.mockResolvedValue(0);
 
     // Un gasto de 90 000 pagado por mA, partes iguales de 30 000
     balanceRepo.findExpensesWithShares.mockResolvedValue([
@@ -82,8 +84,6 @@ describe('BalanceService.getBalance', () => {
         ],
       },
     ]);
-
-    // Sin settlements
     balanceRepo.findSettlements.mockResolvedValue([]);
 
     const service = makeService(balanceRepo, groupsRepo);
@@ -103,26 +103,71 @@ describe('BalanceService.getBalance', () => {
     expect(netB?.displayName).toBe('Bruno');
     expect(netC?.displayName).toBe('Carlos');
 
-    // Verifica las deudas
+    // Verifica las deudas directas
     expect(result.debts).toHaveLength(2);
-    const debtB = result.debts.find((d) => d.fromMemberId === mB);
-    const debtC = result.debts.find((d) => d.fromMemberId === mC);
+    const debtB = result.debts.find((d: DebtDto) => d.fromMemberId === mB);
+    const debtC = result.debts.find((d: DebtDto) => d.fromMemberId === mC);
     expect(debtB?.toMemberId).toBe(mA);
-    expect(debtB?.amount).toBeCloseTo(30000, 1);
+    expect(debtB?.owed).toBeCloseTo(30000, 1);
     expect(debtC?.toMemberId).toBe(mA);
-    expect(debtC?.amount).toBeCloseTo(30000, 1);
+    expect(debtC?.owed).toBeCloseTo(30000, 1);
 
     // Verifica fromName / toName
     expect(debtB?.fromName).toBe('Bruno');
     expect(debtB?.toName).toBe('Ana');
+
+    // Sin pendientes del usuario → myPendingCount = 0
+    expect(result.myPendingCount).toBe(0);
   });
 
-  it('con un settlement, reduce la deuda pendiente', async () => {
+  it('deuda directa con share pendiente: hasPending=true y myPendingCount=1', async () => {
     const groupsRepo = makeGroupsRepo();
     const balanceRepo = makeBalanceRepo();
 
-    groupsRepo.findActiveMember.mockResolvedValue({ id: mA } as never);
+    // El usuario es mB (quien tiene la share pendiente)
+    groupsRepo.findActiveMember.mockResolvedValue({ id: mB, groupId: GROUP_ID, userId: USER_ID } as never);
     groupsRepo.listMembers.mockResolvedValue(members as never);
+    // mB tiene 1 share pendiente
+    balanceRepo.countMyPendingShares.mockResolvedValue(1);
+
+    // Gasto de 60 000 pagado por mA, mB tiene 30 000 pendientes
+    balanceRepo.findExpensesWithShares.mockResolvedValue([
+      {
+        paidByMemberId: mA,
+        shares: [
+          { memberId: mA, shareAmount: '30000.00', status: 'confirmed' },
+          { memberId: mB, shareAmount: '30000.00', status: 'pending' },
+        ],
+      },
+    ]);
+    balanceRepo.findSettlements.mockResolvedValue([]);
+
+    const service = makeService(balanceRepo, groupsRepo);
+    const result = await service.getBalance(GROUP_ID, USER_ID);
+
+    // Los netos siguen sumando 0
+    const totalNet = result.members.reduce((sum, m) => sum + m.net, 0);
+    expect(totalNet).toBeCloseTo(0, 1);
+
+    // Deuda directa de mB → mA con pendiente
+    const debt = result.debts.find((d: DebtDto) => d.fromMemberId === mB);
+    expect(debt).toBeDefined();
+    expect(debt?.toMemberId).toBe(mA);
+    expect(debt?.owed).toBeCloseTo(30000, 1);
+    expect(debt?.pendingOwed).toBeCloseTo(30000, 1);
+    expect(debt?.hasPending).toBe(true);
+
+    // myPendingCount refleja las shares pendientes del usuario actual
+    expect(result.myPendingCount).toBe(1);
+  });
+
+  it('con un settlement, reduce la deuda directa pendiente', async () => {
+    const groupsRepo = makeGroupsRepo();
+    const balanceRepo = makeBalanceRepo();
+
+    groupsRepo.findActiveMember.mockResolvedValue({ id: mA, groupId: GROUP_ID, userId: USER_ID } as never);
+    groupsRepo.listMembers.mockResolvedValue(members as never);
+    balanceRepo.countMyPendingShares.mockResolvedValue(0);
 
     // Mismo gasto de 90 000
     balanceRepo.findExpensesWithShares.mockResolvedValue([
@@ -148,11 +193,11 @@ describe('BalanceService.getBalance', () => {
     const netB = result.members.find((m) => m.memberId === mB);
     expect(netB?.net).toBeCloseTo(0, 1);
 
-    const debtB = result.debts.find((d) => d.fromMemberId === mB);
+    const debtB = result.debts.find((d: DebtDto) => d.fromMemberId === mB);
     expect(debtB).toBeUndefined();
 
-    const debtC = result.debts.find((d) => d.fromMemberId === mC);
-    expect(debtC?.amount).toBeCloseTo(30000, 1);
+    const debtC = result.debts.find((d: DebtDto) => d.fromMemberId === mC);
+    expect(debtC?.owed).toBeCloseTo(30000, 1);
   });
 
   it('lanza 403 si el usuario no es miembro activo', async () => {

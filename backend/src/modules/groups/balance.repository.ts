@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { settlements, sharedExpenses, sharedExpenseShares } from '../../db/schema';
 
@@ -99,5 +99,28 @@ export class BalanceRepository {
       })
       .from(settlements)
       .where(eq(settlements.groupId, groupId));
+  }
+
+  /**
+   * Cuenta cuántas partes (shares) de un miembro específico están en estado 'pending' dentro del grupo.
+   * Solo cuenta shares de gastos vivos (no eliminados).
+   * @param groupId - UUID del grupo.
+   * @param memberId - UUID del miembro cuyas shares pendientes se quieren contar.
+   * @returns Número de shares pendientes del miembro en el grupo.
+   */
+  async countMyPendingShares(groupId: string, memberId: string): Promise<number> {
+    const result = await this.db
+      .select({ total: count() })
+      .from(sharedExpenseShares)
+      .innerJoin(sharedExpenses, eq(sharedExpenseShares.expenseId, sharedExpenses.id))
+      .where(
+        and(
+          eq(sharedExpenses.groupId, groupId),
+          isNull(sharedExpenses.deletedAt),
+          eq(sharedExpenseShares.memberId, memberId),
+          eq(sharedExpenseShares.status, 'pending'),
+        ),
+      );
+    return result[0]?.total ?? 0;
   }
 }
