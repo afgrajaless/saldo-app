@@ -11,36 +11,88 @@ import '../../domain/repositories/budget_repository.dart';
 import '../providers/budget_providers.dart';
 import 'account_detail_screen.dart';
 import 'add_account_screen.dart';
+import 'add_card_screen.dart';
+import 'cards_list_view.dart';
 
-/// Pantalla de gestion de cuentas (Nequi, efectivo, banco, etc.).
-class AccountsScreen extends ConsumerWidget {
+/// Pantalla de gestion de cuentas y tarjetas de credito.
+/// Alterna entre la vista de cuentas y la de tarjetas mediante un [SegmentedButton].
+class AccountsScreen extends ConsumerStatefulWidget {
   const AccountsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountsScreen> createState() => _AccountsScreenState();
+}
+
+class _AccountsScreenState extends ConsumerState<AccountsScreen> {
+  /// true = mostrar tarjetas, false = mostrar cuentas.
+  bool _showCards = false;
+
+  @override
+  Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsListProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Cuentas')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const AddAccountScreen()),
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('Cuenta'),
-      ),
-      body: accountsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (accounts) => accounts.isEmpty
-            ? const _Empty()
-            : ListView(
-                padding: const EdgeInsets.only(top: 8, bottom: 96),
-                children: [
-                  const _NetWorthCard(),
-                  ...accounts.map((a) => _AccountTile(account: a)),
-                ],
+      floatingActionButton: _showCards
+          ? FloatingActionButton.extended(
+              heroTag: 'fab_card',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AddCardScreen()),
               ),
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva tarjeta'),
+            )
+          : FloatingActionButton.extended(
+              heroTag: 'fab_account',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const AddAccountScreen()),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Cuenta'),
+            ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text('Cuentas'),
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text('Tarjetas'),
+                  icon: Icon(Icons.credit_card_outlined),
+                ),
+              ],
+              selected: {_showCards},
+              onSelectionChanged: (selected) =>
+                  setState(() => _showCards = selected.first),
+            ),
+          ),
+          Expanded(
+            child: _showCards
+                ? const CardsListView()
+                : accountsAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('$e')),
+                    data: (accounts) => accounts.isEmpty
+                        ? const _Empty()
+                        : ListView(
+                            padding:
+                                const EdgeInsets.only(top: 8, bottom: 96),
+                            children: [
+                              const _NetWorthCard(),
+                              ...accounts.map((a) => _AccountTile(account: a)),
+                            ],
+                          ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -70,7 +122,8 @@ class _AccountTile extends ConsumerWidget {
             color: Theme.of(context).colorScheme.onErrorContainer),
       ),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: hexToColor(account.color), radius: 14),
+        leading:
+            CircleAvatar(backgroundColor: hexToColor(account.color), radius: 14),
         title: Text(account.name),
         subtitle: account.hasYield
             ? Text(
@@ -80,7 +133,8 @@ class _AccountTile extends ConsumerWidget {
             : null,
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => AccountDetailScreen(account: account)),
+          MaterialPageRoute<void>(
+              builder: (_) => AccountDetailScreen(account: account)),
         ),
       ),
     );
@@ -96,8 +150,12 @@ class _AccountTile extends ConsumerWidget {
           'Los movimientos asociados se conservan, pero quedan sin cuenta.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Eliminar')),
         ],
       ),
     );
@@ -133,7 +191,8 @@ class _NetWorthCard extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(formatCop(latest.total),
                   style: theme.textTheme.headlineMedium?.copyWith(
-                      color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold)),
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold)),
               if (points.length >= 2) ...[
                 const SizedBox(height: 16),
                 SizedBox(height: 90, child: _NetWorthChart(points: points)),
@@ -157,7 +216,8 @@ class _NetWorthChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
     final spots = [
-      for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].total),
+      for (var i = 0; i < points.length; i++)
+        FlSpot(i.toDouble(), points[i].total),
     ];
     return LineChart(
       LineChartData(
@@ -172,7 +232,8 @@ class _NetWorthChart extends StatelessWidget {
             color: onPrimary,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: onPrimary.withValues(alpha: 0.15)),
+            belowBarData: BarAreaData(
+                show: true, color: onPrimary.withValues(alpha: 0.15)),
           ),
         ],
       ),
@@ -197,9 +258,11 @@ class _Empty extends StatelessWidget {
                 size: 72, color: theme.colorScheme.primary),
             const SizedBox(height: 16),
             Text('Crea tus cuentas',
-                style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text('Nequi, efectivo, banco... para clasificar tus movimientos.',
+            Text(
+                'Nequi, efectivo, banco... para clasificar tus movimientos.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
