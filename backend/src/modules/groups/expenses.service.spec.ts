@@ -4,7 +4,6 @@ import { ExpensesRepository } from './expenses.repository';
 import { GroupsService } from './groups.service';
 import { GroupsRepository } from './groups.repository';
 import { BalanceService } from './balance.service';
-import { MemberShare } from '../../domain/split/split-expense';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 type ExpensesRepo = jest.Mocked<ExpensesRepository>;
@@ -93,10 +92,11 @@ describe('ExpensesService.createExpense', () => {
 
     await service.createExpense('grp', 'u1', dto);
 
-    const expectedShares: MemberShare[] = [
-      { memberId: 'a', shareAmount: 30000 },
-      { memberId: 'b', shareAmount: 30000 },
-      { memberId: 'c', shareAmount: 30000 },
+    // El pagador (a) queda confirmed; b y c son miembros reales no pagadores -> pending.
+    const expectedShares = [
+      { memberId: 'a', shareAmount: 30000, status: 'confirmed' },
+      { memberId: 'b', shareAmount: 30000, status: 'pending' },
+      { memberId: 'c', shareAmount: 30000, status: 'pending' },
     ];
 
     expect(expensesRepo.insertExpenseWithShares).toHaveBeenCalledWith(
@@ -191,6 +191,49 @@ describe('ExpensesService.createExpense', () => {
     await expect(service.createExpense('grp', 'u1', dto)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+describe('ExpensesService.createExpense — asignacion de status por share', () => {
+  it('asigna confirmed al pagador y al fantasma, pending al resto', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // a = miembro real (pagador), b = miembro real, g = fantasma (userId null)
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+    groupsRepo.listMembers = jest.fn().mockResolvedValue([
+      { id: 'a', groupId: 'grp', userId: 'u1', displayName: 'Ana', isGhost: false, joinedAt: new Date() },
+      { id: 'b', groupId: 'grp', userId: 'u2', displayName: 'Beto', isGhost: false, joinedAt: new Date() },
+      { id: 'g', groupId: 'grp', userId: null, displayName: 'Fantasma', isGhost: true, joinedAt: new Date() },
+    ]);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    const dto = {
+      paidByMemberId: 'a',
+      amount: 90,
+      occurredOn: '2026-06-24',
+      splitMethod: 'equal' as const,
+      participantMemberIds: ['a', 'b', 'g'],
+    };
+
+    await service.createExpense('grp', 'u1', dto);
+
+    const callArgs = (expensesRepo.insertExpenseWithShares as jest.Mock).mock.calls[0];
+    // 4to argumento: las shares con status
+    const sharesArg = callArgs[3] as Array<{ memberId: string; shareAmount: number; status: string }>;
+
+    const byMember = Object.fromEntries(sharesArg.map((s) => [s.memberId, s.status]));
+    expect(byMember['a']).toBe('confirmed'); // pagador
+    expect(byMember['b']).toBe('pending');   // miembro real no pagador
+    expect(byMember['g']).toBe('confirmed'); // fantasma
   });
 });
 

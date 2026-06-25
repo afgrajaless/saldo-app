@@ -2,12 +2,18 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { sharedExpenses, sharedExpenseShares } from '../../db/schema';
-import { MemberShare } from '../../domain/split/split-expense';
 
 /** Fila de gasto compartido tal como se almacena. */
 export type SharedExpenseRow = typeof sharedExpenses.$inferSelect;
 /** Fila de parte de gasto tal como se almacena. */
 export type SharedExpenseShareRow = typeof sharedExpenseShares.$inferSelect;
+
+/** Parte de un gasto con el estado de confirmacion para persistir. */
+export interface ShareInsert {
+  memberId: string;
+  shareAmount: number;
+  status: 'confirmed' | 'pending' | 'disputed';
+}
 
 /** Datos para actualizar un gasto compartido (whitelist). */
 export interface ExpenseUpdateFields {
@@ -28,10 +34,11 @@ export class ExpensesRepository {
 
   /**
    * Inserta un gasto compartido y sus partes en una sola transaccion atomica.
+   * Cada parte incluye el estado de confirmacion (confirmed/pending).
    * @param groupId - UUID del grupo al que pertenece el gasto.
    * @param createdByUserId - UUID del usuario que registra el gasto.
    * @param expense - Datos del gasto (sin shares).
-   * @param shares - Lista de partes por miembro.
+   * @param shares - Lista de partes por miembro con estado de confirmacion.
    * @returns La fila del gasto creado.
    */
   async insertExpenseWithShares(
@@ -44,7 +51,7 @@ export class ExpensesRepository {
       occurredOn: string;
       splitMethod: 'equal' | 'exact';
     },
-    shares: MemberShare[],
+    shares: ShareInsert[],
   ): Promise<SharedExpenseRow> {
     return this.db.transaction(async (tx) => {
       const [newExpense] = await tx
@@ -65,6 +72,7 @@ export class ExpensesRepository {
           expenseId: newExpense.id,
           memberId: s.memberId,
           shareAmount: s.shareAmount.toFixed(2),
+          status: s.status,
         })),
       );
 
@@ -175,7 +183,7 @@ export class ExpensesRepository {
     groupId: string,
     expenseId: string,
     fields: ExpenseUpdateFields,
-    newShares?: MemberShare[],
+    newShares?: ShareInsert[],
   ): Promise<SharedExpenseRow> {
     // MVP: comprobacion fuera de transaccion; aceptable por bajo riesgo
     const existing = await this.findExpense(groupId, expenseId);
@@ -207,6 +215,7 @@ export class ExpensesRepository {
             expenseId,
             memberId: s.memberId,
             shareAmount: s.shareAmount.toFixed(2),
+            status: s.status,
           })),
         );
       }

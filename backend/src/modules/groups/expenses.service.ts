@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { splitEqual, validateExact, MemberShare } from '../../domain/split/split-expense';
-import { ExpensesRepository, ExpenseUpdateFields, SharedExpenseRow, SharedExpenseShareRow } from './expenses.repository';
+import { ExpensesRepository, ExpenseUpdateFields, ShareInsert, SharedExpenseRow, SharedExpenseShareRow } from './expenses.repository';
 import { GroupsService } from './groups.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseResponseDto, ShareResponseDto } from './dto/expense-response.dto';
+import { MemberResponseDto } from './dto/member-response.dto';
 
 /**
  * Servicio de gastos compartidos dentro de grupos.
@@ -56,7 +57,15 @@ export class ExpensesService {
     this.assertPaidByMemberBelongsToGroup(dto.paidByMemberId, memberIds);
 
     // Calcula las partes segun el metodo de reparto seleccionado.
-    const shares = this.resolveShares(dto, memberIds);
+    const rawShares = this.resolveShares(dto, memberIds);
+
+    // Asigna el estado de confirmacion a cada parte:
+    // confirmed si es el pagador o un fantasma; pending para los demas miembros reales.
+    const sharesWithStatus: ShareInsert[] = this.assignShareStatuses(
+      rawShares,
+      dto.paidByMemberId,
+      members,
+    );
 
     // Persiste el gasto y sus partes en una sola transaccion.
     const expense = await this.expensesRepository.insertExpenseWithShares(
@@ -69,7 +78,7 @@ export class ExpensesService {
         occurredOn: dto.occurredOn,
         splitMethod: dto.splitMethod,
       },
-      shares,
+      sharesWithStatus,
     );
 
     const savedShares = await this.expensesRepository.findExpenseShares(expense.id);
@@ -141,10 +150,11 @@ export class ExpensesService {
     }
 
     // Solo recalcula las partes si se cambia el monto, metodo de reparto o participantes.
-    let newShares: MemberShare[] | undefined;
+    let newShares: ShareInsert[] | undefined;
     if (dto.amount !== undefined || dto.splitMethod !== undefined || dto.participantMemberIds || dto.exactShares) {
+      const effectivePaidBy = dto.paidByMemberId ?? existing.paidByMemberId;
       const effectiveDto: CreateExpenseDto = {
-        paidByMemberId: dto.paidByMemberId ?? existing.paidByMemberId,
+        paidByMemberId: effectivePaidBy,
         amount: dto.amount ?? parseFloat(existing.amount),
         occurredOn: dto.occurredOn ?? existing.occurredOn,
         splitMethod: dto.splitMethod ?? (existing.splitMethod as 'equal' | 'exact'),
@@ -152,7 +162,8 @@ export class ExpensesService {
         participantMemberIds: dto.participantMemberIds,
         exactShares: dto.exactShares,
       };
-      newShares = this.resolveShares(effectiveDto, memberIds);
+      const rawShares = this.resolveShares(effectiveDto, memberIds);
+      newShares = this.assignShareStatuses(rawShares, effectivePaidBy, members);
     }
 
     const fields: ExpenseUpdateFields = {};
@@ -183,6 +194,33 @@ export class ExpensesService {
   async softDeleteExpense(groupId: string, userId: string, expenseId: string): Promise<void> {
     await this.groupsService.assertActiveMember(groupId, userId);
     await this.expensesRepository.softDeleteExpense(groupId, expenseId);
+  }
+
+  /**
+   * Asigna el estado de confirmacion a cada parte segun las reglas de negocio:
+   * - confirmed: si el miembro es el pagador o es un fantasma (userId null).
+   * - pending: para los demas miembros reales.
+   * @param shares - Partes sin estado calculadas por el dominio.
+   * @param paidByMemberId - UUID del miembro que pago el gasto.
+   * @param members - Lista completa de miembros activos del grupo con su userId.
+   * @returns Lista de partes con estado asignado.
+   */
+  private assignShareStatuses(
+    shares: MemberShare[],
+    paidByMemberId: string,
+    members: MemberResponseDto[],
+  ): ShareInsert[] {
+    // Construye un mapa memberId -> userId para busqueda O(1).
+    const userIdByMember = new Map<string, string | null>(
+      members.map((m) => [m.id, m.userId]),
+    );
+
+    return shares.map((s) => {
+      const isPayer = s.memberId === paidByMemberId;
+      const isGhost = userIdByMember.get(s.memberId) === null;
+      const status: 'confirmed' | 'pending' = isPayer || isGhost ? 'confirmed' : 'pending';
+      return { ...s, status };
+    });
   }
 
   /**

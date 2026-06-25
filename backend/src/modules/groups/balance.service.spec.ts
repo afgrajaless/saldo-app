@@ -76,9 +76,9 @@ describe('BalanceService.getBalance', () => {
       {
         paidByMemberId: mA,
         shares: [
-          { memberId: mA, shareAmount: '30000.00' },
-          { memberId: mB, shareAmount: '30000.00' },
-          { memberId: mC, shareAmount: '30000.00' },
+          { memberId: mA, shareAmount: '30000.00', status: 'confirmed' },
+          { memberId: mB, shareAmount: '30000.00', status: 'pending' },
+          { memberId: mC, shareAmount: '30000.00', status: 'pending' },
         ],
       },
     ]);
@@ -129,9 +129,9 @@ describe('BalanceService.getBalance', () => {
       {
         paidByMemberId: mA,
         shares: [
-          { memberId: mA, shareAmount: '30000.00' },
-          { memberId: mB, shareAmount: '30000.00' },
-          { memberId: mC, shareAmount: '30000.00' },
+          { memberId: mA, shareAmount: '30000.00', status: 'confirmed' },
+          { memberId: mB, shareAmount: '30000.00', status: 'pending' },
+          { memberId: mC, shareAmount: '30000.00', status: 'pending' },
         ],
       },
     ]);
@@ -186,8 +186,8 @@ describe('BalanceService.getMemberNet (usado por removeMember guard)', () => {
       {
         paidByMemberId: mA,
         shares: [
-          { memberId: mA, shareAmount: '15000.00' },
-          { memberId: mB, shareAmount: '15000.00' },
+          { memberId: mA, shareAmount: '15000.00', status: 'confirmed' },
+          { memberId: mB, shareAmount: '15000.00', status: 'pending' },
         ],
       },
     ]);
