@@ -17,6 +17,7 @@ function fakeRepo(): jest.Mocked<Pick<OpenFinanceRepository,
 
 function fakeProvider(): jest.Mocked<OpenFinanceProvider> {
   return {
+    id: 'mock',
     listInstitutions: jest.fn(),
     startConsent: jest.fn(),
     fetchAccounts: jest.fn(),
@@ -53,6 +54,9 @@ describe('OpenFinanceService.sync', () => {
     });
     expect(repo.insertSnapshot).toHaveBeenCalledWith('u1', 'acc-a1', 1000000);
     expect(repo.updateConnection).toHaveBeenCalledWith('c1', expect.objectContaining({ lastSyncedAt: expect.any(Date) }));
+    // snapshot también para la tarjeta, NO para la deuda:
+    expect(repo.insertSnapshot).toHaveBeenCalledWith('u1', 'acc-card1', 900000);
+    expect(repo.insertSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('lanza 404 si la conexión no es del usuario', async () => {

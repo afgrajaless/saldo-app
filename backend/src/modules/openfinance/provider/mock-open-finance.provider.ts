@@ -57,6 +57,9 @@ const FIXTURES: Record<string, { accounts: OFAccount[]; products: OFCreditProduc
  */
 @Injectable()
 export class MockOpenFinanceProvider implements OpenFinanceProvider {
+  /** Identificador de este proveedor. */
+  readonly id = 'mock';
+
   /**
    * Lista las instituciones de ejemplo.
    * @returns Arreglo de instituciones disponibles.

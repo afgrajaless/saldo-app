@@ -8,6 +8,9 @@ export const OPEN_FINANCE_PROVIDER = Symbol('OPEN_FINANCE_PROVIDER');
  * lo implementan; el resto del sistema sólo depende de esta interfaz.
  */
 export interface OpenFinanceProvider {
+  /** Identificador del proveedor (p.ej. 'mock', 'belvo'). */
+  readonly id: string;
+
   /** Lista las instituciones financieras disponibles. */
   listInstitutions(): Promise<OFInstitution[]>;
 

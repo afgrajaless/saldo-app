@@ -34,7 +34,7 @@ export class OpenFinanceService {
     return this.repo.createConnection(userId, {
       institutionId,
       institutionName: inst.name,
-      provider: 'mock',
+      provider: this.provider.id,
       externalConnectionId: consent.externalConnectionId,
       status: consent.status,
       consentGrantedAt: consent.status === 'active' ? new Date() : null,
