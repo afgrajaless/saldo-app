@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { accounts, categories, transactions } from '../../db/schema';
+import { accounts, cardInstallmentItems, cardInstallmentPlans, categories, transactions } from '../../db/schema';
+import { InstallmentItem } from '../../domain/card/card-installment';
 
 /** Fila de transaccion tal como se almacena. */
 export type TransactionRow = typeof transactions.$inferSelect;
@@ -33,6 +34,24 @@ export interface CategorySum {
 }
 
 /**
+ * Datos del plan diferido que se persiste junto con la transaccion.
+ */
+export interface InstallmentPlanPayload {
+  /** ID de la cuenta (tarjeta de credito). */
+  accountId: string;
+  /** Capital total diferido. */
+  principal: number;
+  /** Numero total de cuotas. */
+  numberOfInstallments: number;
+  /** Tasa mensual efectiva como fraccion decimal. */
+  monthlyRate: number;
+  /** Fecha de inicio del plan (occurredOn de la transaccion). */
+  startDate: string;
+  /** Cuotas generadas por buildInstallmentSchedule. */
+  items: InstallmentItem[];
+}
+
+/**
  * Repositorio de transacciones (movimientos). Aislado por user_id. Las consultas
  * de un mes usan el rango [inicio, inicioSiguienteMes).
  */
@@ -52,6 +71,56 @@ export class TransactionsRepository {
       .values({ ...values, userId })
       .returning();
     return tx;
+  }
+
+  /**
+   * Inserta en una sola transaccion atomica: el gasto, el plan diferido y sus
+   * cuotas individuales. Si cualquier paso falla, todo se revierte.
+   * @param userId - Dueno del movimiento.
+   * @param values - Datos de la transaccion (sin id ni timestamp).
+   * @param plan - Plan diferido con el cronograma de cuotas generado por el dominio.
+   * @returns La transaccion creada.
+   */
+  async createTransactionWithPlan(
+    userId: string,
+    values: NewTransactionValues,
+    plan: InstallmentPlanPayload,
+  ): Promise<TransactionRow> {
+    return this.db.transaction(async (tx) => {
+      // 1. Inserta el gasto.
+      const [txRow] = await tx
+        .insert(transactions)
+        .values({ ...values, userId })
+        .returning();
+
+      // 2. Inserta el plan diferido vinculado a la transaccion recien creada.
+      const [planRow] = await tx
+        .insert(cardInstallmentPlans)
+        .values({
+          accountId: plan.accountId,
+          transactionId: txRow.id,
+          principal: plan.principal.toFixed(2),
+          numberOfInstallments: plan.numberOfInstallments,
+          monthlyRate: plan.monthlyRate.toFixed(6),
+          startDate: plan.startDate,
+          status: 'active',
+        })
+        .returning();
+
+      // 3. Inserta cada cuota del cronograma.
+      await tx.insert(cardInstallmentItems).values(
+        plan.items.map((item) => ({
+          planId: planRow.id,
+          number: item.number,
+          dueOn: item.dueOn,
+          principal: item.principal.toFixed(2),
+          interest: item.interest.toFixed(2),
+          balance: item.balance.toFixed(2),
+        })),
+      );
+
+      return txRow;
+    });
   }
 
   /**

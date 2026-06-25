@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsInt,
   IsISO8601,
   IsNumber,
   IsOptional,
@@ -7,6 +8,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 /** Datos para registrar un movimiento (ingreso o egreso). */
@@ -34,4 +36,16 @@ export class CreateTransactionDto {
   @IsString()
   @MaxLength(200)
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Numero de cuotas en que se difiere la compra (solo para tarjetas de credito). ' +
+      'Minimo 2. Si se omite, se registra como cargo de contado.',
+    example: 12,
+    minimum: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  installments?: number;
 }

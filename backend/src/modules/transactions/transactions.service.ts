@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AccountsRepository } from '../accounts/accounts.repository';
 import { CategoriesRepository } from '../categories/categories.repository';
+import { CardsRepository } from '../cards/cards.repository';
+import { buildInstallmentSchedule } from '../../domain/card/card-installment';
+import { effectiveAnnualToMonthly } from '../../domain/rates/rate-conversion';
 import { currentMonth, monthRange } from '../../shared/date/month-range';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
@@ -16,14 +19,19 @@ export class TransactionsService {
     private readonly transactionsRepository: TransactionsRepository,
     private readonly categoriesRepository: CategoriesRepository,
     private readonly accountsRepository: AccountsRepository,
+    private readonly cardsRepository: CardsRepository,
   ) {}
 
   /**
    * Registra un movimiento validando que la categoria sea del usuario.
+   * Si se indica `installments`, la cuenta debe ser una tarjeta de credito;
+   * se genera el cronograma de cuotas con el motor de dominio y se persiste
+   * atomicamente junto con el gasto.
    * @param userId - Dueno del movimiento.
-   * @param dto - Datos del movimiento.
+   * @param dto - Datos del movimiento (con `installments` opcional).
    * @returns El movimiento creado con datos de su categoria.
-   * @throws BadRequestException si la categoria no existe o no es del usuario.
+   * @throws BadRequestException si la categoria no existe, la cuenta no es del
+   *   usuario, o se intenta diferir en una cuenta que no es tarjeta.
    */
   async create(userId: string, dto: CreateTransactionDto): Promise<TransactionResponseDto> {
     const category = await this.categoriesRepository.findByIdForUser(dto.categoryId, userId);
@@ -45,13 +53,60 @@ export class TransactionsService {
         throw new BadRequestException('La cuenta no existe o no es del usuario.');
       }
     }
-    const tx = await this.transactionsRepository.create(userId, {
+
+    const txValues = {
       categoryId: dto.categoryId,
       accountId: dto.accountId ?? null,
       amount: dto.amount.toFixed(2),
       occurredOn: dto.occurredOn,
       description: dto.description ?? null,
-    });
+    };
+
+    // --- Flujo de compra diferida a cuotas ---
+    if (dto.installments !== undefined) {
+      if (account?.kind !== 'credit_card') {
+        throw new BadRequestException('Solo puedes diferir compras de tarjeta de credito.');
+      }
+
+      // Lee los detalles de la tarjeta (tasa rotativa E.A.) para construir el cronograma.
+      const card = await this.cardsRepository.findCardForUser(dto.accountId!, userId);
+      if (!card) {
+        throw new BadRequestException('No se encontraron los detalles de la tarjeta de credito.');
+      }
+
+      const monthlyRate = effectiveAnnualToMonthly(Number(card.rotativoRateEa));
+      const items = buildInstallmentSchedule({
+        principal: dto.amount,
+        monthlyRate,
+        numberOfInstallments: dto.installments,
+        startDate: dto.occurredOn,
+      });
+
+      const tx = await this.transactionsRepository.createTransactionWithPlan(userId, txValues, {
+        accountId: dto.accountId!,
+        principal: dto.amount,
+        numberOfInstallments: dto.installments,
+        monthlyRate,
+        startDate: dto.occurredOn,
+        items,
+      });
+
+      return {
+        id: tx.id,
+        categoryId: category.id,
+        categoryName: category.name,
+        categoryType: category.type,
+        categoryColor: category.color,
+        accountId: account?.id ?? null,
+        accountName: account?.name ?? null,
+        amount: Number(tx.amount),
+        occurredOn: tx.occurredOn,
+        description: tx.description,
+      };
+    }
+
+    // --- Flujo normal (cargo de contado) ---
+    const tx = await this.transactionsRepository.create(userId, txValues);
     return {
       id: tx.id,
       categoryId: category.id,
