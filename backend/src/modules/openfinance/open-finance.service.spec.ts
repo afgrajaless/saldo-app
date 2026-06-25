@@ -66,4 +66,16 @@ describe('OpenFinanceService.sync', () => {
     const service = new OpenFinanceService(repo as never, provider);
     await expect(service.sync('u1', 'nope')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('marca la conexión como error y re-lanza si el proveedor falla', async () => {
+    const repo = fakeRepo();
+    const provider = fakeProvider();
+    const conn = { id: 'c1', userId: 'u1', externalConnectionId: 'of:banco-001:u1' } as ConnectionRow;
+    repo.findConnectionForUser.mockResolvedValue(conn);
+    provider.fetchAccounts.mockRejectedValue(new Error('falla de red'));
+
+    const service = new OpenFinanceService(repo as never, provider);
+    await expect(service.sync('u1', 'c1')).rejects.toThrow('falla de red');
+    expect(repo.updateConnection).toHaveBeenCalledWith('c1', expect.objectContaining({ status: 'error' }));
+  });
 });

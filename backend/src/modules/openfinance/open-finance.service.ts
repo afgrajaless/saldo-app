@@ -59,29 +59,34 @@ export class OpenFinanceService {
       debtsCreated: 0, debtsUpdated: 0, skipped: 0,
     };
 
-    const ofAccounts = await this.provider.fetchAccounts(conn.externalConnectionId);
-    for (const ofAcc of ofAccounts) {
-      const n = normalizeAccount(ofAcc);
-      const { created, accountId } = await this.repo.upsertAccount(userId, connectionId, n);
-      created ? summary.accountsCreated++ : summary.accountsUpdated++;
-      await this.repo.insertSnapshot(userId, accountId, n.balance);
-    }
+    try {
+      const ofAccounts = await this.provider.fetchAccounts(conn.externalConnectionId);
+      for (const ofAcc of ofAccounts) {
+        const n = normalizeAccount(ofAcc);
+        const { created, accountId } = await this.repo.upsertAccount(userId, connectionId, n);
+        created ? summary.accountsCreated++ : summary.accountsUpdated++;
+        await this.repo.insertSnapshot(userId, accountId, n.balance);
+      }
 
-    const ofProducts = await this.provider.fetchCreditProducts(conn.externalConnectionId);
-    for (const ofProd of ofProducts) {
-      const r = normalizeCreditProduct(ofProd);
-      if (r.kind === 'skipped') {
-        summary.skipped++;
-        continue;
+      const ofProducts = await this.provider.fetchCreditProducts(conn.externalConnectionId);
+      for (const ofProd of ofProducts) {
+        const r = normalizeCreditProduct(ofProd);
+        if (r.kind === 'skipped') {
+          summary.skipped++;
+          continue;
+        }
+        if (r.kind === 'card') {
+          const { created, accountId } = await this.repo.upsertCard(userId, connectionId, r.card);
+          created ? summary.cardsCreated++ : summary.cardsUpdated++;
+          await this.repo.insertSnapshot(userId, accountId, r.card.balance);
+        } else {
+          const { created } = await this.repo.upsertDebt(userId, connectionId, r.debt);
+          created ? summary.debtsCreated++ : summary.debtsUpdated++;
+        }
       }
-      if (r.kind === 'card') {
-        const { created, accountId } = await this.repo.upsertCard(userId, connectionId, r.card);
-        created ? summary.cardsCreated++ : summary.cardsUpdated++;
-        await this.repo.insertSnapshot(userId, accountId, r.card.balance);
-      } else {
-        const { created } = await this.repo.upsertDebt(userId, connectionId, r.debt);
-        created ? summary.debtsCreated++ : summary.debtsUpdated++;
-      }
+    } catch (error: unknown) {
+      await this.repo.updateConnection(connectionId, { status: 'error' });
+      throw error;
     }
 
     await this.repo.updateConnection(connectionId, { lastSyncedAt: new Date() });
