@@ -78,6 +78,14 @@ export const cdtInterestPaymentEnum = pgEnum('cdt_interest_payment', ['monthly',
 export const splitMethodEnum = pgEnum('split_method', ['equal', 'exact']);
 // Estado de confirmacion de la parte de un gasto compartido.
 export const shareStatusEnum = pgEnum('share_status', ['confirmed', 'pending', 'disputed']);
+// Tipo de cuenta: activo (efectivo/banco/inversion) o tarjeta de credito (pasivo).
+export const accountKindEnum = pgEnum('account_kind', ['asset', 'credit_card']);
+// Periodicidad del cobro de la cuota de manejo de una tarjeta de credito.
+export const cardFeePeriodEnum = pgEnum('card_fee_period', ['none', 'monthly', 'annual']);
+// Estado de un plan de pago en cuotas diferidas de una tarjeta de credito.
+export const cardPlanStatusEnum = pgEnum('card_plan_status', ['active', 'paid']);
+// Estado del extracto mensual de una tarjeta de credito.
+export const cardStatementStatusEnum = pgEnum('card_statement_status', ['open', 'closed', 'paid']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -286,6 +294,8 @@ export const accounts = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     color: text('color').notNull().default('#2D6FB0'), // hex para la UI
+    // Discriminador: asset = cuenta de activo (banco/efectivo); credit_card = pasivo.
+    kind: accountKindEnum('kind').notNull().default('asset'),
     // Tipo de rendimiento: none, savings (remunerada) o cdt.
     yieldType: yieldTypeEnum('yield_type').notNull().default('none'),
     // Tasa E.A. vigente (fraccion decimal); null si no genera rendimiento.
@@ -527,6 +537,163 @@ export const settlements = pgTable('settlements', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------- credit_card_details (parametros fijos de una TC; 1:1 con accounts) ----------
+export const creditCardDetails = pgTable(
+  'credit_card_details',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .unique()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    // Cupo total autorizado por el emisor.
+    creditLimit: numeric('credit_limit', { precision: 15, scale: 2 }).notNull(),
+    // Dia del mes en que cierra el periodo de facturacion (1-31).
+    statementDay: integer('statement_day').notNull(),
+    // Dia del mes en que vence el pago (1-31).
+    paymentDay: integer('payment_day').notNull(),
+    // Pago minimo requerido como fraccion decimal del saldo (ej. 0.05 = 5 %).
+    minPaymentPct: numeric('min_payment_pct', { precision: 5, scale: 4 }).notNull().default('0.05'),
+    // Tasa de interes corriente E.A. (fraccion decimal).
+    interestRateEa: numeric('interest_rate_ea', { precision: 9, scale: 6 }).notNull(),
+    // Cuota de manejo (0 si la tarjeta es sin cuota).
+    managementFee: numeric('management_fee', { precision: 15, scale: 2 }).notNull().default('0'),
+    // Periodicidad del cobro de la cuota de manejo.
+    feePeriod: cardFeePeriodEnum('fee_period').notNull().default('none'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    accountIdx: index('idx_credit_card_details_account').on(table.accountId),
+    creditLimitPositive: check(
+      'credit_card_details_credit_limit_check',
+      sql`${table.creditLimit} > 0`,
+    ),
+    statementDayRange: check(
+      'credit_card_details_statement_day_check',
+      sql`${table.statementDay} BETWEEN 1 AND 31`,
+    ),
+    paymentDayRange: check(
+      'credit_card_details_payment_day_check',
+      sql`${table.paymentDay} BETWEEN 1 AND 31`,
+    ),
+    minPaymentPctRange: check(
+      'credit_card_details_min_payment_pct_check',
+      sql`${table.minPaymentPct} BETWEEN 0 AND 1`,
+    ),
+  }),
+);
+
+// ---------- card_installment_plans (compras diferidas en cuotas; "meses sin intereses" o con) ----------
+export const cardInstallmentPlans = pgTable(
+  'card_installment_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    // Transaccion de gasto que origino el diferido; null si se registro por separado.
+    transactionId: uuid('transaction_id').references(() => transactions.id, {
+      onDelete: 'set null',
+    }),
+    description: text('description').notNull(),
+    // Capital total diferido (monto original de la compra).
+    principal: numeric('principal', { precision: 15, scale: 2 }).notNull(),
+    // Numero total de cuotas pactadas.
+    numberOfInstallments: integer('number_of_installments').notNull(),
+    // Tasa de interes M.V. del diferido (0 = sin interes).
+    interestRateMv: numeric('interest_rate_mv', { precision: 9, scale: 6 }).notNull().default('0'),
+    // Fecha en que se realizo la compra (puede diferir de la fecha de la transaccion).
+    purchasedOn: date('purchased_on').notNull(),
+    status: cardPlanStatusEnum('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    accountIdx: index('idx_card_installment_plans_account').on(table.accountId),
+    principalPositive: check(
+      'card_installment_plans_principal_check',
+      sql`${table.principal} > 0`,
+    ),
+    numberOfInstallmentsPositive: check(
+      'card_installment_plans_installments_check',
+      sql`${table.numberOfInstallments} > 0`,
+    ),
+  }),
+);
+
+// ---------- card_installment_items (cuotas individuales de un plan diferido) ----------
+export const cardInstallmentItems = pgTable(
+  'card_installment_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => cardInstallmentPlans.id, { onDelete: 'cascade' }),
+    // Numero secuencial de la cuota dentro del plan (1 = primera, N = ultima).
+    installmentNumber: integer('installment_number').notNull(),
+    // Fecha del extracto en que aparece esta cuota.
+    statementDate: date('statement_date').notNull(),
+    // Valor de la cuota (capital + interes del periodo).
+    amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+    // Porcion de capital incluida en esta cuota.
+    principalPortion: numeric('principal_portion', { precision: 15, scale: 2 }).notNull(),
+    // Porcion de interes incluida en esta cuota.
+    interestPortion: numeric('interest_portion', { precision: 15, scale: 2 }).notNull(),
+    // Si el valor ya quedo incluido en el extracto cerrado del mes.
+    included: text('included').notNull().default('false'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    planIdx: index('idx_card_installment_items_plan').on(table.planId),
+    // No puede haber dos cuotas con el mismo numero en un mismo plan.
+    planInstallmentUnique: unique('card_installment_items_plan_number_unique').on(
+      table.planId,
+      table.installmentNumber,
+    ),
+    amountPositive: check('card_installment_items_amount_check', sql`${table.amount} > 0`),
+  }),
+);
+
+// ---------- card_statements (extracto mensual de la tarjeta de credito) ----------
+export const cardStatements = pgTable(
+  'card_statements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    // Fecha de corte del extracto (cierre del periodo de facturacion).
+    cutoffDate: date('cutoff_date').notNull(),
+    // Fecha limite de pago.
+    dueDate: date('due_date').notNull(),
+    // Saldo total facturado en el extracto (capital + intereses + cargos).
+    totalBalance: numeric('total_balance', { precision: 15, scale: 2 }).notNull(),
+    // Pago minimo requerido segun las condiciones del contrato.
+    minimumPayment: numeric('minimum_payment', { precision: 15, scale: 2 }).notNull(),
+    status: cardStatementStatusEnum('status').notNull().default('open'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    accountIdx: index('idx_card_statements_account').on(table.accountId, table.cutoffDate),
+    // Un solo extracto por cuenta y fecha de corte.
+    accountCutoffUnique: unique('card_statements_account_cutoff_unique').on(
+      table.accountId,
+      table.cutoffDate,
+    ),
+  }),
+);
+
 /** Esquema completo agrupado para inyectar en el cliente Drizzle. */
 export const schema = {
   users,
@@ -548,4 +715,8 @@ export const schema = {
   sharedExpenses,
   sharedExpenseShares,
   settlements,
+  creditCardDetails,
+  cardInstallmentPlans,
+  cardInstallmentItems,
+  cardStatements,
 };
