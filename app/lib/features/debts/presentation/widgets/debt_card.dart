@@ -75,7 +75,7 @@ class DebtCard extends StatelessWidget {
                 ),
               ],
             ),
-            trailing: isLinked ? _LinkedBadge() : _StatusChip(status: debt.status),
+            trailing: isLinked ? const _LinkedBadge() : _StatusChip(status: debt.status),
           ),
         ],
       ),
@@ -118,7 +118,6 @@ class _PriorityBanner extends StatelessWidget {
 
 /// Badge indicador de deuda vinculada via Open Finance (solo lectura).
 class _LinkedBadge extends StatelessWidget {
-  // ignore: unused_element
   const _LinkedBadge();
 
   @override

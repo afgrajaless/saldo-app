@@ -204,16 +204,39 @@ class _DetailBody extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 28),
-        OutlinedButton.icon(
-          onPressed: () => _deleteDebt(context, ref),
-          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-          label: Text('Eliminar deuda',
-              style: TextStyle(color: theme.colorScheme.error)),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            side: BorderSide(color: theme.colorScheme.error),
+        // Deudas vinculadas via Open Finance no se pueden eliminar manualmente.
+        if (!debt.isLinked)
+          OutlinedButton.icon(
+            onPressed: () => _deleteDebt(context, ref),
+            icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+            label: Text('Eliminar deuda',
+                style: TextStyle(color: theme.colorScheme.error)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              side: BorderSide(color: theme.colorScheme.error),
+            ),
+          )
+        else
+          // Indicador de que la deuda proviene de Open Finance y es de solo lectura.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  'Vinculado a banco · solo lectura',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

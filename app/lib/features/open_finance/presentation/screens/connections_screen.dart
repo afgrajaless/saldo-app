@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../budget/presentation/providers/budget_providers.dart';
+import '../../../debts/presentation/providers/debts_controller.dart';
 import '../providers/open_finance_providers.dart';
 
 /// Lista las conexiones de Open Finance activas del usuario y permite
@@ -148,25 +149,35 @@ class ConnectionsScreen extends ConsumerWidget {
     try {
       if (action == 'sync') {
         final summary = await repo.sync(connectionId);
+        // Refrescar todas las listas que pudieron cambiar tras la sincronizacion.
         ref.invalidate(accountsListProvider);
         ref.invalidate(cardsListProvider);
         ref.invalidate(connectionsListProvider);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Sincronizados ${summary.totalIntegrated} productos'
-              '${summary.skipped > 0 ? ' · ${summary.skipped} omitidos' : ''}',
+        ref.invalidate(debtsControllerProvider);
+        if (context.mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'Sincronizados ${summary.totalIntegrated} productos'
+                '${summary.skipped > 0 ? ' · ${summary.skipped} omitidos' : ''}',
+              ),
             ),
-          ),
-        );
+          );
+        }
       } else if (action == 'revoke') {
         final confirmed = await _confirmRevoke(context);
         if (!confirmed) return;
         await repo.revoke(connectionId);
+        // Al revocar, la conexion se elimina pero las cuentas/deudas vinculadas
+        // permanecen; se refresca de todas formas para reflejar el cambio de estado.
         ref.invalidate(connectionsListProvider);
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Conexion revocada.')),
-        );
+        ref.invalidate(accountsListProvider);
+        ref.invalidate(cardsListProvider);
+        if (context.mounted) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Conexion revocada.')),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {

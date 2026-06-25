@@ -29,13 +29,27 @@ class AccountDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(account.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Editar cuenta',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => AddAccountScreen(account: account)),
+          if (account.isLinked)
+            // Cuenta vinculada a banco via Open Finance: no se puede editar.
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 16),
+                  SizedBox(width: 4),
+                  Text('Vinculado a banco', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Editar cuenta',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => AddAccountScreen(account: account)),
+              ),
             ),
-          ),
         ],
       ),
       body: ListView(

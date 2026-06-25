@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../budget/presentation/providers/budget_providers.dart';
+import '../../../debts/presentation/providers/debts_controller.dart';
 import '../providers/open_finance_providers.dart';
+import 'connections_screen.dart';
 
 /// Pantalla para conectar un banco vía Open Finance.
 /// Lista las instituciones disponibles y, al seleccionar una, crea la conexión,
-/// sincroniza los productos y refresca las listas de cuentas y tarjetas.
+/// sincroniza los productos y refresca las listas de cuentas, tarjetas y deudas.
 class ConnectBankScreen extends ConsumerWidget {
   const ConnectBankScreen({super.key});
 
@@ -14,7 +16,19 @@ class ConnectBankScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final institutions = ref.watch(institutionsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Conectar banco')),
+      appBar: AppBar(
+        title: const Text('Conectar banco'),
+        actions: [
+          /// Navega a la pantalla de conexiones activas para gestionar o revocar.
+          IconButton(
+            icon: const Icon(Icons.link),
+            tooltip: 'Bancos conectados',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()),
+            ),
+          ),
+        ],
+      ),
       body: institutions.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -109,7 +123,8 @@ class ConnectBankScreen extends ConsumerWidget {
   }
 
   /// Crea la conexion con la institucion, sincroniza los productos, refresca
-  /// los providers de datos y muestra un resumen al usuario.
+  /// los providers de datos (cuentas, tarjetas, deudas y conexiones) y muestra
+  /// un resumen al usuario.
   /// @param context - Contexto de la pantalla.
   /// @param ref - WidgetRef para leer providers y refrescar datos.
   /// @param institutionId - ID de la institucion seleccionada.
@@ -134,21 +149,23 @@ class ConnectBankScreen extends ConsumerWidget {
       final conn = await repo.createConnection(institutionId);
       final summary = await repo.sync(conn.id);
 
-      // Refrescar listas que pudieron cambiar tras la sincronizacion.
+      // Refrescar todas las listas que pudieron cambiar tras la sincronizacion.
       ref.invalidate(accountsListProvider);
       ref.invalidate(cardsListProvider);
       ref.invalidate(connectionsListProvider);
+      ref.invalidate(debtsControllerProvider);
 
       if (context.mounted) Navigator.of(context).pop(); // cierra el loader
 
-      messenger.showSnackBar(SnackBar(
-        content: Text(
-          'Integrados ${summary.totalIntegrated} productos'
-          '${summary.skipped > 0 ? ' · ${summary.skipped} omitidos' : ''}',
-        ),
-      ));
-
-      if (context.mounted) Navigator.of(context).pop(); // vuelve a la pantalla anterior
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(
+            'Integrados ${summary.totalIntegrated} productos'
+            '${summary.skipped > 0 ? ' · ${summary.skipped} omitidos' : ''}',
+          ),
+        ));
+        Navigator.of(context).pop(); // vuelve a la pantalla anterior
+      }
     } catch (e) {
       if (context.mounted) Navigator.of(context).pop(); // cierra el loader
       messenger.showSnackBar(
