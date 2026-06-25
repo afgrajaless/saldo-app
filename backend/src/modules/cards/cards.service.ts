@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { computeCycleDates } from '../../domain/card/card-dates';
+import { estimateStatement } from '../../domain/card/card-statement';
+import { effectiveAnnualToMonthly } from '../../domain/rates/rate-conversion';
 import { evaluateUsury } from '../../domain/usury/usury-evaluation';
 import { UsuryRepository } from '../usury/usury.repository';
 import { CardResponseDto } from './dto/card-response.dto';
 import { CreateCardDto } from './dto/create-card.dto';
+import { ReconcileStatementDto } from './dto/reconcile-statement.dto';
+import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { CardRow, CardsRepository } from './cards.repository';
 
@@ -87,6 +91,219 @@ export class CardsService {
       this.cardsRepository.sumCardPayments(accountId),
     ]);
     return Math.max(0, charges - payments);
+  }
+
+  /**
+   * Obtiene el extracto estimado del ciclo actual de una tarjeta.
+   * Si ya existe un extracto para la fecha de corte en BD, lo retorna directamente.
+   * Si no, calcula los cargos, cuotas diferidas, base rotativa e intereses del ciclo
+   * y persiste el resultado como extracto de estado 'open'.
+   *
+   * Ventana del ciclo:
+   *   - Corte anterior: mismo statementDay del mes anterior.
+   *   - Corte actual: statementDay del mes en curso.
+   *   - Cargos del ciclo: transactions con occurred_on en [corteAnterior + 1 dia, cutoffDate].
+   *   - Cuotas diferidas: card_installment_items con due_on en [corteAnterior + 1 dia, cutoffDate].
+   *
+   * Base rotativa (revolvingBase):
+   *   - Si existe extracto previo cerrado, se usa su reconciled_balance.
+   *   - Si no hay extracto previo cerrado, se usa 0 (sin deuda arrastrada conocida).
+   *
+   * @param accountId - UUID de la tarjeta.
+   * @param userId - Dueno esperado; lanza NotFoundException si no coincide.
+   * @returns El DTO de extracto estimado o existente.
+   */
+  async getStatement(accountId: string, userId: string): Promise<StatementResponseDto> {
+    const card = await this.cardsRepository.findCardForUser(accountId, userId);
+    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+
+    const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const { cutoffDate, paymentDueDate } = computeCycleDates(card.statementDay, card.paymentDay, today);
+
+    // Si ya existe un extracto para este corte, devolverlo directamente.
+    const existing = await this.cardsRepository.findStatementByCutoff(accountId, cutoffDate);
+    if (existing) {
+      return {
+        cutoffDate: existing.cutoffDate,
+        paymentDueDate: existing.paymentDueDate,
+        estimatedBalance: Number(existing.estimatedBalance),
+        estimatedMinPayment: Number(existing.estimatedMinPayment),
+        reconciledBalance: existing.reconciledBalance != null ? Number(existing.reconciledBalance) : null,
+        reconciledMinPayment:
+          existing.reconciledMinPayment != null ? Number(existing.reconciledMinPayment) : null,
+        reconciledTotalPayment:
+          existing.reconciledTotalPayment != null ? Number(existing.reconciledTotalPayment) : null,
+        status: existing.status,
+      };
+    }
+
+    // Calcular ventana del ciclo actual.
+    const prevMonth = this.previousMonth(today);
+    const { cutoffDate: prevCutoff } = computeCycleDates(card.statementDay, card.paymentDay, prevMonth);
+    const cycleStart = this.addOneDay(prevCutoff);
+    const cycleEnd = cutoffDate;
+
+    // Agregar datos del ciclo en paralelo.
+    const [chargesInCycle, installmentDueInCycle, prevStatement] = await Promise.all([
+      this.cardsRepository.sumChargesInCycle(accountId, cycleStart, cycleEnd),
+      this.cardsRepository.sumInstallmentsDueInCycle(accountId, cycleStart, cycleEnd),
+      this.cardsRepository.findPreviousClosedStatement(accountId, cutoffDate),
+    ]);
+
+    // Base rotativa: usar saldo reconciliado del extracto previo cerrado, si existe.
+    const revolvingBase =
+      prevStatement?.reconciledBalance != null ? Number(prevStatement.reconciledBalance) : 0;
+
+    // Cuota de manejo aplicable en este ciclo.
+    const managementFeeThisCycle = this.computeManagementFeeForCycle(
+      card.managementFee != null ? Number(card.managementFee) : null,
+      card.managementFeePeriod,
+      today,
+    );
+
+    const monthlyRate = effectiveAnnualToMonthly(Number(card.rotativoRateEa));
+    const minPaymentPct = Number(card.minPaymentPct);
+
+    const { estimatedBalance, estimatedMinPayment } = estimateStatement({
+      chargesInCycle,
+      installmentDueInCycle,
+      revolvingBase,
+      monthlyRate,
+      managementFeeThisCycle,
+      minPaymentPct,
+    });
+
+    // Persistir la estimacion en BD.
+    await this.cardsRepository.upsertStatement({
+      accountId,
+      cutoffDate,
+      paymentDueDate,
+      estimatedBalance,
+      estimatedMinPayment,
+    });
+
+    return {
+      cutoffDate,
+      paymentDueDate,
+      estimatedBalance,
+      estimatedMinPayment,
+      reconciledBalance: null,
+      reconciledMinPayment: null,
+      reconciledTotalPayment: null,
+      status: 'open',
+    };
+  }
+
+  /**
+   * Reconcilia el extracto de una tarjeta con los valores reales recibidos del banco.
+   * Actualiza (o crea) el extracto con los montos oficiales y cambia el status a
+   * 'closed' o 'paid' segun si se incluye el pago total.
+   * @param accountId - UUID de la tarjeta.
+   * @param userId - Dueno esperado; lanza NotFoundException si no coincide.
+   * @param dto - Valores reales del extracto bancario.
+   * @returns El DTO de extracto reconciliado.
+   * @throws BadRequestException si alguno de los montos es negativo.
+   */
+  async reconcileStatement(
+    accountId: string,
+    userId: string,
+    dto: ReconcileStatementDto,
+  ): Promise<StatementResponseDto> {
+    const card = await this.cardsRepository.findCardForUser(accountId, userId);
+    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+
+    if (
+      dto.reconciledBalance < 0 ||
+      dto.reconciledMinPayment < 0 ||
+      (dto.reconciledTotalPayment != null && dto.reconciledTotalPayment < 0)
+    ) {
+      throw new BadRequestException('Los montos reconciliados deben ser mayores o iguales a cero.');
+    }
+
+    // Obtener las fechas del ciclo para la fecha de corte indicada.
+    const cycleMonth = dto.cutoffDate.slice(0, 7); // YYYY-MM
+    const { paymentDueDate } = computeCycleDates(card.statementDay, card.paymentDay, cycleMonth);
+
+    // Conservar los valores estimados si ya existe el extracto.
+    const existing = await this.cardsRepository.findStatementByCutoff(accountId, dto.cutoffDate);
+    const estimatedBalance = existing?.estimatedBalance != null ? Number(existing.estimatedBalance) : 0;
+    const estimatedMinPayment =
+      existing?.estimatedMinPayment != null ? Number(existing.estimatedMinPayment) : 0;
+
+    // status: 'paid' si se provee el pago total; 'closed' si solo se reconcilia el saldo.
+    const status: 'open' | 'closed' | 'paid' = dto.reconciledTotalPayment != null ? 'paid' : 'closed';
+
+    const saved = await this.cardsRepository.upsertStatement({
+      accountId,
+      cutoffDate: dto.cutoffDate,
+      paymentDueDate,
+      estimatedBalance,
+      estimatedMinPayment,
+      reconciledBalance: dto.reconciledBalance,
+      reconciledMinPayment: dto.reconciledMinPayment,
+      reconciledTotalPayment: dto.reconciledTotalPayment ?? null,
+      status,
+    });
+
+    return {
+      cutoffDate: saved.cutoffDate,
+      paymentDueDate: saved.paymentDueDate,
+      estimatedBalance: Number(saved.estimatedBalance),
+      estimatedMinPayment: Number(saved.estimatedMinPayment),
+      reconciledBalance: saved.reconciledBalance != null ? Number(saved.reconciledBalance) : null,
+      reconciledMinPayment:
+        saved.reconciledMinPayment != null ? Number(saved.reconciledMinPayment) : null,
+      reconciledTotalPayment:
+        saved.reconciledTotalPayment != null ? Number(saved.reconciledTotalPayment) : null,
+      status: saved.status,
+    };
+  }
+
+  /**
+   * Suma un dia a una fecha YYYY-MM-DD y retorna la nueva fecha en el mismo formato.
+   * Usa UTC para evitar cambios de horario de verano.
+   * @param dateStr - Fecha de entrada en formato YYYY-MM-DD.
+   * @returns Fecha siguiente en formato YYYY-MM-DD.
+   */
+  private addOneDay(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /**
+   * Resta un mes a referenceMonth (YYYY-MM) y retorna el mes anterior en YYYY-MM.
+   * @param referenceMonth - Mes de referencia en formato YYYY-MM.
+   * @returns Mes anterior en formato YYYY-MM.
+   */
+  private previousMonth(referenceMonth: string): string {
+    const [y, m] = referenceMonth.split('-').map(Number);
+    if (m === 1) return `${y - 1}-12`;
+    return `${y}-${(m - 1).toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Calcula la cuota de manejo aplicable en el ciclo actual segun la periodicidad.
+   * - 'monthly': se cobra cada ciclo.
+   * - 'annual': se cobra solo en enero (mes 1); resto = 0.
+   * - 'none': siempre 0.
+   * @param fee - Monto de la cuota de manejo; null si no aplica.
+   * @param period - Periodicidad de cobro.
+   * @param referenceMonth - Mes de referencia en formato YYYY-MM.
+   * @returns Monto de cuota de manejo aplicable en el ciclo.
+   */
+  private computeManagementFeeForCycle(
+    fee: number | null,
+    period: 'none' | 'monthly' | 'annual',
+    referenceMonth: string,
+  ): number {
+    if (fee == null || period === 'none') return 0;
+    if (period === 'monthly') return fee;
+    if (period === 'annual') {
+      const month = Number(referenceMonth.split('-')[1]);
+      return month === 1 ? fee : 0;
+    }
+    return 0;
   }
 
   /**

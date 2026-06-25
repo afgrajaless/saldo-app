@@ -1,7 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { accounts, creditCardDetails, transactions, transfers } from '../../db/schema';
+import {
+  accounts,
+  cardInstallmentItems,
+  cardInstallmentPlans,
+  cardStatements,
+  creditCardDetails,
+  transactions,
+  transfers,
+} from '../../db/schema';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 
@@ -204,6 +212,151 @@ export class CardsRepository {
       .from(transfers)
       .where(eq(transfers.toAccountId, accountId));
     return Number(row?.total ?? 0);
+  }
+
+  /**
+   * Suma los cargos (transactions) de la tarjeta entre dos fechas (ambas inclusivas).
+   * Ventana del ciclo: desde el dia despues del corte anterior hasta el corte actual.
+   * @param accountId - UUID de la tarjeta.
+   * @param fromDate - Inicio de la ventana YYYY-MM-DD (primer dia del ciclo = corteAnterior + 1).
+   * @param toDate - Fecha de corte actual YYYY-MM-DD (inclusivo).
+   * @returns Total de cargos en pesos.
+   */
+  async sumChargesInCycle(accountId: string, fromDate: string, toDate: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), '0')` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.accountId, accountId),
+          gte(transactions.occurredOn, fromDate),
+          lte(transactions.occurredOn, toDate),
+        ),
+      );
+    return Number(row?.total ?? 0);
+  }
+
+  /**
+   * Suma (principal + interest) de las cuotas diferidas con due_on dentro del ciclo.
+   * @param accountId - UUID de la tarjeta.
+   * @param fromDate - Inicio del ciclo YYYY-MM-DD.
+   * @param toDate - Fin del ciclo YYYY-MM-DD.
+   * @returns Total de cuotas diferidas vencidas en el ciclo.
+   */
+  async sumInstallmentsDueInCycle(accountId: string, fromDate: string, toDate: string): Promise<number> {
+    const [row] = await this.db
+      .select({
+        total: sql<string>`COALESCE(SUM(${cardInstallmentItems.principal} + ${cardInstallmentItems.interest}), '0')`,
+      })
+      .from(cardInstallmentItems)
+      .innerJoin(cardInstallmentPlans, eq(cardInstallmentPlans.id, cardInstallmentItems.planId))
+      .where(
+        and(
+          eq(cardInstallmentPlans.accountId, accountId),
+          gte(cardInstallmentItems.dueOn, fromDate),
+          lte(cardInstallmentItems.dueOn, toDate),
+        ),
+      );
+    return Number(row?.total ?? 0);
+  }
+
+  /**
+   * Busca el extracto mas reciente cerrado (status='closed' o 'paid') anterior a una fecha de corte.
+   * Se usa para obtener el saldo rotativo que arrastra intereses al siguiente ciclo.
+   * @param accountId - UUID de la tarjeta.
+   * @param beforeCutoff - Fecha de corte actual; busca extractos con cutoff_date < esta fecha.
+   * @returns El extracto previo cerrado o undefined si no existe.
+   */
+  async findPreviousClosedStatement(
+    accountId: string,
+    beforeCutoff: string,
+  ): Promise<typeof cardStatements.$inferSelect | undefined> {
+    const rows = await this.db
+      .select()
+      .from(cardStatements)
+      .where(
+        and(
+          eq(cardStatements.accountId, accountId),
+          lt(cardStatements.cutoffDate, beforeCutoff),
+          inArray(cardStatements.status, ['closed', 'paid']),
+        ),
+      )
+      .orderBy(desc(cardStatements.cutoffDate))
+      .limit(1);
+    return rows[0];
+  }
+
+  /**
+   * Busca el extracto de una tarjeta para una fecha de corte exacta.
+   * @param accountId - UUID de la tarjeta.
+   * @param cutoffDate - Fecha de corte YYYY-MM-DD.
+   * @returns El extracto o undefined si no existe.
+   */
+  async findStatementByCutoff(
+    accountId: string,
+    cutoffDate: string,
+  ): Promise<typeof cardStatements.$inferSelect | undefined> {
+    const rows = await this.db
+      .select()
+      .from(cardStatements)
+      .where(
+        and(
+          eq(cardStatements.accountId, accountId),
+          eq(cardStatements.cutoffDate, cutoffDate),
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  /**
+   * Upsert del extracto de la tarjeta: inserta si no existe, actualiza si ya existe.
+   * La unicidad se basa en (account_id, cutoff_date).
+   * @param data - Datos del extracto (account_id + cutoff_date identifican el registro).
+   * @returns El extracto insertado o actualizado.
+   */
+  async upsertStatement(data: {
+    accountId: string;
+    cutoffDate: string;
+    paymentDueDate: string;
+    estimatedBalance: number;
+    estimatedMinPayment: number;
+    reconciledBalance?: number | null;
+    reconciledMinPayment?: number | null;
+    reconciledTotalPayment?: number | null;
+    status?: 'open' | 'closed' | 'paid';
+  }): Promise<typeof cardStatements.$inferSelect> {
+    const [row] = await this.db
+      .insert(cardStatements)
+      .values({
+        accountId: data.accountId,
+        cutoffDate: data.cutoffDate,
+        paymentDueDate: data.paymentDueDate,
+        estimatedBalance: data.estimatedBalance.toFixed(2),
+        estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
+        reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
+        reconciledMinPayment:
+          data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
+        reconciledTotalPayment:
+          data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
+        status: data.status ?? 'open',
+      })
+      .onConflictDoUpdate({
+        target: [cardStatements.accountId, cardStatements.cutoffDate],
+        set: {
+          paymentDueDate: data.paymentDueDate,
+          estimatedBalance: data.estimatedBalance.toFixed(2),
+          estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
+          reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
+          reconciledMinPayment:
+            data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
+          reconciledTotalPayment:
+            data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
+          status: data.status ?? 'open',
+        },
+      })
+      .returning();
+    return row;
   }
 
   /**

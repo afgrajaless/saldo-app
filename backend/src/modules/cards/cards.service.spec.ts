@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { CardsRepository, CardRow } from './cards.repository';
 import { UsuryRepository } from '../usury/usury.repository';
@@ -41,6 +41,11 @@ function makeRepo(): RepoMock {
     listCards: jest.fn().mockResolvedValue([]),
     sumCardCharges: jest.fn().mockResolvedValue(0),
     sumCardPayments: jest.fn().mockResolvedValue(0),
+    sumChargesInCycle: jest.fn().mockResolvedValue(0),
+    sumInstallmentsDueInCycle: jest.fn().mockResolvedValue(0),
+    findPreviousClosedStatement: jest.fn().mockResolvedValue(undefined),
+    findStatementByCutoff: jest.fn().mockResolvedValue(undefined),
+    upsertStatement: jest.fn(),
   } as unknown as RepoMock;
 }
 
@@ -215,6 +220,159 @@ describe('CardsService', () => {
 
       // paymentDueDate debe ser una fecha YYYY-MM-DD
       expect(result.paymentDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('getStatement', () => {
+    it('retorna cutoffDate y paymentDueDate correctos', async () => {
+      const card = makeCard({ statementDay: 15, paymentDay: 25 });
+      repo.findCardForUser.mockResolvedValue(card);
+      repo.findStatementByCutoff.mockResolvedValue(undefined);
+      repo.sumChargesInCycle.mockResolvedValue(0);
+      repo.sumInstallmentsDueInCycle.mockResolvedValue(0);
+      repo.findPreviousClosedStatement.mockResolvedValue(undefined);
+      repo.upsertStatement.mockResolvedValue({
+        id: 'st-1',
+        accountId: 'acc-1',
+        cutoffDate: '2025-07-15',
+        paymentDueDate: '2025-07-25',
+        estimatedBalance: '0.00',
+        estimatedMinPayment: '0.00',
+        reconciledBalance: null,
+        reconciledMinPayment: null,
+        reconciledTotalPayment: null,
+        status: 'open',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.getStatement('acc-1', 'user-1');
+
+      expect(result.cutoffDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.paymentDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.status).toBe('open');
+    });
+
+    it('retorna estimatedBalance coherente con cargos mockeados', async () => {
+      const card = makeCard({ statementDay: 15, paymentDay: 25 });
+      repo.findCardForUser.mockResolvedValue(card);
+      repo.findStatementByCutoff.mockResolvedValue(undefined);
+      repo.sumChargesInCycle.mockResolvedValue(500_000);
+      repo.sumInstallmentsDueInCycle.mockResolvedValue(100_000);
+      repo.findPreviousClosedStatement.mockResolvedValue(undefined);
+      repo.upsertStatement.mockImplementation(
+        async (data: Parameters<CardsRepository['upsertStatement']>[0]) => ({
+          id: 'st-1',
+          accountId: 'acc-1',
+          cutoffDate: data.cutoffDate,
+          paymentDueDate: data.paymentDueDate,
+          estimatedBalance: data.estimatedBalance.toFixed(2),
+          estimatedMinPayment: data.estimatedMinPayment.toFixed(2),
+          reconciledBalance: null,
+          reconciledMinPayment: null,
+          reconciledTotalPayment: null,
+          status: 'open' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      const result = await service.getStatement('acc-1', 'user-1');
+
+      // 500_000 cargos + 100_000 cuotas = 600_000 (sin rotativo ni cuota de manejo)
+      expect(result.estimatedBalance).toBeGreaterThan(0);
+      expect(result.estimatedMinPayment).toBeGreaterThan(0);
+    });
+
+    it('lanza NotFoundException si la tarjeta no es del usuario', async () => {
+      repo.findCardForUser.mockResolvedValue(undefined);
+      await expect(service.getStatement('acc-ajena', 'user-1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('devuelve el extracto existente sin recalcular si ya existe en BD', async () => {
+      const card = makeCard();
+      repo.findCardForUser.mockResolvedValue(card);
+      repo.findStatementByCutoff.mockResolvedValue({
+        id: 'st-1',
+        accountId: 'acc-1',
+        cutoffDate: '2025-07-15',
+        paymentDueDate: '2025-07-25',
+        estimatedBalance: '350000.00',
+        estimatedMinPayment: '17500.00',
+        reconciledBalance: '360000.00',
+        reconciledMinPayment: '18000.00',
+        reconciledTotalPayment: null,
+        status: 'closed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.getStatement('acc-1', 'user-1');
+
+      expect(result.estimatedBalance).toBe(350000);
+      expect(result.reconciledBalance).toBe(360000);
+      expect(result.status).toBe('closed');
+      expect(repo.sumChargesInCycle).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reconcileStatement', () => {
+    it('guarda los valores oficiales y los retorna', async () => {
+      const card = makeCard();
+      repo.findCardForUser.mockResolvedValue(card);
+      repo.findStatementByCutoff.mockResolvedValue(undefined);
+      repo.upsertStatement.mockImplementation(
+        async (data: Parameters<CardsRepository['upsertStatement']>[0]) => ({
+          id: 'st-1',
+          accountId: 'acc-1',
+          cutoffDate: data.cutoffDate,
+          paymentDueDate: data.paymentDueDate,
+          estimatedBalance: '0.00',
+          estimatedMinPayment: '0.00',
+          reconciledBalance: data.reconciledBalance != null ? data.reconciledBalance.toFixed(2) : null,
+          reconciledMinPayment:
+            data.reconciledMinPayment != null ? data.reconciledMinPayment.toFixed(2) : null,
+          reconciledTotalPayment:
+            data.reconciledTotalPayment != null ? data.reconciledTotalPayment.toFixed(2) : null,
+          status: (data.status ?? 'closed') as 'open' | 'closed' | 'paid',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+
+      const result = await service.reconcileStatement('acc-1', 'user-1', {
+        cutoffDate: '2025-07-15',
+        reconciledBalance: 460000,
+        reconciledMinPayment: 23000,
+      });
+
+      expect(result.reconciledBalance).toBe(460000);
+      expect(result.reconciledMinPayment).toBe(23000);
+      expect(result.status).toBe('closed');
+    });
+
+    it('lanza BadRequestException si reconciledBalance es negativo', async () => {
+      const card = makeCard();
+      repo.findCardForUser.mockResolvedValue(card);
+
+      await expect(
+        service.reconcileStatement('acc-1', 'user-1', {
+          cutoffDate: '2025-07-15',
+          reconciledBalance: -100,
+          reconciledMinPayment: 0,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('lanza NotFoundException si la tarjeta no es del usuario', async () => {
+      repo.findCardForUser.mockResolvedValue(undefined);
+      await expect(
+        service.reconcileStatement('acc-ajena', 'user-1', {
+          cutoffDate: '2025-07-15',
+          reconciledBalance: 0,
+          reconciledMinPayment: 0,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

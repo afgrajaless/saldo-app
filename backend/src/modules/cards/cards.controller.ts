@@ -11,6 +11,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CardsService } from './cards.service';
 import { CardResponseDto } from './dto/card-response.dto';
 import { CreateCardDto } from './dto/create-card.dto';
+import { ReconcileStatementDto } from './dto/reconcile-statement.dto';
+import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 
 /** CRUD de tarjetas de credito. Todas las rutas exigen autenticacion. */
@@ -85,5 +87,48 @@ export class CardsController {
     @Body() dto: UpdateCardDto,
   ): Promise<CardResponseDto> {
     return this.cardsService.updateCard(userId, id, dto);
+  }
+
+  /**
+   * Obtiene el extracto estimado del ciclo actual de una tarjeta.
+   * Si ya existe un extracto guardado para la fecha de corte, lo devuelve directamente.
+   * En caso contrario, calcula cargos, cuotas diferidas, intereses rotativos y cuota de manejo,
+   * persiste el resultado y lo retorna con status 'open'.
+   * @param userId - Usuario autenticado.
+   * @param id - UUID de la tarjeta.
+   * @returns El extracto estimado del ciclo actual.
+   */
+  @Get(':id/statement')
+  @ApiOperation({ summary: 'Obtener el extracto estimado del ciclo actual de una tarjeta' })
+  @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Extracto del ciclo.', type: StatementResponseDto })
+  @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
+  getStatement(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<StatementResponseDto> {
+    return this.cardsService.getStatement(id, userId);
+  }
+
+  /**
+   * Reconcilia el extracto oficial del banco con los valores reales del extracto.
+   * Actualiza (o crea) el extracto con los montos reconciliados y cambia su estado.
+   * @param userId - Usuario autenticado.
+   * @param id - UUID de la tarjeta.
+   * @param dto - Valores reales del extracto del banco.
+   * @returns El extracto reconciliado.
+   */
+  @Post(':id/statement/reconcile')
+  @ApiOperation({ summary: 'Reconciliar el extracto oficial con los valores reales del banco' })
+  @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Extracto reconciliado.', type: StatementResponseDto })
+  @ApiResponse({ status: 400, description: 'Montos negativos o fecha invalida.' })
+  @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
+  reconcileStatement(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReconcileStatementDto,
+  ): Promise<StatementResponseDto> {
+    return this.cardsService.reconcileStatement(id, userId, dto);
   }
 }
