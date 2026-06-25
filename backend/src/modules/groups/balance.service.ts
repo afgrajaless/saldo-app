@@ -80,6 +80,7 @@ export class BalanceService {
       shares: e.shares.map((s) => ({
         memberId: s.memberId,
         shareAmount: Number(s.shareAmount),
+        status: s.status,
       })),
     }));
 

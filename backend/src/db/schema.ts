@@ -76,6 +76,8 @@ export const yieldTypeEnum = pgEnum('yield_type', ['none', 'savings', 'cdt']);
 export const cdtInterestPaymentEnum = pgEnum('cdt_interest_payment', ['monthly', 'at_maturity']);
 // Metodo de division de un gasto compartido: partes iguales o montos exactos.
 export const splitMethodEnum = pgEnum('split_method', ['equal', 'exact']);
+// Estado de confirmacion de la parte de un gasto compartido.
+export const shareStatusEnum = pgEnum('share_status', ['confirmed', 'pending', 'disputed']);
 
 // ---------- users ----------
 export const users = pgTable('users', {
@@ -502,6 +504,9 @@ export const sharedExpenseShares = pgTable(
     expenseId: uuid('expense_id').notNull().references(() => sharedExpenses.id, { onDelete: 'cascade' }),
     memberId: uuid('member_id').notNull().references(() => groupMembers.id, { onDelete: 'restrict' }),
     shareAmount: numeric('share_amount', { precision: 15, scale: 2 }).notNull(),
+    status: shareStatusEnum('status').notNull().default('confirmed'),
+    disputedNote: text('disputed_note'),
+    statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
   },
   (t) => ({
     expenseIdx: index('idx_shares_expense').on(t.expenseId),

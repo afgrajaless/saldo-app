@@ -10,6 +10,7 @@ import { settlements, sharedExpenses, sharedExpenseShares } from '../../db/schem
 export interface RawShare {
   memberId: string;
   shareAmount: string;
+  status: 'confirmed' | 'pending' | 'disputed';
 }
 
 /**
@@ -51,6 +52,7 @@ export class BalanceRepository {
         paidByMemberId: sharedExpenses.paidByMemberId,
         memberId: sharedExpenseShares.memberId,
         shareAmount: sharedExpenseShares.shareAmount,
+        status: sharedExpenseShares.status,
       })
       .from(sharedExpenses)
       .innerJoin(
@@ -76,6 +78,7 @@ export class BalanceRepository {
       byExpense.get(row.expenseId)!.shares.push({
         memberId: row.memberId,
         shareAmount: row.shareAmount,
+        status: row.status,
       });
     }
 
