@@ -48,6 +48,13 @@ export class DebtResponseDto {
   @ApiProperty({ example: 'activa' })
   status!: string;
 
+  @ApiProperty({
+    description: 'Origen del registro: manual u open_finance.',
+    enum: ['manual', 'open_finance'],
+    example: 'manual',
+  })
+  source!: string;
+
   @ApiProperty({ format: 'date-time' })
   createdAt!: Date;
 

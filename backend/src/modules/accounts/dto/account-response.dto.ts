@@ -18,6 +18,13 @@ export class AccountResponseDto {
   })
   kind!: string;
 
+  @ApiProperty({
+    description: 'Origen del registro: manual u open_finance.',
+    enum: ['manual', 'open_finance'],
+    example: 'manual',
+  })
+  source!: string;
+
   @ApiProperty({ description: 'Tipo de rendimiento: none, savings o cdt.', example: 'savings' })
   yieldType!: string;
 

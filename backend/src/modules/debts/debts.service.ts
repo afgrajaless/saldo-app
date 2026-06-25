@@ -274,6 +274,7 @@ export class DebtsService {
       insuranceValue: debt.insuranceValue === null ? null : Number(debt.insuranceValue),
       interestMode: debt.interestMode,
       status: debt.status,
+      source: debt.source,
       createdAt: debt.createdAt,
       currentBalance: metrics.currentBalance,
       monthlyPayment: metrics.monthlyPayment,

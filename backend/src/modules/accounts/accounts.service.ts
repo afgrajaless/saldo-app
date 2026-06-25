@@ -349,6 +349,7 @@ export class AccountsService {
       name: account.name,
       color: account.color,
       kind: account.kind,
+      source: account.source,
       yieldType: account.yieldType,
       effectiveAnnualRate:
         account.effectiveAnnualRate === null ? null : Number(account.effectiveAnnualRate),
