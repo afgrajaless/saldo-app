@@ -32,11 +32,15 @@ export class MyDebtsService {
     const groups = await this.groupsRepository.findGroupsForUser(userId);
     if (groups.length === 0) return [];
 
+    // Filtra solo los grupos activos (no archivados).
+    const activeGroups = groups.filter((g) => g.archivedAt === null);
+    if (activeGroups.length === 0) return [];
+
     const allDebts: MyGroupDebtDto[] = [];
 
     // Procesamos cada grupo secuencialmente para evitar sobrecarga de conexiones.
     // En un volumen bajo de grupos (limite 200) esto es aceptable y correcto.
-    for (const group of groups) {
+    for (const group of activeGroups) {
       const groupDebts = await this.computeDebtsInGroup(userId, group.id, group.name);
       allDebts.push(...groupDebts);
     }

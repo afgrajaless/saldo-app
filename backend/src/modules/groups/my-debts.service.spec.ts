@@ -205,4 +205,72 @@ describe('MyDebtsService.getMyGroupDebts', () => {
 
     expect(result).toHaveLength(0);
   });
+
+  it('grupo archivado con deuda → NO aparece en resultado', async () => {
+    const groupsRepo = makeGroupsRepo();
+    const balanceRepo = makeBalanceRepo();
+
+    const ACTIVE_GROUP_ID = 'group-active';
+
+    // El usuario pertenece a un grupo archivado (con deuda) y uno activo
+    groupsRepo.findGroupsForUser.mockResolvedValue([
+      {
+        id: 'group-archived',
+        name: 'Viaje Pasado',
+        createdBy: 'user-otra',
+        archivedAt: new Date('2025-01-01'), // Archivado
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: ACTIVE_GROUP_ID,
+        name: 'Viaje Actual',
+        createdBy: 'user-otra',
+        archivedAt: null, // Activo
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as never);
+
+    // Solo el grupo activo es procesado (findActiveMember llamado una vez)
+    groupsRepo.findActiveMember.mockResolvedValue({
+      id: MY_MEMBER_ID,
+      groupId: ACTIVE_GROUP_ID,
+      userId: USER_ID,
+      displayName: 'Yo',
+      removedAt: null,
+    } as never);
+
+    // Solo miembros del grupo activo
+    groupsRepo.listMembers.mockResolvedValue([
+      { id: MY_MEMBER_ID, displayName: 'Yo', removedAt: null },
+      { id: CREDITOR_ID, displayName: 'Ana García', removedAt: null },
+    ] as never);
+
+    // Gasto en el grupo activo
+    balanceRepo.findExpensesWithShares.mockResolvedValue([
+      {
+        paidByMemberId: CREDITOR_ID,
+        shares: [
+          { memberId: CREDITOR_ID, shareAmount: '10000.00', status: 'confirmed' },
+          { memberId: MY_MEMBER_ID, shareAmount: '10000.00', status: 'confirmed' },
+        ],
+      },
+    ]);
+
+    balanceRepo.findSettlements.mockResolvedValue([]);
+
+    const service = new MyDebtsService(balanceRepo, groupsRepo);
+    const result = await service.getMyGroupDebts(USER_ID);
+
+    // Solo debería devolver la deuda del grupo activo, no la del archivado
+    expect(result).toHaveLength(1);
+    expect(result[0].groupId).toBe(ACTIVE_GROUP_ID);
+    expect(result[0].groupName).toBe('Viaje Actual');
+    expect(result[0].amountOwed).toBeCloseTo(10000, 1);
+
+    // Verifica que computeDebtsInGroup fue llamado solo UNA VEZ (para el grupo activo)
+    expect(groupsRepo.findActiveMember).toHaveBeenCalledTimes(1);
+    expect(groupsRepo.listMembers).toHaveBeenCalledTimes(1);
+  });
 });
