@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { ExpensesRepository } from './expenses.repository';
 import { GroupsService } from './groups.service';
@@ -17,27 +17,34 @@ function makeBalanceSvc(): jest.Mocked<BalanceService> {
   } as unknown as jest.Mocked<BalanceService>;
 }
 
+/** Gasto base reutilizable en los tests. */
+function makeBaseExpense() {
+  return {
+    id: 'exp1',
+    groupId: 'grp',
+    paidByMemberId: 'a',
+    description: null,
+    amount: '90000.00',
+    occurredOn: '2026-06-10',
+    splitMethod: 'equal',
+    createdByUserId: 'u1',
+    createdAt: new Date(),
+    deletedAt: null,
+  };
+}
+
 /** Crea un mock del repositorio de gastos. */
 function makeExpensesRepo(): ExpensesRepo {
   return {
-    insertExpenseWithShares: jest.fn().mockResolvedValue({
-      id: 'exp1',
-      groupId: 'grp',
-      paidByMemberId: 'a',
-      description: null,
-      amount: '90000.00',
-      occurredOn: '2026-06-10',
-      splitMethod: 'equal',
-      createdByUserId: 'u1',
-      createdAt: new Date(),
-      deletedAt: null,
-    }),
+    insertExpenseWithShares: jest.fn().mockResolvedValue(makeBaseExpense()),
     listExpenses: jest.fn().mockResolvedValue([]),
     findExpense: jest.fn().mockResolvedValue(undefined),
     softDeleteExpense: jest.fn().mockResolvedValue(undefined),
     updateExpense: jest.fn().mockResolvedValue(undefined),
     findExpenseShares: jest.fn().mockResolvedValue([]),
     findSharesForExpenses: jest.fn().mockResolvedValue([]),
+    setShareStatus: jest.fn().mockResolvedValue(undefined),
+    findShare: jest.fn().mockResolvedValue(undefined),
   } as unknown as ExpensesRepo;
 }
 
@@ -333,5 +340,146 @@ describe('ExpensesService.updateExpense', () => {
     const dto: UpdateExpenseDto = { paidByMemberId: 'b' };
 
     await expect(service.updateExpense('grp', 'u1', 'exp1', dto)).resolves.toBeDefined();
+  });
+});
+
+// ──────────────────────── confirmShare / disputeShare ────────────────────────
+
+describe('ExpensesService.confirmShare', () => {
+  /** Configura el escenario base: u2 (miembro b) confirma la parte del gasto exp1 pagado por a. */
+  function makeSetup() {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // u2 es miembro activo b (NO el pagador del gasto)
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'b',
+      groupId: 'grp',
+      userId: 'u2',
+      displayName: 'Beto',
+      removedAt: null,
+    });
+
+    // El gasto existe y fue pagado por 'a'
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeBaseExpense());
+
+    // b tiene una share en el gasto
+    expensesRepo.findShare = jest.fn().mockResolvedValue({
+      id: 'sh1',
+      expenseId: 'exp1',
+      memberId: 'b',
+      shareAmount: '30000.00',
+      status: 'pending',
+      disputedNote: null,
+      statusChangedAt: null,
+    });
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+    return { service, expensesRepo };
+  }
+
+  it('(a) pone la share del usuario en confirmed', async () => {
+    const { service, expensesRepo } = makeSetup();
+    await service.confirmShare('grp', 'u2', 'exp1');
+    expect(expensesRepo.setShareStatus).toHaveBeenCalledWith('exp1', 'b', 'confirmed', undefined);
+  });
+
+  it('(c) lanza BadRequestException si el usuario es el pagador del gasto', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // u1 es miembro 'a', que es el pagador del gasto
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeBaseExpense()); // paidByMemberId: 'a'
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    await expect(service.confirmShare('grp', 'u1', 'exp1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('(d) lanza NotFoundException si el usuario no participa en el gasto', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'b',
+      groupId: 'grp',
+      userId: 'u2',
+      displayName: 'Beto',
+      removedAt: null,
+    });
+
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeBaseExpense());
+    // b NO tiene share en el gasto
+    expensesRepo.findShare = jest.fn().mockResolvedValue(undefined);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    await expect(service.confirmShare('grp', 'u2', 'exp1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('(e) lanza ForbiddenException si el usuario no es miembro activo del grupo', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // assertActiveMember lanza ForbiddenException cuando findActiveMember devuelve undefined
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue(undefined);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    await expect(service.confirmShare('grp', 'u99', 'exp1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});
+
+describe('ExpensesService.disputeShare', () => {
+  it('(b) pone la share del usuario en disputed con nota', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'b',
+      groupId: 'grp',
+      userId: 'u2',
+      displayName: 'Beto',
+      removedAt: null,
+    });
+
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeBaseExpense());
+    expensesRepo.findShare = jest.fn().mockResolvedValue({
+      id: 'sh1',
+      expenseId: 'exp1',
+      memberId: 'b',
+      shareAmount: '30000.00',
+      status: 'pending',
+      disputedNote: null,
+      statusChangedAt: null,
+    });
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    await service.disputeShare('grp', 'u2', 'exp1', 'El monto no coincide');
+
+    expect(expensesRepo.setShareStatus).toHaveBeenCalledWith(
+      'exp1',
+      'b',
+      'disputed',
+      'El monto no coincide',
+    );
   });
 });

@@ -197,6 +197,71 @@ export class ExpensesService {
   }
 
   /**
+   * Valida que el gasto exista en el grupo, que el miembro participe en el,
+   * y que NO sea el pagador (no puede actuar sobre su propio pago).
+   * Metodo auxiliar compartido por confirmShare y disputeShare.
+   * @param groupId - UUID del grupo.
+   * @param expenseId - UUID del gasto.
+   * @param memberId - UUID del miembro que quiere confirmar/refutar.
+   * @param accion - Texto para el mensaje de error (confirmar/refutar).
+   * @throws NotFoundException si el gasto no existe o el miembro no participa.
+   * @throws BadRequestException si el miembro es el pagador del gasto.
+   */
+  private async assertCanActOnShare(
+    groupId: string,
+    expenseId: string,
+    memberId: string,
+    accion: string,
+  ): Promise<void> {
+    const expense = await this.expensesRepository.findExpense(groupId, expenseId);
+    if (!expense) {
+      throw new NotFoundException('Gasto no encontrado en el grupo.');
+    }
+
+    if (expense.paidByMemberId === memberId) {
+      throw new BadRequestException(`No puedes ${accion} tu propio pago.`);
+    }
+
+    const share = await this.expensesRepository.findShare(expenseId, memberId);
+    if (!share) {
+      throw new NotFoundException('No participas en este gasto.');
+    }
+  }
+
+  /**
+   * Confirma la parte propia del usuario en un gasto compartido.
+   * El usuario no puede confirmar si es el pagador del gasto.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado.
+   * @param expenseId - UUID del gasto.
+   * @throws ForbiddenException si el usuario no es miembro activo.
+   * @throws NotFoundException si el gasto no existe o el usuario no participa.
+   * @throws BadRequestException si el usuario es el pagador del gasto.
+   */
+  async confirmShare(groupId: string, userId: string, expenseId: string): Promise<void> {
+    const member = await this.groupsService.assertActiveMember(groupId, userId);
+    await this.assertCanActOnShare(groupId, expenseId, member.id, 'confirmar');
+    await this.expensesRepository.setShareStatus(expenseId, member.id, 'confirmed', undefined);
+  }
+
+  /**
+   * Refuta la parte propia del usuario en un gasto compartido, con nota opcional.
+   * El usuario no puede refutar si es el pagador del gasto.
+   * @param groupId - UUID del grupo.
+   * @param userId - UUID del usuario autenticado.
+   * @param expenseId - UUID del gasto.
+   * @param note - Nota opcional que explica el motivo de la disputa.
+   * @throws ForbiddenException si el usuario no es miembro activo.
+   * @throws NotFoundException si el gasto no existe o el usuario no participa.
+   * @throws BadRequestException si el usuario es el pagador del gasto.
+   */
+  async disputeShare(groupId: string, userId: string, expenseId: string, note?: string): Promise<void> {
+    const member = await this.groupsService.assertActiveMember(groupId, userId);
+    await this.assertCanActOnShare(groupId, expenseId, member.id, 'refutar');
+    await this.expensesRepository.setShareStatus(expenseId, member.id, 'disputed', note);
+  }
+
+  /**
    * Asigna el estado de confirmacion a cada parte segun las reglas de negocio:
    * - confirmed: si el miembro es el pagador o es un fantasma (userId null).
    * - pending: para los demas miembros reales.

@@ -33,6 +33,7 @@ import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { DisputeShareDto } from './dto/dispute-share.dto';
 import { BalanceService } from './balance.service';
 import { BalanceResponseDto } from './dto/balance-response.dto';
 import { SettlementsService } from './settlements.service';
@@ -359,6 +360,57 @@ export class GroupsController {
     @Param('expenseId', ParseUUIDPipe) expenseId: string,
   ): Promise<void> {
     return this.expensesService.softDeleteExpense(id, userId, expenseId);
+  }
+
+  /**
+   * Confirma la parte propia del usuario autenticado en un gasto compartido.
+   * Solo puede confirmar un participante real; el pagador no puede confirmarse a si mismo.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param expenseId - UUID del gasto.
+   */
+  @Post(':id/expenses/:expenseId/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Confirmar la parte propia del usuario en un gasto compartido' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiParam({ name: 'expenseId', description: 'UUID del gasto', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Parte confirmada correctamente.' })
+  @ApiResponse({ status: 400, description: 'El usuario es el pagador del gasto o solicitud inválida.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro activo del grupo.' })
+  @ApiResponse({ status: 404, description: 'Gasto no encontrado o no participas en él.' })
+  confirmShare(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+  ): Promise<void> {
+    return this.expensesService.confirmShare(id, userId, expenseId);
+  }
+
+  /**
+   * Refuta la parte propia del usuario autenticado en un gasto compartido.
+   * Permite adjuntar una nota opcional que explique el motivo de la disputa.
+   * El pagador no puede refutar su propio pago.
+   * @param userId - UUID del usuario autenticado.
+   * @param id - UUID del grupo.
+   * @param expenseId - UUID del gasto.
+   * @param dto - DTO con nota opcional de disputa.
+   */
+  @Post(':id/expenses/:expenseId/dispute')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Refutar la parte propia del usuario en un gasto compartido' })
+  @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
+  @ApiParam({ name: 'expenseId', description: 'UUID del gasto', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Parte refutada correctamente.' })
+  @ApiResponse({ status: 400, description: 'El usuario es el pagador del gasto o solicitud inválida.' })
+  @ApiResponse({ status: 403, description: 'No eres miembro activo del grupo.' })
+  @ApiResponse({ status: 404, description: 'Gasto no encontrado o no participas en él.' })
+  disputeShare(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+    @Body() dto: DisputeShareDto,
+  ): Promise<void> {
+    return this.expensesService.disputeShare(id, userId, expenseId, dto.note);
   }
 
   // ──────────────────────────── Liquidaciones de deuda ─────────────────────────

@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { sharedExpenses, sharedExpenseShares } from '../../db/schema';
 
@@ -164,6 +164,55 @@ export class ExpensesRepository {
           eq(sharedExpenses.id, expenseId),
           eq(sharedExpenses.groupId, groupId),
           isNull(sharedExpenses.deletedAt),
+        ),
+      );
+  }
+
+  /**
+   * Busca la parte de un gasto especifico asignada a un miembro.
+   * @param expenseId - UUID del gasto.
+   * @param memberId - UUID del miembro.
+   * @returns La parte del gasto, o `undefined` si el miembro no participa.
+   */
+  async findShare(expenseId: string, memberId: string): Promise<SharedExpenseShareRow | undefined> {
+    const [share] = await this.db
+      .select()
+      .from(sharedExpenseShares)
+      .where(
+        and(
+          eq(sharedExpenseShares.expenseId, expenseId),
+          eq(sharedExpenseShares.memberId, memberId),
+        ),
+      )
+      .limit(1);
+    return share;
+  }
+
+  /**
+   * Actualiza el estado de la parte de un gasto para un miembro dado.
+   * Registra el momento del cambio de estado y, si aplica, la nota de disputa.
+   * @param expenseId - UUID del gasto.
+   * @param memberId - UUID del miembro cuya parte se actualiza.
+   * @param status - Nuevo estado: 'confirmed' | 'pending' | 'disputed'.
+   * @param note - Nota opcional de disputa (solo aplica cuando status es 'disputed').
+   */
+  async setShareStatus(
+    expenseId: string,
+    memberId: string,
+    status: 'confirmed' | 'pending' | 'disputed',
+    note?: string,
+  ): Promise<void> {
+    await this.db
+      .update(sharedExpenseShares)
+      .set({
+        status,
+        statusChangedAt: sql`now()`,
+        disputedNote: note ?? null,
+      })
+      .where(
+        and(
+          eq(sharedExpenseShares.expenseId, expenseId),
+          eq(sharedExpenseShares.memberId, memberId),
         ),
       );
   }
