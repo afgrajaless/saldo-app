@@ -8,10 +8,14 @@ import '../domain/entities/account.dart';
 import '../domain/entities/account_yield.dart';
 import '../domain/entities/budget_params.dart';
 import '../domain/entities/budget_summary.dart';
+import '../domain/entities/card_installment.dart';
+import '../domain/entities/card_statement.dart';
 import '../domain/entities/category.dart';
+import '../domain/entities/credit_card.dart';
 import '../domain/entities/import_result.dart';
 import '../domain/entities/transaction.dart';
 import '../domain/entities/transfer.dart';
+import '../domain/entities/upcoming_card_payment.dart';
 import '../domain/repositories/budget_repository.dart';
 import 'budget_mappers.dart';
 
@@ -211,6 +215,65 @@ class BudgetRepositoryImpl implements BudgetRepository {
     return _send(() async {
       final res = await _dio.get<List<dynamic>>('/accounts/net-worth');
       return res.data!.map((e) => netWorthPointFromJson(e as Map<String, dynamic>)).toList();
+    });
+  }
+
+  @override
+  Future<List<CreditCard>> getCards() {
+    return _send(() async {
+      final res = await _dio.get<List<dynamic>>('/cards');
+      return res.data!.map((e) => creditCardFromJson(e as Map<String, dynamic>)).toList();
+    });
+  }
+
+  @override
+  Future<CreditCard> createCard(CreateCardParams params) {
+    return _send(() async {
+      final res = await _dio.post<Map<String, dynamic>>('/cards', data: params.toJson());
+      return creditCardFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<CreditCard> updateCard(String id, UpdateCardParams params) {
+    return _send(() async {
+      final res = await _dio.patch<Map<String, dynamic>>('/cards/$id', data: params.toJson());
+      return creditCardFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<CardStatement> getCardStatement(String id) {
+    return _send(() async {
+      final res = await _dio.get<Map<String, dynamic>>('/cards/$id/statement');
+      return cardStatementFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<CardStatement> reconcileStatement(String id, ReconcileStatementParams params) {
+    return _send(() async {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/cards/$id/statement/reconcile',
+        data: params.toJson(),
+      );
+      return cardStatementFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<List<CardInstallmentPlan>> getCardInstallments(String id) {
+    return _send(() async {
+      final res = await _dio.get<List<dynamic>>('/cards/$id/installments');
+      return res.data!.map((e) => cardInstallmentPlanFromJson(e as Map<String, dynamic>)).toList();
+    });
+  }
+
+  @override
+  Future<List<UpcomingCardPayment>> getUpcomingCardPayments() {
+    return _send(() async {
+      final res = await _dio.get<List<dynamic>>('/cards/upcoming-payments');
+      return res.data!.map((e) => upcomingCardPaymentFromJson(e as Map<String, dynamic>)).toList();
     });
   }
 

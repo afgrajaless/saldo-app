@@ -900,5 +900,375 @@ final netWorthProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef NetWorthRef = AutoDisposeFutureProviderRef<List<NetWorthPoint>>;
+String _$cardsListHash() => r'75f3f311ddaf7cc2d5cbd683aac95f77fe2b94b7';
+
+/// Lista de tarjetas de credito del usuario.
+/// @param ref - Referencia del provider.
+/// @return La lista de tarjetas.
+///
+/// Copied from [cardsList].
+@ProviderFor(cardsList)
+final cardsListProvider = AutoDisposeFutureProvider<List<CreditCard>>.internal(
+  cardsList,
+  name: r'cardsListProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$cardsListHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef CardsListRef = AutoDisposeFutureProviderRef<List<CreditCard>>;
+String _$cardStatementHash() => r'135ba0b2632c4158174bc856fd8563af6dd87523';
+
+/// Extracto del ciclo actual de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return El extracto estimado/reconciliado.
+///
+/// Copied from [cardStatement].
+@ProviderFor(cardStatement)
+const cardStatementProvider = CardStatementFamily();
+
+/// Extracto del ciclo actual de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return El extracto estimado/reconciliado.
+///
+/// Copied from [cardStatement].
+class CardStatementFamily extends Family<AsyncValue<CardStatement>> {
+  /// Extracto del ciclo actual de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return El extracto estimado/reconciliado.
+  ///
+  /// Copied from [cardStatement].
+  const CardStatementFamily();
+
+  /// Extracto del ciclo actual de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return El extracto estimado/reconciliado.
+  ///
+  /// Copied from [cardStatement].
+  CardStatementProvider call(
+    String id,
+  ) {
+    return CardStatementProvider(
+      id,
+    );
+  }
+
+  @override
+  CardStatementProvider getProviderOverride(
+    covariant CardStatementProvider provider,
+  ) {
+    return call(
+      provider.id,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'cardStatementProvider';
+}
+
+/// Extracto del ciclo actual de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return El extracto estimado/reconciliado.
+///
+/// Copied from [cardStatement].
+class CardStatementProvider extends AutoDisposeFutureProvider<CardStatement> {
+  /// Extracto del ciclo actual de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return El extracto estimado/reconciliado.
+  ///
+  /// Copied from [cardStatement].
+  CardStatementProvider(
+    String id,
+  ) : this._internal(
+          (ref) => cardStatement(
+            ref as CardStatementRef,
+            id,
+          ),
+          from: cardStatementProvider,
+          name: r'cardStatementProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$cardStatementHash,
+          dependencies: CardStatementFamily._dependencies,
+          allTransitiveDependencies:
+              CardStatementFamily._allTransitiveDependencies,
+          id: id,
+        );
+
+  CardStatementProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.id,
+  }) : super.internal();
+
+  final String id;
+
+  @override
+  Override overrideWith(
+    FutureOr<CardStatement> Function(CardStatementRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CardStatementProvider._internal(
+        (ref) => create(ref as CardStatementRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        id: id,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<CardStatement> createElement() {
+    return _CardStatementProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CardStatementProvider && other.id == id;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, id.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CardStatementRef on AutoDisposeFutureProviderRef<CardStatement> {
+  /// The parameter `id` of this provider.
+  String get id;
+}
+
+class _CardStatementProviderElement
+    extends AutoDisposeFutureProviderElement<CardStatement>
+    with CardStatementRef {
+  _CardStatementProviderElement(super.provider);
+
+  @override
+  String get id => (origin as CardStatementProvider).id;
+}
+
+String _$cardInstallmentsHash() => r'588f8f7b4253532c560a0c9ed83e83bbd3c881ee';
+
+/// Planes diferidos activos de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return Los planes diferidos con su cronograma.
+///
+/// Copied from [cardInstallments].
+@ProviderFor(cardInstallments)
+const cardInstallmentsProvider = CardInstallmentsFamily();
+
+/// Planes diferidos activos de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return Los planes diferidos con su cronograma.
+///
+/// Copied from [cardInstallments].
+class CardInstallmentsFamily
+    extends Family<AsyncValue<List<CardInstallmentPlan>>> {
+  /// Planes diferidos activos de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return Los planes diferidos con su cronograma.
+  ///
+  /// Copied from [cardInstallments].
+  const CardInstallmentsFamily();
+
+  /// Planes diferidos activos de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return Los planes diferidos con su cronograma.
+  ///
+  /// Copied from [cardInstallments].
+  CardInstallmentsProvider call(
+    String id,
+  ) {
+    return CardInstallmentsProvider(
+      id,
+    );
+  }
+
+  @override
+  CardInstallmentsProvider getProviderOverride(
+    covariant CardInstallmentsProvider provider,
+  ) {
+    return call(
+      provider.id,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'cardInstallmentsProvider';
+}
+
+/// Planes diferidos activos de una tarjeta.
+/// @param ref - Referencia del provider.
+/// @param id - UUID de la tarjeta.
+/// @return Los planes diferidos con su cronograma.
+///
+/// Copied from [cardInstallments].
+class CardInstallmentsProvider
+    extends AutoDisposeFutureProvider<List<CardInstallmentPlan>> {
+  /// Planes diferidos activos de una tarjeta.
+  /// @param ref - Referencia del provider.
+  /// @param id - UUID de la tarjeta.
+  /// @return Los planes diferidos con su cronograma.
+  ///
+  /// Copied from [cardInstallments].
+  CardInstallmentsProvider(
+    String id,
+  ) : this._internal(
+          (ref) => cardInstallments(
+            ref as CardInstallmentsRef,
+            id,
+          ),
+          from: cardInstallmentsProvider,
+          name: r'cardInstallmentsProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$cardInstallmentsHash,
+          dependencies: CardInstallmentsFamily._dependencies,
+          allTransitiveDependencies:
+              CardInstallmentsFamily._allTransitiveDependencies,
+          id: id,
+        );
+
+  CardInstallmentsProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.id,
+  }) : super.internal();
+
+  final String id;
+
+  @override
+  Override overrideWith(
+    FutureOr<List<CardInstallmentPlan>> Function(CardInstallmentsRef provider)
+        create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CardInstallmentsProvider._internal(
+        (ref) => create(ref as CardInstallmentsRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        id: id,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<List<CardInstallmentPlan>> createElement() {
+    return _CardInstallmentsProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CardInstallmentsProvider && other.id == id;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, id.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CardInstallmentsRef
+    on AutoDisposeFutureProviderRef<List<CardInstallmentPlan>> {
+  /// The parameter `id` of this provider.
+  String get id;
+}
+
+class _CardInstallmentsProviderElement
+    extends AutoDisposeFutureProviderElement<List<CardInstallmentPlan>>
+    with CardInstallmentsRef {
+  _CardInstallmentsProviderElement(super.provider);
+
+  @override
+  String get id => (origin as CardInstallmentsProvider).id;
+}
+
+String _$upcomingCardPaymentsHash() =>
+    r'ba101aa659fe1184427cd7a01a835eb3f9284cbe';
+
+/// Proximos pagos estimados de todas las tarjetas del usuario.
+/// @param ref - Referencia del provider.
+/// @return La lista de proximos pagos ordenados por fecha.
+///
+/// Copied from [upcomingCardPayments].
+@ProviderFor(upcomingCardPayments)
+final upcomingCardPaymentsProvider =
+    AutoDisposeFutureProvider<List<UpcomingCardPayment>>.internal(
+  upcomingCardPayments,
+  name: r'upcomingCardPaymentsProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$upcomingCardPaymentsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef UpcomingCardPaymentsRef
+    = AutoDisposeFutureProviderRef<List<UpcomingCardPayment>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

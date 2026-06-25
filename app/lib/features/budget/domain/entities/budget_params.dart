@@ -160,6 +160,120 @@ class CreateSnapshotParams {
   Map<String, dynamic> toJson() => {'balance': balance, 'asOfDate': asOfDate};
 }
 
+/// Parametros para crear una tarjeta de credito.
+class CreateCardParams {
+  const CreateCardParams({
+    required this.name,
+    required this.creditLimit,
+    required this.statementDay,
+    required this.paymentDay,
+    required this.rotativoRateEa,
+    this.color,
+    this.minPaymentPct,
+    this.managementFee,
+    this.managementFeePeriod,
+  });
+
+  final String name;
+  final String? color;
+  final double creditLimit;
+  final int statementDay;
+  final int paymentDay;
+
+  /// Tasa de interes corriente E.A. del diferido rotativo (fraccion decimal).
+  final double rotativoRateEa;
+
+  /// Pago minimo como fraccion del saldo (ej. 0.05 = 5%). Por defecto 0.05.
+  final double? minPaymentPct;
+
+  /// Cuota de manejo en pesos; null si no cobra.
+  final double? managementFee;
+
+  /// Periodicidad de la cuota de manejo: 'none', 'monthly' o 'annual'.
+  final String? managementFeePeriod;
+
+  /// Cuerpo JSON para el POST /cards.
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (color != null) 'color': color,
+        'creditLimit': creditLimit,
+        'statementDay': statementDay,
+        'paymentDay': paymentDay,
+        'rotativoRateEa': rotativoRateEa,
+        if (minPaymentPct != null) 'minPaymentPct': minPaymentPct,
+        if (managementFee != null) 'managementFee': managementFee,
+        if (managementFeePeriod != null) 'managementFeePeriod': managementFeePeriod,
+      };
+}
+
+/// Parametros para editar una tarjeta de credito (todos opcionales).
+class UpdateCardParams {
+  const UpdateCardParams({
+    this.name,
+    this.color,
+    this.creditLimit,
+    this.statementDay,
+    this.paymentDay,
+    this.rotativoRateEa,
+    this.minPaymentPct,
+    this.managementFee,
+    this.managementFeePeriod,
+  });
+
+  final String? name;
+  final String? color;
+  final double? creditLimit;
+  final int? statementDay;
+  final int? paymentDay;
+  final double? rotativoRateEa;
+  final double? minPaymentPct;
+  final double? managementFee;
+  final String? managementFeePeriod;
+
+  /// Cuerpo JSON para el PATCH /cards/:id (solo envia los campos con valor).
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (color != null) 'color': color,
+        if (creditLimit != null) 'creditLimit': creditLimit,
+        if (statementDay != null) 'statementDay': statementDay,
+        if (paymentDay != null) 'paymentDay': paymentDay,
+        if (rotativoRateEa != null) 'rotativoRateEa': rotativoRateEa,
+        if (minPaymentPct != null) 'minPaymentPct': minPaymentPct,
+        if (managementFee != null) 'managementFee': managementFee,
+        if (managementFeePeriod != null) 'managementFeePeriod': managementFeePeriod,
+      };
+}
+
+/// Parametros para reconciliar el extracto de tarjeta con los valores reales del banco.
+class ReconcileStatementParams {
+  const ReconcileStatementParams({
+    required this.cutoffDate,
+    required this.reconciledBalance,
+    required this.reconciledMinPayment,
+    this.reconciledTotalPayment,
+  });
+
+  /// Fecha de corte del extracto (YYYY-MM-DD).
+  final String cutoffDate;
+
+  /// Saldo real del extracto en pesos.
+  final double reconciledBalance;
+
+  /// Pago minimo real del extracto en pesos.
+  final double reconciledMinPayment;
+
+  /// Pago total realizado; null si aun no se ha pagado.
+  final double? reconciledTotalPayment;
+
+  /// Cuerpo JSON para el POST /cards/:id/statement/reconcile.
+  Map<String, dynamic> toJson() => {
+        'cutoffDate': cutoffDate,
+        'reconciledBalance': reconciledBalance,
+        'reconciledMinPayment': reconciledMinPayment,
+        if (reconciledTotalPayment != null) 'reconciledTotalPayment': reconciledTotalPayment,
+      };
+}
+
 /// Parametros para registrar una transferencia entre cuentas.
 class CreateTransferParams {
   const CreateTransferParams({

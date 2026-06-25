@@ -1,10 +1,14 @@
 import '../domain/entities/account.dart';
 import '../domain/entities/account_yield.dart';
 import '../domain/entities/budget_summary.dart';
+import '../domain/entities/card_installment.dart';
+import '../domain/entities/card_statement.dart';
 import '../domain/entities/category.dart';
+import '../domain/entities/credit_card.dart';
 import '../domain/entities/import_result.dart';
 import '../domain/entities/transaction.dart';
 import '../domain/entities/transfer.dart';
+import '../domain/entities/upcoming_card_payment.dart';
 
 double _toDouble(Object? value) => (value as num).toDouble();
 double? _toDoubleOrNull(Object? value) => value == null ? null : (value as num).toDouble();
@@ -17,6 +21,7 @@ Account accountFromJson(Map<String, dynamic> json) {
     color: json['color'] as String,
     yieldType: (json['yieldType'] as String?) ?? 'none',
     effectiveAnnualRate: _toDoubleOrNull(json['effectiveAnnualRate']),
+    kind: (json['kind'] as String?) ?? 'asset',
   );
 }
 
@@ -151,5 +156,81 @@ BudgetSummary budgetSummaryFromJson(Map<String, dynamic> json) {
     totalExpense: _toDouble(json['totalExpense']),
     balance: _toDouble(json['balance']),
     categories: categories,
+  );
+}
+
+/// Construye una CreditCard desde el JSON del backend (GET /cards o GET /cards/:id).
+CreditCard creditCardFromJson(Map<String, dynamic> json) {
+  return CreditCard(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    color: json['color'] as String,
+    creditLimit: _toDouble(json['creditLimit']),
+    statementDay: json['statementDay'] as int,
+    paymentDay: json['paymentDay'] as int,
+    rotativoRateEa: _toDouble(json['rotativoRateEa']),
+    minPaymentPct: _toDouble(json['minPaymentPct']),
+    managementFee: _toDoubleOrNull(json['managementFee']),
+    managementFeePeriod: (json['managementFeePeriod'] as String?) ?? 'none',
+    usedAmount: _toDouble(json['usedAmount']),
+    available: _toDouble(json['available']),
+    paymentDueDate: json['paymentDueDate'] as String,
+    exceedsUsury: json['exceedsUsury'] as bool,
+  );
+}
+
+/// Construye un CardStatement desde el JSON del backend (GET /cards/:id/statement).
+CardStatement cardStatementFromJson(Map<String, dynamic> json) {
+  return CardStatement(
+    cutoffDate: json['cutoffDate'] as String,
+    paymentDueDate: json['paymentDueDate'] as String,
+    estimatedBalance: _toDouble(json['estimatedBalance']),
+    estimatedMinPayment: _toDouble(json['estimatedMinPayment']),
+    reconciledBalance: _toDoubleOrNull(json['reconciledBalance']),
+    reconciledMinPayment: _toDoubleOrNull(json['reconciledMinPayment']),
+    reconciledTotalPayment: _toDoubleOrNull(json['reconciledTotalPayment']),
+    status: json['status'] as String,
+  );
+}
+
+/// Construye un CardInstallmentPlan con su cronograma desde el JSON del backend
+/// (GET /cards/:id/installments).
+CardInstallmentPlan cardInstallmentPlanFromJson(Map<String, dynamic> json) {
+  final items = (json['items'] as List<dynamic>)
+      .map((e) => _cardInstallmentItemFromJson(e as Map<String, dynamic>))
+      .toList();
+  return CardInstallmentPlan(
+    id: json['id'] as String,
+    accountId: json['accountId'] as String,
+    description: json['description'] as String?,
+    principal: _toDouble(json['principal']),
+    numberOfInstallments: json['numberOfInstallments'] as int,
+    monthlyRate: _toDouble(json['monthlyRate']),
+    startDate: json['startDate'] as String,
+    status: json['status'] as String,
+    items: items,
+  );
+}
+
+/// Construye un CardInstallmentItem (cuota individual) desde el JSON.
+CardInstallmentItem _cardInstallmentItemFromJson(Map<String, dynamic> json) {
+  return CardInstallmentItem(
+    number: json['number'] as int,
+    dueOn: json['dueOn'] as String,
+    principal: _toDouble(json['principal']),
+    interest: _toDouble(json['interest']),
+    balance: _toDouble(json['balance']),
+  );
+}
+
+/// Construye un UpcomingCardPayment desde el JSON del backend
+/// (GET /cards/upcoming-payments).
+UpcomingCardPayment upcomingCardPaymentFromJson(Map<String, dynamic> json) {
+  return UpcomingCardPayment(
+    cardId: json['cardId'] as String,
+    name: json['name'] as String,
+    paymentDueDate: json['paymentDueDate'] as String,
+    estimatedMinPayment: _toDouble(json['estimatedMinPayment']),
+    estimatedBalance: _toDouble(json['estimatedBalance']),
   );
 }

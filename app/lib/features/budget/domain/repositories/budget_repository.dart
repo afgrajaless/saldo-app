@@ -4,10 +4,14 @@ import '../entities/account.dart';
 import '../entities/account_yield.dart';
 import '../entities/budget_params.dart';
 import '../entities/budget_summary.dart';
+import '../entities/card_installment.dart';
+import '../entities/card_statement.dart';
 import '../entities/category.dart';
+import '../entities/credit_card.dart';
 import '../entities/import_result.dart';
 import '../entities/transaction.dart';
 import '../entities/transfer.dart';
+import '../entities/upcoming_card_payment.dart';
 
 /// Contrato del repositorio de presupuesto (categorias, movimientos, resumen).
 abstract class BudgetRepository {
@@ -91,4 +95,37 @@ abstract class BudgetRepository {
 
   /// Obtiene la serie de patrimonio total por fecha.
   Future<List<NetWorthPoint>> getNetWorth();
+
+  // --- Tarjetas de credito ---
+
+  /// Lista las tarjetas de credito del usuario.
+  Future<List<CreditCard>> getCards();
+
+  /// Crea una tarjeta de credito.
+  /// @param params - Datos de la tarjeta.
+  /// @return La tarjeta creada.
+  Future<CreditCard> createCard(CreateCardParams params);
+
+  /// Actualiza una tarjeta de credito.
+  /// @param id - UUID de la tarjeta.
+  /// @param params - Campos a actualizar.
+  /// @return La tarjeta actualizada.
+  Future<CreditCard> updateCard(String id, UpdateCardParams params);
+
+  /// Obtiene el extracto estimado/reconciliado del ciclo actual de una tarjeta.
+  /// @param id - UUID de la tarjeta.
+  Future<CardStatement> getCardStatement(String id);
+
+  /// Reconcilia el extracto de una tarjeta con los valores reales del banco.
+  /// @param id - UUID de la tarjeta.
+  /// @param params - Datos del extracto real.
+  /// @return El extracto actualizado.
+  Future<CardStatement> reconcileStatement(String id, ReconcileStatementParams params);
+
+  /// Lista los planes diferidos activos de una tarjeta.
+  /// @param id - UUID de la tarjeta.
+  Future<List<CardInstallmentPlan>> getCardInstallments(String id);
+
+  /// Obtiene los proximos pagos estimados de todas las tarjetas del usuario.
+  Future<List<UpcomingCardPayment>> getUpcomingCardPayments();
 }
