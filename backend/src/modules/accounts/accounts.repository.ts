@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
-import { accountRates, accountSnapshots, accounts, cdtTerms } from '../../db/schema';
+import { accountRates, accountSnapshots, accounts, cdtTerms, transactions, transfers } from '../../db/schema';
 
 /** Fila de cuenta tal como se almacena. */
 export type AccountRow = typeof accounts.$inferSelect;
@@ -266,6 +266,44 @@ export class AccountsRepository {
       .where(eq(accountSnapshots.userId, userId))
       .groupBy(accountSnapshots.asOfDate)
       .orderBy(asc(accountSnapshots.asOfDate));
+  }
+
+  /**
+   * Calcula el total adeudado en tarjetas de credito del usuario (cargos - pagos).
+   * Se usa para restar del patrimonio neto, ya que las tarjetas son pasivos.
+   * @param userId - Dueno de las cuentas.
+   * @returns Total adeudado (como string NUMERIC); '0' si no hay tarjetas.
+   */
+  async sumCreditCardLiabilities(userId: string): Promise<string> {
+    const cardIds = await this.db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(
+        and(
+          eq(accounts.userId, userId),
+          eq(accounts.kind, 'credit_card'),
+          isNull(accounts.deletedAt),
+        ),
+      );
+
+    if (cardIds.length === 0) return '0';
+
+    const ids = cardIds.map((r) => r.id);
+
+    const [chargesRow] = await this.db
+      .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), '0')` })
+      .from(transactions)
+      .where(inArray(transactions.accountId, ids));
+
+    const [paymentsRow] = await this.db
+      .select({ total: sql<string>`COALESCE(SUM(${transfers.amount}), '0')` })
+      .from(transfers)
+      .where(inArray(transfers.toAccountId, ids));
+
+    const charges = Number(chargesRow?.total ?? 0);
+    const payments = Number(paymentsRow?.total ?? 0);
+    const liability = Math.max(0, charges - payments);
+    return liability.toFixed(2);
   }
 
   /**

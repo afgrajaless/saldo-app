@@ -29,10 +29,12 @@ function makeCard(overrides: Partial<CardRow> = {}): CardRow {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RepoMock = jest.Mocked<CardsRepository> & {
   upsertEstimatedStatement: jest.MockedFunction<CardsRepository['upsertEstimatedStatement']>;
   upsertReconciledStatement: jest.MockedFunction<CardsRepository['upsertReconciledStatement']>;
+  findInstallmentPlansWithItems: jest.MockedFunction<
+    CardsRepository['findInstallmentPlansWithItems']
+  >;
 };
 type UsuryRepoMock = jest.Mocked<Pick<UsuryRepository, 'findCurrent'>>;
 
@@ -51,6 +53,7 @@ function makeRepo(): RepoMock {
     findStatementByCutoff: jest.fn().mockResolvedValue(undefined),
     upsertEstimatedStatement: jest.fn(),
     upsertReconciledStatement: jest.fn(),
+    findInstallmentPlansWithItems: jest.fn().mockResolvedValue([]),
   } as unknown as RepoMock;
 }
 
@@ -446,6 +449,97 @@ describe('CardsService', () => {
           reconciledMinPayment: 0,
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('getInstallments', () => {
+    it('lanza NotFoundException si la tarjeta no es del usuario', async () => {
+      repo.findCardForUser.mockResolvedValue(undefined);
+      await expect(service.getInstallments('acc-ajena', 'user-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('devuelve los planes con sus items mapeados', async () => {
+      const card = makeCard();
+      repo.findCardForUser.mockResolvedValue(card);
+      (repo as unknown as Record<string, jest.Mock>).findInstallmentPlansWithItems.mockResolvedValue([
+        {
+          id: 'plan-1',
+          accountId: 'acc-1',
+          transactionId: null,
+          description: 'Samsung TV',
+          principal: '500000.00',
+          numberOfInstallments: 10,
+          monthlyRate: '0.000000',
+          startDate: '2026-01-15',
+          status: 'active',
+          createdAt: new Date(),
+          items: [
+            {
+              id: 'item-1',
+              planId: 'plan-1',
+              number: 1,
+              dueOn: '2026-02-15',
+              principal: '50000.00',
+              interest: '0.00',
+              balance: '450000.00',
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getInstallments('acc-1', 'user-1');
+      expect(result).toHaveLength(1);
+      expect(result[0].principal).toBe(500000);
+      expect(result[0].items).toHaveLength(1);
+      expect(result[0].items[0].dueOn).toBe('2026-02-15');
+    });
+  });
+
+  describe('getUpcomingPayments', () => {
+    it('lista la tarjeta con su paymentDueDate cuando no hay extracto previo', async () => {
+      const card = makeCard({ statementDay: 15, paymentDay: 25 });
+      repo.listCards.mockResolvedValue([card]);
+      repo.findStatementByCutoff.mockResolvedValue(undefined);
+      repo.sumChargesInCycle.mockResolvedValue(300_000);
+      repo.sumInstallmentsDueInCycle.mockResolvedValue(0);
+      repo.findPreviousClosedStatement.mockResolvedValue(undefined);
+
+      const result = await service.getUpcomingPayments('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].cardId).toBe('acc-1');
+      expect(result[0].name).toBe('Visa Platinum');
+      expect(result[0].paymentDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result[0].estimatedBalance).toBe(300_000);
+      expect(result[0].estimatedMinPayment).toBe(15_000); // 300_000 * 0.05
+    });
+
+    it('usa el extracto existente en BD cuando ya fue calculado', async () => {
+      const card = makeCard({ statementDay: 15, paymentDay: 25 });
+      repo.listCards.mockResolvedValue([card]);
+      repo.findStatementByCutoff.mockResolvedValue({
+        id: 'st-1',
+        accountId: 'acc-1',
+        cutoffDate: '2026-06-15',
+        paymentDueDate: '2026-06-25',
+        estimatedBalance: '450000.00',
+        estimatedMinPayment: '22500.00',
+        reconciledBalance: null,
+        reconciledMinPayment: null,
+        reconciledTotalPayment: null,
+        status: 'open' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.getUpcomingPayments('user-1');
+
+      expect(result[0].estimatedBalance).toBe(450_000);
+      expect(result[0].estimatedMinPayment).toBe(22_500);
+      expect(repo.sumChargesInCycle).not.toHaveBeenCalled();
     });
   });
 });

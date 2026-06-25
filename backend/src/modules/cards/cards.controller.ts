@@ -11,9 +11,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CardsService } from './cards.service';
 import { CardResponseDto } from './dto/card-response.dto';
 import { CreateCardDto } from './dto/create-card.dto';
+import { InstallmentPlanResponseDto } from './dto/installment-plan-response.dto';
 import { ReconcileStatementDto } from './dto/reconcile-statement.dto';
 import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
+import { UpcomingPaymentDto } from './dto/upcoming-payment.dto';
 
 /** CRUD de tarjetas de credito. Todas las rutas exigen autenticacion. */
 @ApiTags('cards')
@@ -49,6 +51,18 @@ export class CardsController {
   @ApiResponse({ status: 200, description: 'Lista de tarjetas.', type: [CardResponseDto] })
   findAll(@CurrentUser('sub') userId: string): Promise<CardResponseDto[]> {
     return this.cardsService.listCards(userId);
+  }
+
+  /**
+   * Devuelve el proximo pago estimado de cada tarjeta activa del usuario.
+   * @param userId - Usuario autenticado.
+   * @returns Lista de proximos pagos por tarjeta.
+   */
+  @Get('upcoming-payments')
+  @ApiOperation({ summary: 'Proximos pagos estimados de todas las tarjetas del usuario' })
+  @ApiResponse({ status: 200, description: 'Lista de proximos pagos.', type: [UpcomingPaymentDto] })
+  getUpcomingPayments(@CurrentUser('sub') userId: string): Promise<UpcomingPaymentDto[]> {
+    return this.cardsService.getUpcomingPayments(userId);
   }
 
   /**
@@ -108,6 +122,24 @@ export class CardsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<StatementResponseDto> {
     return this.cardsService.getStatement(id, userId);
+  }
+
+  /**
+   * Devuelve los planes diferidos de una tarjeta con su cronograma de cuotas.
+   * @param userId - Usuario autenticado.
+   * @param id - UUID de la tarjeta.
+   * @returns Lista de planes diferidos con items.
+   */
+  @Get(':id/installments')
+  @ApiOperation({ summary: 'Planes diferidos de una tarjeta con su cronograma de cuotas' })
+  @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Planes diferidos.', type: [InstallmentPlanResponseDto] })
+  @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
+  getInstallments(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<InstallmentPlanResponseDto[]> {
+    return this.cardsService.getInstallments(id, userId);
   }
 
   /**

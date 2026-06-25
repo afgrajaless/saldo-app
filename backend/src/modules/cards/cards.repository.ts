@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import {
   accounts,
@@ -395,6 +395,41 @@ export class CardsRepository {
       })
       .returning();
     return row;
+  }
+
+  /**
+   * Obtiene los planes diferidos de una tarjeta con sus cuotas.
+   * Primero trae todos los planes de la cuenta y luego sus items en una segunda
+   * consulta; agrupa en memoria para evitar un JOIN que multiplique filas.
+   * @param accountId - UUID de la tarjeta.
+   * @returns Lista de planes con su cronograma de cuotas.
+   */
+  async findInstallmentPlansWithItems(accountId: string): Promise<
+    Array<
+      typeof cardInstallmentPlans.$inferSelect & {
+        items: (typeof cardInstallmentItems.$inferSelect)[];
+      }
+    >
+  > {
+    const plans = await this.db
+      .select()
+      .from(cardInstallmentPlans)
+      .where(eq(cardInstallmentPlans.accountId, accountId))
+      .orderBy(desc(cardInstallmentPlans.createdAt));
+
+    if (plans.length === 0) return [];
+
+    const planIds = plans.map((p) => p.id);
+    const items = await this.db
+      .select()
+      .from(cardInstallmentItems)
+      .where(inArray(cardInstallmentItems.planId, planIds))
+      .orderBy(asc(cardInstallmentItems.dueOn));
+
+    return plans.map((plan) => ({
+      ...plan,
+      items: items.filter((i) => i.planId === plan.id),
+    }));
   }
 
   /**

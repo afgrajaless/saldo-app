@@ -6,9 +6,11 @@ import { evaluateUsury } from '../../domain/usury/usury-evaluation';
 import { UsuryRepository } from '../usury/usury.repository';
 import { CardResponseDto } from './dto/card-response.dto';
 import { CreateCardDto } from './dto/create-card.dto';
+import { InstallmentPlanResponseDto } from './dto/installment-plan-response.dto';
 import { ReconcileStatementDto } from './dto/reconcile-statement.dto';
 import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
+import { UpcomingPaymentDto } from './dto/upcoming-payment.dto';
 import { cardStatements } from '../../db/schema';
 import { CardRow, CardsRepository } from './cards.repository';
 
@@ -255,6 +257,97 @@ export class CardsService {
     });
 
     return this.toStatementDto(saved);
+  }
+
+  /**
+   * Devuelve los planes diferidos de una tarjeta con su cronograma de cuotas.
+   * Valida que la tarjeta pertenezca al usuario antes de consultar.
+   * @param accountId - UUID de la tarjeta.
+   * @param userId - Dueno esperado.
+   * @returns Lista de planes con sus items.
+   * @throws NotFoundException si la tarjeta no existe o no es del usuario.
+   */
+  async getInstallments(accountId: string, userId: string): Promise<InstallmentPlanResponseDto[]> {
+    const card = await this.cardsRepository.findCardForUser(accountId, userId);
+    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+    const plans = await this.cardsRepository.findInstallmentPlansWithItems(accountId);
+    return plans.map((plan) => ({
+      id: plan.id,
+      accountId: plan.accountId,
+      description: plan.description ?? null,
+      principal: Number(plan.principal),
+      numberOfInstallments: plan.numberOfInstallments,
+      monthlyRate: Number(plan.monthlyRate),
+      startDate: plan.startDate,
+      status: plan.status,
+      items: plan.items.map((item) => ({
+        number: item.number,
+        dueOn: item.dueOn,
+        principal: Number(item.principal),
+        interest: Number(item.interest),
+        balance: Number(item.balance),
+      })),
+    }));
+  }
+
+  /**
+   * Devuelve el proximo pago estimado de cada tarjeta activa del usuario.
+   * Para cada tarjeta calcula el ciclo actual con computeCycleDates y el
+   * extracto estimado (reutilizando la logica de getStatement internamente).
+   * @param userId - Dueno de las tarjetas.
+   * @returns Lista de proximos pagos por tarjeta.
+   */
+  async getUpcomingPayments(userId: string): Promise<UpcomingPaymentDto[]> {
+    const cards = await this.cardsRepository.listCards(userId);
+    return Promise.all(
+      cards.map(async (card) => {
+        const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const { paymentDueDate, cutoffDate } = computeCycleDates(
+          card.statementDay,
+          card.paymentDay,
+          today,
+        );
+        const existing = await this.cardsRepository.findStatementByCutoff(card.id, cutoffDate);
+        let estimatedBalance: number;
+        let estimatedMinPayment: number;
+        if (existing) {
+          estimatedBalance = Number(existing.estimatedBalance);
+          estimatedMinPayment = Number(existing.estimatedMinPayment);
+        } else {
+          const prevMonth = this.previousMonth(today);
+          const { cutoffDate: prevCutoff } = computeCycleDates(
+            card.statementDay,
+            card.paymentDay,
+            prevMonth,
+          );
+          const cycleStart = this.addOneDay(prevCutoff);
+          const [chargesInCycle, installmentDueInCycle, prevStatement] = await Promise.all([
+            this.cardsRepository.sumChargesInCycle(card.id, cycleStart, cutoffDate),
+            this.cardsRepository.sumInstallmentsDueInCycle(card.id, cycleStart, cutoffDate),
+            this.cardsRepository.findPreviousClosedStatement(card.id, cutoffDate),
+          ]);
+          const revolvingBase =
+            prevStatement?.reconciledBalance != null
+              ? Number(prevStatement.reconciledBalance)
+              : 0;
+          const computed = this.computeEstimatedStatement(card, {
+            chargesInCycle,
+            installmentDueInCycle,
+            revolvingBase,
+            referenceMonth: today,
+          });
+          estimatedBalance = computed.estimatedBalance;
+          estimatedMinPayment = computed.estimatedMinPayment;
+        }
+        return {
+          cardId: card.id,
+          name: card.name,
+          paymentDueDate,
+          estimatedMinPayment,
+          estimatedBalance,
+        };
+      }),
+    );
   }
 
   /**

@@ -277,13 +277,19 @@ export class AccountsService {
   }
 
   /**
-   * Devuelve la serie de patrimonio (suma de snapshots por fecha).
+   * Devuelve la serie de patrimonio (suma de snapshots por fecha menos deudas de tarjetas).
+   * Las tarjetas de credito son pasivos: se resta su saldo adeudado de cada punto
+   * de la serie para reflejar el patrimonio neto real.
    * @param userId - Dueno de los datos.
    * @returns Los puntos de patrimonio ordenados por fecha.
    */
   async netWorthSeries(userId: string): Promise<NetWorthPointDto[]> {
-    const rows = await this.accountsRepository.netWorthSeries(userId);
-    return rows.map((r) => ({ date: r.asOfDate, total: Number(r.total) }));
+    const [rows, liabilityStr] = await Promise.all([
+      this.accountsRepository.netWorthSeries(userId),
+      this.accountsRepository.sumCreditCardLiabilities(userId),
+    ]);
+    const liability = Number(liabilityStr);
+    return rows.map((r) => ({ date: r.asOfDate, total: Number(r.total) - liability }));
   }
 
   /**
