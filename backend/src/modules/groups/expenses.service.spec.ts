@@ -341,6 +341,58 @@ describe('ExpensesService.updateExpense', () => {
 
     await expect(service.updateExpense('grp', 'u1', 'exp1', dto)).resolves.toBeDefined();
   });
+
+  it('al editar un gasto, re-asigna status pending a los participantes reales no pagadores', async () => {
+    const expensesRepo = makeExpensesRepo();
+    const groupsRepo = makeGroupsRepo();
+
+    // u1 es miembro activo 'a' (pagador original)
+    groupsRepo.findActiveMember = jest.fn().mockResolvedValue({
+      id: 'a',
+      groupId: 'grp',
+      userId: 'u1',
+      displayName: 'Ana',
+      removedAt: null,
+    });
+
+    // Miembros: 'a' (real), 'b' (real), 'c' (real)
+    groupsRepo.listMembers = jest.fn().mockResolvedValue([
+      { id: 'a', groupId: 'grp', userId: 'u1', displayName: 'Ana', isGhost: false, joinedAt: new Date() },
+      { id: 'b', groupId: 'grp', userId: 'u2', displayName: 'Beto', isGhost: false, joinedAt: new Date() },
+      { id: 'c', groupId: 'grp', userId: 'u3', displayName: 'Carlos', isGhost: false, joinedAt: new Date() },
+    ]);
+
+    // Gasto existente: pagado por 'a', participantes a/b/c, monto 90000
+    expensesRepo.findExpense = jest.fn().mockResolvedValue(makeExistingExpense());
+
+    const updatedExpense = { ...makeExistingExpense(), amount: '120000.00' };
+    expensesRepo.updateExpense = jest.fn().mockResolvedValue(updatedExpense);
+    expensesRepo.findExpenseShares = jest.fn().mockResolvedValue([]);
+
+    const groupsService = new GroupsService(groupsRepo, makeBalanceSvc());
+    const service = new ExpensesService(expensesRepo, groupsService);
+
+    // Editar: cambiar el monto (esto recalcula shares)
+    const dto: UpdateExpenseDto = {
+      amount: 120000,
+      participantMemberIds: ['a', 'b', 'c'], // mismo reparto
+    };
+
+    await service.updateExpense('grp', 'u1', 'exp1', dto);
+
+    // Verificar que updateExpense fue llamado con newShares que asignen:
+    // - 'a' (pagador) -> confirmed
+    // - 'b' (miembro real no pagador) -> pending
+    // - 'c' (miembro real no pagador) -> pending
+    const updateCall = (expensesRepo.updateExpense as jest.Mock).mock.calls[0];
+    const newShares = updateCall[3] as Array<{ memberId: string; shareAmount: number; status: string }>;
+
+    expect(newShares).toBeDefined();
+    const byMember = Object.fromEntries(newShares.map((s) => [s.memberId, s.status]));
+    expect(byMember['a']).toBe('confirmed'); // pagador
+    expect(byMember['b']).toBe('pending');   // miembro real no pagador
+    expect(byMember['c']).toBe('pending');   // miembro real no pagador
+  });
 });
 
 // ──────────────────────── confirmShare / disputeShare ────────────────────────
