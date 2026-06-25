@@ -80,16 +80,22 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
                     error: (e, _) => Center(child: Text('$e')),
-                    data: (accounts) => accounts.isEmpty
-                        ? const _Empty()
-                        : ListView(
-                            padding:
-                                const EdgeInsets.only(top: 8, bottom: 96),
-                            children: [
-                              const _NetWorthCard(),
-                              ...accounts.map((a) => _AccountTile(account: a)),
-                            ],
-                          ),
+                    data: (accounts) {
+                      // Solo cuentas de activo; las tarjetas se muestran en la sub-vista "Tarjetas".
+                      final assetAccounts =
+                          accounts.where((a) => !a.isCard).toList();
+                      return assetAccounts.isEmpty
+                          ? const _Empty()
+                          : ListView(
+                              padding:
+                                  const EdgeInsets.only(top: 8, bottom: 96),
+                              children: [
+                                const _NetWorthCard(),
+                                ...assetAccounts
+                                    .map((a) => _AccountTile(account: a)),
+                              ],
+                            );
+                    },
                   ),
           ),
         ],

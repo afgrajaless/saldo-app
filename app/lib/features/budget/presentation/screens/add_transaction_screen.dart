@@ -87,6 +87,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       await getIt<BudgetRepository>().createTransaction(params);
       ref.invalidate(budgetSummaryProvider(widget.month));
       ref.invalidate(monthTransactionsProvider(widget.month));
+
+      // Si la cuenta seleccionada es una tarjeta, refrescar tambien su estado.
+      if (_accountId != null) {
+        final accountsData = ref.read(accountsListProvider).valueOrNull;
+        final selected =
+            accountsData?.where((a) => a.id == _accountId).firstOrNull;
+        if (selected != null && selected.isCard) {
+          ref.invalidate(cardsListProvider);
+          ref.invalidate(cardStatementProvider(_accountId!));
+          ref.invalidate(cardInstallmentsProvider(_accountId!));
+          ref.invalidate(upcomingCardPaymentsProvider);
+        }
+      }
+
       if (!mounted) return;
       Navigator.of(context).pop();
     } on ApiException catch (error) {

@@ -241,6 +241,10 @@ class _CombinedList extends ConsumerWidget {
           Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => CardDetailScreen(card: card)),
           );
+        } else if (card == null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se encontró la tarjeta.')),
+          );
         }
       },
     );

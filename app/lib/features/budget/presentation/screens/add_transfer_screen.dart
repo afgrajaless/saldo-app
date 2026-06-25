@@ -85,6 +85,17 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
     try {
       await getIt<BudgetRepository>().createTransfer(params);
       ref.invalidate(monthTransfersProvider(widget.month));
+
+      // Si el destino es una tarjeta (pago de tarjeta), refrescar su estado.
+      final accountsData = ref.read(accountsListProvider).valueOrNull;
+      final destAccount =
+          accountsData?.where((a) => a.id == _toId).firstOrNull;
+      if (destAccount != null && destAccount.isCard) {
+        ref.invalidate(cardsListProvider);
+        ref.invalidate(cardStatementProvider(_toId!));
+        ref.invalidate(upcomingCardPaymentsProvider);
+      }
+
       if (!mounted) return;
       Navigator.of(context).pop();
     } on ApiException catch (error) {
