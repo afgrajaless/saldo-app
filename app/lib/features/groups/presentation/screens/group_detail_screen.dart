@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/error/api_exception.dart';
 import '../../../../shared/money_format.dart';
 import '../../domain/entities/group.dart';
 import '../../domain/entities/group_balance.dart';
+import '../../domain/entities/group_member.dart';
 import '../../domain/repositories/groups_repository.dart';
 import '../providers/groups_providers.dart';
 import '../widgets/balance_card.dart';
@@ -16,7 +18,7 @@ import 'settle_screen.dart';
 /// Pantalla de detalle de un grupo compartido.
 /// Muestra dos pestañas: Saldos (netos + deudas entre miembros)
 /// y Gastos (lista de gastos con swipe-to-delete).
-/// El AppBar incluye un menú ⋯ con opciones de grupo.
+/// El AppBar incluye un badge de partes pendientes y un menú ⋯ con opciones de grupo.
 /// El FAB es contextual segun la pestaña activa.
 /// @param group - Grupo a mostrar.
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -95,15 +97,36 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
     }
   }
 
+  /// Construye el titulo del AppBar con badge cuando hay partes pendientes.
+  /// @param pendingCount - Cantidad de partes pendientes del usuario.
+  /// @return Widget con el nombre del grupo y, si aplica, un badge de pendientes.
+  Widget _buildTitle(int pendingCount) {
+    if (pendingCount == 0) return Text(widget.group.name);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(widget.group.name),
+        const SizedBox(width: 8),
+        Badge(
+          label: Text('$pendingCount'),
+          child: const Icon(Icons.pending_actions_outlined, size: 20),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabIndex = _tabController.index;
+    final pendingCount = ref
+        .watch(groupBalanceProvider(widget.group.id))
+        .maybeWhen(data: (b) => b.myPendingCount, orElse: () => 0);
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.group.name),
+          title: _buildTitle(pendingCount),
           bottom: TabBar(
             controller: _tabController,
             tabs: const [
@@ -283,6 +306,7 @@ class _BalancesContent extends StatelessWidget {
 
 /// Fila de una deuda simplificada entre dos miembros.
 /// Muestra "‹fromName› le debe a ‹toName› ‹monto›".
+/// Cuando [debt.hasPending] es true, muestra un icono ambar de advertencia.
 class _DebtRow extends StatelessWidget {
   const _DebtRow({required this.debt});
 
@@ -324,6 +348,16 @@ class _DebtRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          if (debt.hasPending)
+            Tooltip(
+              message: 'Tiene partes por confirmar',
+              child: Icon(
+                Icons.pending_outlined,
+                color: Colors.amber.shade700,
+                size: 16,
+              ),
+            ),
+          if (debt.hasPending) const SizedBox(width: 4),
           Text(
             formatCop(debt.owed),
             style: theme.textTheme.titleSmall?.copyWith(
@@ -371,7 +405,8 @@ class _EmptyBalances extends StatelessWidget {
   }
 }
 
-/// Pestaña de Gastos: lista los gastos del grupo con swipe-to-delete.
+/// Pestaña de Gastos: lista los gastos del grupo con swipe-to-delete,
+/// chips de estado por participante y acciones de confirmar/refutar.
 class _ExpensesTab extends ConsumerWidget {
   const _ExpensesTab({required this.groupId});
 
@@ -380,6 +415,13 @@ class _ExpensesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expensesAsync = ref.watch(groupExpensesProvider(groupId));
+    final membersAsync = ref.watch(groupMembersProvider(groupId));
+
+    final members = membersAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => <GroupMember>[],
+    );
+
     return expensesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
@@ -397,11 +439,113 @@ class _ExpensesTab extends ConsumerWidget {
                 final expense = expenses[i];
                 return ExpenseTile(
                   expense: expense,
+                  groupId: groupId,
+                  members: members,
+                  onConfirm: () => _confirmShare(context, ref, expense.id),
+                  onDispute: () => _disputeShare(context, ref, expense.id),
                   onDelete: () => _deleteExpense(context, ref, expense.id),
                 );
               },
             ),
     );
+  }
+
+  /// Confirma la parte del usuario autenticado en un gasto.
+  /// Invalida los providers de gastos y balance al terminar.
+  /// @param context - Contexto del widget para mostrar SnackBar.
+  /// @param ref - Referencia de Riverpod.
+  /// @param expenseId - UUID del gasto a confirmar.
+  Future<void> _confirmShare(
+    BuildContext context,
+    WidgetRef ref,
+    String expenseId,
+  ) async {
+    try {
+      await getIt<GroupsRepository>().confirmShare(groupId, expenseId);
+      ref.invalidate(groupExpensesProvider(groupId));
+      ref.invalidate(groupBalanceProvider(groupId));
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al confirmar: $e')),
+      );
+    }
+  }
+
+  /// Abre un dialogo para refutar la parte del usuario en un gasto.
+  /// Permite ingresar una nota opcional y llama a disputeShare.
+  /// Invalida los providers de gastos y balance al terminar.
+  /// @param context - Contexto del widget para mostrar el dialogo y SnackBar.
+  /// @param ref - Referencia de Riverpod.
+  /// @param expenseId - UUID del gasto a disputar.
+  Future<void> _disputeShare(
+    BuildContext context,
+    WidgetRef ref,
+    String expenseId,
+  ) async {
+    final noteController = TextEditingController();
+    final note = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Refutar mi parte'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('¿Por que deseas refutar este monto?'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(
+                hintText: 'Nota opcional...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(noteController.text.trim()),
+            child: const Text('Refutar'),
+          ),
+        ],
+      ),
+    );
+    noteController.dispose();
+
+    // El usuario cancelo el dialogo.
+    if (note == null) return;
+
+    try {
+      await getIt<GroupsRepository>().disputeShare(
+        groupId,
+        expenseId,
+        note: note.isNotEmpty ? note : null,
+      );
+      ref.invalidate(groupExpensesProvider(groupId));
+      ref.invalidate(groupBalanceProvider(groupId));
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al refutar: $e')),
+      );
+    }
   }
 
   /// Elimina un gasto e invalida los providers de gastos y balance.
