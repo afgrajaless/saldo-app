@@ -11,6 +11,7 @@ import { BalanceRepository } from './balance.repository';
 import { BalanceService } from './balance.service';
 import { SettlementsRepository } from './settlements.repository';
 import { SettlementsService } from './settlements.service';
+import { MyDebtsService } from './my-debts.service';
 
 /** Modulo de grupos de gasto compartido. */
 @Module({
@@ -25,6 +26,7 @@ import { SettlementsService } from './settlements.service';
     BalanceService,
     SettlementsRepository,
     SettlementsService,
+    MyDebtsService,
   ],
   exports: [
     GroupsRepository,
@@ -34,6 +36,7 @@ import { SettlementsService } from './settlements.service';
     BalanceService,
     SettlementsRepository,
     SettlementsService,
+    MyDebtsService,
   ],
 })
 export class GroupsModule {}

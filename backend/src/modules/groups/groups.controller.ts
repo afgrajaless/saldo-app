@@ -39,6 +39,8 @@ import { BalanceResponseDto } from './dto/balance-response.dto';
 import { SettlementsService } from './settlements.service';
 import { CreateSettlementDto } from './dto/create-settlement.dto';
 import { SettlementResponseDto } from './dto/settlement-response.dto';
+import { MyDebtsService } from './my-debts.service';
+import { MyGroupDebtDto } from './dto/my-debts-response.dto';
 
 /**
  * CRUD de grupos de gasto compartido. Todas las rutas exigen autenticacion.
@@ -54,6 +56,7 @@ export class GroupsController {
     private readonly expensesService: ExpensesService,
     private readonly balanceService: BalanceService,
     private readonly settlementsService: SettlementsService,
+    private readonly myDebtsService: MyDebtsService,
   ) {}
 
   /**
@@ -85,6 +88,26 @@ export class GroupsController {
   @ApiResponse({ status: 200, description: 'Lista de grupos.', type: [GroupResponseDto] })
   findAll(@CurrentUser('sub') userId: string): Promise<GroupResponseDto[]> {
     return this.groupsService.findAll(userId);
+  }
+
+  /**
+   * Devuelve el agregado de todo lo que el usuario debe en sus grupos activos.
+   * Para cada grupo activo, calcula las deudas directas y filtra las del usuario.
+   * El resultado es una lista plana ordenada por monto adeudado de mayor a menor.
+   * NOTA: esta ruta DEBE declararse antes de GET :id para evitar que 'me' sea tratado como UUID.
+   * @param userId - UUID del usuario autenticado.
+   * @returns Lista de deudas del usuario en todos sus grupos.
+   */
+  @Get('me/debts')
+  @ApiOperation({ summary: 'Consultar todo lo que el usuario debe en sus grupos activos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de deudas del usuario en todos sus grupos, ordenada por monto desc.',
+    type: [MyGroupDebtDto],
+  })
+  @ApiResponse({ status: 401, description: 'No autenticado.' })
+  getMyGroupDebts(@CurrentUser('sub') userId: string): Promise<MyGroupDebtDto[]> {
+    return this.myDebtsService.getMyGroupDebts(userId);
   }
 
   /**
