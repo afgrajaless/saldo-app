@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   normalizeToEffectiveAnnual,
   normalizeToMonthly,
@@ -188,6 +188,15 @@ export class DebtsService {
    * @throws NotFoundException si no existe o no pertenece al usuario.
    */
   async update(userId: string, id: string, dto: UpdateDebtDto): Promise<DebtResponseDto> {
+    const current = await this.debtsRepository.findByIdForUser(id, userId);
+    if (!current) {
+      throw new NotFoundException('Deuda no encontrada.');
+    }
+    if (current.source === 'open_finance') {
+      throw new ConflictException(
+        'Esta deuda está vinculada a un banco por Open Finance y no se edita a mano.',
+      );
+    }
     const updated = await this.debtsRepository.update(id, userId, {
       creditor: dto.creditor,
       status: dto.status,
@@ -206,10 +215,16 @@ export class DebtsService {
    * @throws NotFoundException si no existe o no pertenece al usuario.
    */
   async remove(userId: string, id: string): Promise<void> {
-    const deletedId = await this.debtsRepository.softDelete(id, userId);
-    if (!deletedId) {
+    const current = await this.debtsRepository.findByIdForUser(id, userId);
+    if (!current) {
       throw new NotFoundException('Deuda no encontrada.');
     }
+    if (current.source === 'open_finance') {
+      throw new ConflictException(
+        'Esta deuda está vinculada a un banco por Open Finance y no se edita a mano.',
+      );
+    }
+    await this.debtsRepository.softDelete(id, userId);
   }
 
   /**

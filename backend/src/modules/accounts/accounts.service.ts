@@ -78,6 +78,11 @@ export class AccountsService {
     if (!current) {
       throw new NotFoundException('Cuenta no encontrada.');
     }
+    if (current.source === 'open_finance') {
+      throw new ConflictException(
+        'Esta cuenta está vinculada a un banco por Open Finance y no se edita a mano.',
+      );
+    }
     const name = dto.name?.trim();
     if (name && name.toLowerCase() !== current.name.toLowerCase()) {
       await this.ensureNameAvailable(userId, name, id);
@@ -96,10 +101,16 @@ export class AccountsService {
    * @throws NotFoundException si no existe o no es del usuario.
    */
   async remove(userId: string, id: string): Promise<void> {
-    const deletedId = await this.accountsRepository.softDelete(id, userId);
-    if (!deletedId) {
+    const current = await this.accountsRepository.findByIdForUser(id, userId);
+    if (!current) {
       throw new NotFoundException('Cuenta no encontrada.');
     }
+    if (current.source === 'open_finance') {
+      throw new ConflictException(
+        'Esta cuenta está vinculada a un banco por Open Finance y no se edita a mano.',
+      );
+    }
+    await this.accountsRepository.softDelete(id, userId);
   }
 
   /**
@@ -115,6 +126,11 @@ export class AccountsService {
     const account = await this.accountsRepository.findByIdForUser(id, userId);
     if (!account) {
       throw new NotFoundException('Cuenta no encontrada.');
+    }
+    if (account.source === 'open_finance') {
+      throw new ConflictException(
+        'Esta cuenta está vinculada a un banco por Open Finance y no se edita a mano.',
+      );
     }
     const rate = dto.effectiveAnnualRate ?? null;
     const updated = await this.accountsRepository.setYield(

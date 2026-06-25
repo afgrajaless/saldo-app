@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { AccountsRepository } from './accounts.repository';
 import { AccountRow } from './accounts.repository';
@@ -31,6 +31,9 @@ type RepoMock = jest.Mocked<
     | 'findByIdForUser'
     | 'upsertSnapshot'
     | 'findAllByUser'
+    | 'findByName'
+    | 'update'
+    | 'softDelete'
   >
 >;
 
@@ -42,6 +45,9 @@ function makeRepo(): RepoMock {
     findByIdForUser: jest.fn(),
     upsertSnapshot: jest.fn(),
     findAllByUser: jest.fn(),
+    findByName: jest.fn().mockResolvedValue(null),
+    update: jest.fn(),
+    softDelete: jest.fn(),
   };
 }
 
@@ -143,5 +149,37 @@ describe('AccountsService — addSnapshot rechaza tarjetas de credito', () => {
 
     expect(result.balance).toBe(1_000_000);
     expect(repo.upsertSnapshot).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AccountsService — guard Open Finance', () => {
+  let service: AccountsService;
+  let repo: RepoMock;
+
+  beforeEach(() => {
+    repo = makeRepo();
+    service = new AccountsService(repo as unknown as AccountsRepository);
+  });
+
+  it('rechaza editar una cuenta vinculada a Open Finance (409)', async () => {
+    repo.findByIdForUser.mockResolvedValue(makeAccountRow({ source: 'open_finance' }));
+
+    await expect(
+      service.update('user-1', 'acc-1', { name: 'Nuevo' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    // No debe llegar a mutar la cuenta en el repositorio
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('rechaza eliminar una cuenta vinculada a Open Finance (409)', async () => {
+    repo.findByIdForUser.mockResolvedValue(makeAccountRow({ source: 'open_finance' }));
+
+    await expect(
+      service.remove('user-1', 'acc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    // No debe llegar a hacer soft delete en el repositorio
+    expect(repo.softDelete).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DebtRow, DebtsRepository, InstallmentRow } from './debts.repository';
 import { DebtsService } from './debts.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
@@ -200,13 +200,39 @@ describe('DebtsService', () => {
 
   describe('remove', () => {
     it('elimina cuando existe', async () => {
+      repo.findByIdForUser.mockResolvedValue(makeDebt());
       repo.softDelete.mockResolvedValue('debt-uuid');
       await expect(service.remove('user-uuid', 'debt-uuid')).resolves.toBeUndefined();
     });
 
     it('lanza 404 cuando no existe', async () => {
+      repo.findByIdForUser.mockResolvedValue(undefined);
       repo.softDelete.mockResolvedValue(undefined);
       await expect(service.remove('user-uuid', 'x')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('guard Open Finance', () => {
+    it('rechaza editar una deuda vinculada a Open Finance (409)', async () => {
+      repo.findByIdForUser.mockResolvedValue(makeDebt({ source: 'open_finance' }));
+
+      await expect(
+        service.update('user-uuid', 'debt-uuid', { status: 'pagada' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      // No debe llegar a mutar la deuda en el repositorio
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza eliminar una deuda vinculada a Open Finance (409)', async () => {
+      repo.findByIdForUser.mockResolvedValue(makeDebt({ source: 'open_finance' }));
+
+      await expect(
+        service.remove('user-uuid', 'debt-uuid'),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      // No debe llegar a hacer soft delete en el repositorio
+      expect(repo.softDelete).not.toHaveBeenCalled();
     });
   });
 });
