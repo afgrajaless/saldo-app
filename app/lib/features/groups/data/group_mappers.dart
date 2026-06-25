@@ -141,7 +141,7 @@ GroupDebtSummary groupDebtSummaryFromJson(Map<String, dynamic> json) {
     creditorMemberId: json['creditorMemberId'] as String,
     creditorName: json['creditorName'] as String,
     amountOwed: _toDouble(json['amountOwed']),
-    pendingAmount: _toDouble(json['pendingAmount']),
-    hasPending: json['hasPending'] as bool,
+    pendingAmount: _toDouble(json['pendingAmount'] ?? 0),
+    hasPending: json['hasPending'] as bool? ?? false,
   );
 }
