@@ -169,7 +169,7 @@ CreditCard creditCardFromJson(Map<String, dynamic> json) {
     statementDay: json['statementDay'] as int,
     paymentDay: json['paymentDay'] as int,
     rotativoRateEa: _toDouble(json['rotativoRateEa']),
-    minPaymentPct: _toDouble(json['minPaymentPct']),
+    minPaymentPct: _toDoubleOrNull(json['minPaymentPct']) ?? 0.05,
     managementFee: _toDoubleOrNull(json['managementFee']),
     managementFeePeriod: (json['managementFeePeriod'] as String?) ?? 'none',
     usedAmount: _toDouble(json['usedAmount']),

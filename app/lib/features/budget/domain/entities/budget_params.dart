@@ -68,6 +68,7 @@ class CreateTransactionParams {
     required this.occurredOn,
     this.description,
     this.accountId,
+    this.installments,
   });
 
   final String categoryId;
@@ -76,6 +77,9 @@ class CreateTransactionParams {
   final String? description;
   final String? accountId;
 
+  /// Número de cuotas para diferir una compra de tarjeta; null si es pago único.
+  final int? installments;
+
   /// Cuerpo JSON para el POST /transactions.
   Map<String, dynamic> toJson() => {
         'categoryId': categoryId,
@@ -83,6 +87,7 @@ class CreateTransactionParams {
         'occurredOn': occurredOn,
         if (description != null && description!.isNotEmpty) 'description': description,
         if (accountId != null) 'accountId': accountId,
+        if (installments != null) 'installments': installments,
       };
 }
 
