@@ -30,6 +30,7 @@ Debt debtFromJson(Map<String, dynamic> json) {
     monthlyInterestCost: _toDouble(json['monthlyInterestCost']),
     paidInstallments: json['paidInstallments'] as int,
     remainingInstallments: json['remainingInstallments'] as int,
+    source: (json['source'] as String?) ?? 'manual',
   );
 }
 

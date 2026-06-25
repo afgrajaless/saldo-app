@@ -7,6 +7,7 @@ class Account {
     this.yieldType = 'none',
     this.effectiveAnnualRate,
     this.kind = 'asset',
+    this.source = 'manual',
   });
 
   final String id;
@@ -24,6 +25,9 @@ class Account {
   /// Tipo de cuenta: 'asset' (cuenta normal) o 'credit_card' (tarjeta de credito).
   final String kind;
 
+  /// Origen de la cuenta: 'manual' (creada por el usuario) u 'open_finance' (sincronizada).
+  final String source;
+
   /// Indica si la cuenta genera algun rendimiento.
   bool get hasYield => yieldType != 'none';
 
@@ -32,4 +36,7 @@ class Account {
 
   /// Indica si la cuenta es una tarjeta de credito.
   bool get isCard => kind == 'credit_card';
+
+  /// Indica si la cuenta fue sincronizada via Open Finance (solo lectura).
+  bool get isLinked => source == 'open_finance';
 }

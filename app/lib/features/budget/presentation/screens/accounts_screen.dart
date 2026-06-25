@@ -8,6 +8,7 @@ import '../../../../shared/money_format.dart';
 import '../../domain/entities/account.dart';
 import '../../domain/entities/account_yield.dart';
 import '../../domain/repositories/budget_repository.dart';
+import '../../../open_finance/presentation/screens/connect_bank_screen.dart';
 import '../providers/budget_providers.dart';
 import 'account_detail_screen.dart';
 import 'add_account_screen.dart';
@@ -32,7 +33,19 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final accountsAsync = ref.watch(accountsListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cuentas')),
+      appBar: AppBar(
+        title: const Text('Cuentas'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_outlined),
+            tooltip: 'Conectar banco',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const ConnectBankScreen()),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: _showCards
           ? FloatingActionButton.extended(
               heroTag: 'fab_card',
@@ -105,6 +118,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 }
 
 /// Fila de una cuenta: tap para ver detalle, swipe para eliminar.
+/// Las cuentas vinculadas via Open Finance no permiten eliminacion (solo lectura).
 class _AccountTile extends ConsumerWidget {
   const _AccountTile({required this.account});
 
@@ -112,6 +126,23 @@ class _AccountTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tile = ListTile(
+      leading:
+          CircleAvatar(backgroundColor: hexToColor(account.color), radius: 14),
+      title: Text(account.name),
+      subtitle: _buildSubtitle(),
+      trailing: account.isLinked
+          ? _linkedBadge()
+          : const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+            builder: (_) => AccountDetailScreen(account: account)),
+      ),
+    );
+
+    // Las cuentas vinculadas son de solo lectura: se deshabilita el swipe-to-delete.
+    if (account.isLinked) return tile;
+
     return Dismissible(
       key: ValueKey(account.id),
       direction: DismissDirection.endToStart,
@@ -127,26 +158,24 @@ class _AccountTile extends ConsumerWidget {
         child: Icon(Icons.delete_outline,
             color: Theme.of(context).colorScheme.onErrorContainer),
       ),
-      child: ListTile(
-        leading:
-            CircleAvatar(backgroundColor: hexToColor(account.color), radius: 14),
-        title: Text(account.name),
-        subtitle: account.hasYield
-            ? Text(
-                '${account.isCdt ? 'CDT' : 'Remunerada'} · '
-                '${formatPercent(account.effectiveAnnualRate ?? 0)} E.A.',
-              )
-            : null,
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-              builder: (_) => AccountDetailScreen(account: account)),
-        ),
-      ),
+      child: tile,
     );
   }
 
+  /// Construye el subtitulo de la cuenta segun su tipo de rendimiento.
+  Widget? _buildSubtitle() {
+    if (account.hasYield) {
+      return Text(
+        '${account.isCdt ? 'CDT' : 'Remunerada'} · '
+        '${formatPercent(account.effectiveAnnualRate ?? 0)} E.A.',
+      );
+    }
+    return null;
+  }
+
   /// Pide confirmacion antes de eliminar.
+  /// @param context - Contexto de la pantalla.
+  /// @return true si el usuario confirma la eliminacion.
   Future<bool> _confirm(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
@@ -168,6 +197,20 @@ class _AccountTile extends ConsumerWidget {
     return result ?? false;
   }
 }
+
+/// Badge indicador de cuenta vinculada via Open Finance (solo lectura).
+Widget _linkedBadge() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.lock_outline, size: 12),
+        SizedBox(width: 4),
+        Text('Vinculado', style: TextStyle(fontSize: 11)),
+      ]),
+    );
 
 /// Tarjeta con la evolucion del patrimonio (suma de saldos por fecha).
 class _NetWorthCard extends ConsumerWidget {

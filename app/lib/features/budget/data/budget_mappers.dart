@@ -22,6 +22,7 @@ Account accountFromJson(Map<String, dynamic> json) {
     yieldType: (json['yieldType'] as String?) ?? 'none',
     effectiveAnnualRate: _toDoubleOrNull(json['effectiveAnnualRate']),
     kind: (json['kind'] as String?) ?? 'asset',
+    source: (json['source'] as String?) ?? 'manual',
   );
 }
 

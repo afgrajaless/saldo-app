@@ -20,6 +20,7 @@ class Debt {
     required this.monthlyInterestCost,
     required this.paidInstallments,
     required this.remainingInstallments,
+    this.source = 'manual',
   });
 
   final String id;
@@ -58,6 +59,12 @@ class Debt {
   /// Cantidad de cuotas pendientes.
   final int remainingInstallments;
 
+  /// Origen de la deuda: 'manual' (creada por el usuario) u 'open_finance' (sincronizada).
+  final String source;
+
   /// Indica si la deuda esta en mora.
   bool get isInArrears => status == 'en_mora';
+
+  /// Indica si la deuda fue sincronizada via Open Finance (solo lectura).
+  bool get isLinked => source == 'open_finance';
 }

@@ -12,6 +12,7 @@ class DebtCard extends StatelessWidget {
     required this.onTap,
     this.isPriority = false,
     this.priorityLabel,
+    this.isLinked = false,
   });
 
   final Debt debt;
@@ -22,6 +23,9 @@ class DebtCard extends StatelessWidget {
 
   /// Motivo por el que es prioridad (ej. "Tasa mas alta"); null si no aplica.
   final String? priorityLabel;
+
+  /// Indica si la deuda fue sincronizada via Open Finance (solo lectura).
+  final bool isLinked;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +75,7 @@ class DebtCard extends StatelessWidget {
                 ),
               ],
             ),
-            trailing: _StatusChip(status: debt.status),
+            trailing: isLinked ? _LinkedBadge() : _StatusChip(status: debt.status),
           ),
         ],
       ),
@@ -108,6 +112,28 @@ class _PriorityBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Badge indicador de deuda vinculada via Open Finance (solo lectura).
+class _LinkedBadge extends StatelessWidget {
+  // ignore: unused_element
+  const _LinkedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.lock_outline, size: 12),
+        SizedBox(width: 4),
+        Text('Vinculado', style: TextStyle(fontSize: 11)),
+      ]),
     );
   }
 }

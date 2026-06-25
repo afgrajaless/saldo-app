@@ -8,6 +8,7 @@ import '../../../budget/presentation/providers/budget_providers.dart';
 import '../../../budget/presentation/screens/card_detail_screen.dart';
 import '../../../groups/domain/entities/group_debt_summary.dart';
 import '../../../groups/presentation/providers/groups_providers.dart';
+import '../../../open_finance/presentation/screens/connect_bank_screen.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/usecases/prioritize_debts.dart';
 import '../providers/debts_controller.dart';
@@ -33,6 +34,14 @@ class DebtsListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Mis deudas'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_outlined),
+            tooltip: 'Conectar banco',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const ConnectBankScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesion',
@@ -136,6 +145,21 @@ class _CombinedList extends ConsumerWidget {
         if (index <= formalCount) {
           final debt = ordered[index - 1];
           final isPriority = index == 1 && debt.currentBalance > 0;
+          final card = DebtCard(
+            debt: debt,
+            isPriority: isPriority,
+            priorityLabel: isPriority ? priorityReason(debt, strategy) : null,
+            isLinked: debt.isLinked,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => DebtDetailScreen(debtId: debt.id),
+              ),
+            ),
+          );
+
+          // Las deudas vinculadas son de solo lectura: no se permite swipe-to-delete.
+          if (debt.isLinked) return card;
+
           return Dismissible(
             key: ValueKey(debt.id),
             direction: DismissDirection.endToStart,
@@ -149,16 +173,7 @@ class _CombinedList extends ConsumerWidget {
               child: Icon(Icons.delete_outline,
                   color: Theme.of(context).colorScheme.onErrorContainer),
             ),
-            child: DebtCard(
-              debt: debt,
-              isPriority: isPriority,
-              priorityLabel: isPriority ? priorityReason(debt, strategy) : null,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DebtDetailScreen(debtId: debt.id),
-                ),
-              ),
-            ),
+            child: card,
           );
         }
 
