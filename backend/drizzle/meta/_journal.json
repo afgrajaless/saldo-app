@@ -71,6 +71,13 @@
       "when": 1782363744711,
       "tag": "0009_spicy_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782364062867,
+      "tag": "0010_fix_card_schema_align",
+      "breakpoints": true
     }
   ]
 }

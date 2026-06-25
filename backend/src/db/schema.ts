@@ -552,14 +552,14 @@ export const creditCardDetails = pgTable(
     statementDay: integer('statement_day').notNull(),
     // Dia del mes en que vence el pago (1-31).
     paymentDay: integer('payment_day').notNull(),
+    // Tasa de interes corriente E.A. del diferido rotativo (fraccion decimal).
+    rotativoRateEa: numeric('rotativo_rate_ea', { precision: 8, scale: 6 }).notNull(),
     // Pago minimo requerido como fraccion decimal del saldo (ej. 0.05 = 5 %).
     minPaymentPct: numeric('min_payment_pct', { precision: 5, scale: 4 }).notNull().default('0.05'),
-    // Tasa de interes corriente E.A. (fraccion decimal).
-    interestRateEa: numeric('interest_rate_ea', { precision: 9, scale: 6 }).notNull(),
-    // Cuota de manejo (0 si la tarjeta es sin cuota).
-    managementFee: numeric('management_fee', { precision: 15, scale: 2 }).notNull().default('0'),
+    // Cuota de manejo; null indica que la tarjeta no cobra cuota de manejo.
+    managementFee: numeric('management_fee', { precision: 15, scale: 2 }),
     // Periodicidad del cobro de la cuota de manejo.
-    feePeriod: cardFeePeriodEnum('fee_period').notNull().default('none'),
+    managementFeePeriod: cardFeePeriodEnum('management_fee_period').notNull().default('none'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
@@ -599,21 +599,17 @@ export const cardInstallmentPlans = pgTable(
     transactionId: uuid('transaction_id').references(() => transactions.id, {
       onDelete: 'set null',
     }),
-    description: text('description').notNull(),
+    description: text('description'),
     // Capital total diferido (monto original de la compra).
     principal: numeric('principal', { precision: 15, scale: 2 }).notNull(),
     // Numero total de cuotas pactadas.
     numberOfInstallments: integer('number_of_installments').notNull(),
-    // Tasa de interes M.V. del diferido (0 = sin interes).
-    interestRateMv: numeric('interest_rate_mv', { precision: 9, scale: 6 }).notNull().default('0'),
-    // Fecha en que se realizo la compra (puede diferir de la fecha de la transaccion).
-    purchasedOn: date('purchased_on').notNull(),
+    // Tasa de interes M.V. del diferido como fraccion decimal (0 = sin interes).
+    monthlyRate: numeric('monthly_rate', { precision: 8, scale: 6 }).notNull().default('0'),
+    // Fecha de inicio del plan (primera cuota); puede diferir de la fecha de la transaccion.
+    startDate: date('start_date').notNull(),
     status: cardPlanStatusEnum('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
   },
   (table) => ({
     accountIdx: index('idx_card_installment_plans_account').on(table.accountId),
@@ -629,6 +625,7 @@ export const cardInstallmentPlans = pgTable(
 );
 
 // ---------- card_installment_items (cuotas individuales de un plan diferido) ----------
+// Estructura alineada con buildInstallmentSchedule: { number, dueOn, principal, interest, balance }.
 export const cardInstallmentItems = pgTable(
   'card_installment_items',
   {
@@ -637,31 +634,29 @@ export const cardInstallmentItems = pgTable(
       .notNull()
       .references(() => cardInstallmentPlans.id, { onDelete: 'cascade' }),
     // Numero secuencial de la cuota dentro del plan (1 = primera, N = ultima).
-    installmentNumber: integer('installment_number').notNull(),
-    // Fecha del extracto en que aparece esta cuota.
-    statementDate: date('statement_date').notNull(),
-    // Valor de la cuota (capital + interes del periodo).
-    amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
-    // Porcion de capital incluida en esta cuota.
-    principalPortion: numeric('principal_portion', { precision: 15, scale: 2 }).notNull(),
-    // Porcion de interes incluida en esta cuota.
-    interestPortion: numeric('interest_portion', { precision: 15, scale: 2 }).notNull(),
-    // Si el valor ya quedo incluido en el extracto cerrado del mes.
-    included: text('included').notNull().default('false'),
+    number: integer('number').notNull(),
+    // Fecha de vencimiento de la cuota (cuando aparece en el extracto).
+    dueOn: date('due_on').notNull(),
+    // Porcion de capital amortizada en esta cuota.
+    principal: numeric('principal', { precision: 15, scale: 2 }).notNull(),
+    // Porcion de interes causada en esta cuota.
+    interest: numeric('interest', { precision: 15, scale: 2 }).notNull(),
+    // Saldo de capital pendiente despues de aplicar esta cuota.
+    balance: numeric('balance', { precision: 15, scale: 2 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     planIdx: index('idx_card_installment_items_plan').on(table.planId),
     // No puede haber dos cuotas con el mismo numero en un mismo plan.
-    planInstallmentUnique: unique('card_installment_items_plan_number_unique').on(
+    planNumberUnique: unique('card_installment_items_plan_number_unique').on(
       table.planId,
-      table.installmentNumber,
+      table.number,
     ),
-    amountPositive: check('card_installment_items_amount_check', sql`${table.amount} > 0`),
   }),
 );
 
 // ---------- card_statements (extracto mensual de la tarjeta de credito) ----------
+// Soporta dos fases: estimacion (campos estimated_*) y reconciliacion real (campos reconciled_*).
 export const cardStatements = pgTable(
   'card_statements',
   {
@@ -672,11 +667,19 @@ export const cardStatements = pgTable(
     // Fecha de corte del extracto (cierre del periodo de facturacion).
     cutoffDate: date('cutoff_date').notNull(),
     // Fecha limite de pago.
-    dueDate: date('due_date').notNull(),
-    // Saldo total facturado en el extracto (capital + intereses + cargos).
-    totalBalance: numeric('total_balance', { precision: 15, scale: 2 }).notNull(),
-    // Pago minimo requerido segun las condiciones del contrato.
-    minimumPayment: numeric('minimum_payment', { precision: 15, scale: 2 }).notNull(),
+    paymentDueDate: date('payment_due_date').notNull(),
+    // --- Datos estimados (calculados por el sistema antes de recibir el extracto real) ---
+    // Saldo total proyectado (capital + intereses + cargos).
+    estimatedBalance: numeric('estimated_balance', { precision: 15, scale: 2 }).notNull(),
+    // Pago minimo proyectado segun las condiciones del contrato.
+    estimatedMinPayment: numeric('estimated_min_payment', { precision: 15, scale: 2 }).notNull(),
+    // --- Datos reconciliados (se rellenan cuando llega el extracto real del banco) ---
+    // Saldo real segun el extracto del emisor; null hasta que se reconcilia.
+    reconciledBalance: numeric('reconciled_balance', { precision: 15, scale: 2 }),
+    // Pago minimo real segun el extracto; null hasta que se reconcilia.
+    reconciledMinPayment: numeric('reconciled_min_payment', { precision: 15, scale: 2 }),
+    // Pago total realizado (puede ser igual al saldo o mayor que el minimo); null hasta pago.
+    reconciledTotalPayment: numeric('reconciled_total_payment', { precision: 15, scale: 2 }),
     status: cardStatementStatusEnum('status').notNull().default('open'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
