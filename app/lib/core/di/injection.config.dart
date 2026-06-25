@@ -40,6 +40,10 @@ import 'package:saldo/features/groups/data/groups_repository_impl.dart'
     as _i709;
 import 'package:saldo/features/groups/domain/repositories/groups_repository.dart'
     as _i682;
+import 'package:saldo/features/open_finance/data/open_finance_repository_impl.dart'
+    as _i503;
+import 'package:saldo/features/open_finance/domain/repositories/open_finance_repository.dart'
+    as _i454;
 import 'package:saldo/features/payments/data/datasources/payments_remote_datasource.dart'
     as _i54;
 import 'package:saldo/features/payments/data/repositories/payments_repository_impl.dart'
@@ -68,6 +72,8 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i558.FlutterSecureStorage>(
         () => registerModule.secureStorage);
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
+    gh.lazySingleton<_i454.OpenFinanceRepository>(
+        () => _i503.OpenFinanceRepositoryImpl(gh<_i361.Dio>()));
     gh.lazySingleton<_i394.DebtsRemoteDataSource>(
         () => _i394.DebtsRemoteDataSource(gh<_i361.Dio>()));
     gh.lazySingleton<_i54.PaymentsRemoteDataSource>(
