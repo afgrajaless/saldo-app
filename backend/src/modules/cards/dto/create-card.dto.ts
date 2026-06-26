@@ -31,20 +31,20 @@ export class CreateCardDto {
   @Min(0.01)
   creditLimit!: number;
 
-  @ApiProperty({ description: 'Dia del mes en que cierra el periodo de facturacion (1-31).', example: 15 })
+  @ApiProperty({ description: 'Día del mes en que cierra el período de facturación (1-31).', example: 15 })
   @IsInt()
   @Min(1)
   @Max(31)
   statementDay!: number;
 
-  @ApiProperty({ description: 'Dia del mes en que vence el pago (1-31).', example: 25 })
+  @ApiProperty({ description: 'Día del mes en que vence el pago (1-31).', example: 25 })
   @IsInt()
   @Min(1)
   @Max(31)
   paymentDay!: number;
 
   @ApiProperty({
-    description: 'Tasa de interes corriente E.A. del diferido rotativo (fraccion decimal, ej. 0.28 = 28%).',
+    description: 'Tasa de interés corriente E.A. del diferido rotativo (fracción decimal, ej. 0.28 = 28%).',
     example: 0.28,
   })
   @IsNumber()
@@ -52,7 +52,7 @@ export class CreateCardDto {
   rotativoRateEa!: number;
 
   @ApiPropertyOptional({
-    description: 'Pago minimo como fraccion decimal del saldo (ej. 0.05 = 5%). Por defecto 0.05.',
+    description: 'Pago mínimo como fracción decimal del saldo (ej. 0.05 = 5%). Por defecto 0.05.',
     example: 0.05,
   })
   @IsOptional()

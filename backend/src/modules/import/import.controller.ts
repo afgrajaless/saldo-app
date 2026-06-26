@@ -47,8 +47,8 @@ export class ImportController {
       properties: { file: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 201, description: 'Importacion realizada.', type: ImportResultDto })
-  @ApiResponse({ status: 400, description: 'Archivo invalido o sin movimientos.' })
+  @ApiResponse({ status: 201, description: 'Importación realizada.', type: ImportResultDto })
+  @ApiResponse({ status: 400, description: 'Archivo inválido o sin movimientos.' })
   import(
     @CurrentUser('sub') userId: string,
     @UploadedFile() file?: Express.Multer.File,

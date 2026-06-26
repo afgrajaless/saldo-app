@@ -20,7 +20,7 @@ export class BudgetController {
    * @returns El resumen mensual.
    */
   @Get('summary')
-  @ApiOperation({ summary: 'Resumen mensual: ingresos, egresos, balance y por categoria' })
+  @ApiOperation({ summary: 'Resumen mensual: ingresos, egresos, balance y por categoría' })
   @ApiResponse({ status: 200, description: 'Resumen del mes.', type: BudgetSummaryDto })
   getSummary(
     @CurrentUser('sub') userId: string,

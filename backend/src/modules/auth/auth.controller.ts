@@ -33,7 +33,7 @@ export class AuthController {
   @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @ApiResponse({ status: 201, description: 'Usuario creado.', type: AuthResponseDto })
-  @ApiResponse({ status: 409, description: 'El correo ya esta registrado.' })
+  @ApiResponse({ status: 409, description: 'El correo ya está registrado.' })
   register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(dto);
   }
@@ -46,9 +46,9 @@ export class AuthController {
   @Post('login')
   @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Iniciar sesion' })
-  @ApiResponse({ status: 200, description: 'Sesion iniciada.', type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Credenciales invalidas.' })
+  @ApiOperation({ summary: 'Iniciar sesión' })
+  @ApiResponse({ status: 200, description: 'Sesión iniciada.', type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: 'Credenciales inválidas.' })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
   }
@@ -61,9 +61,9 @@ export class AuthController {
   @Post('refresh')
   @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Renovar tokens de sesion' })
+  @ApiOperation({ summary: 'Renovar tokens de sesión' })
   @ApiResponse({ status: 200, description: 'Tokens renovados.', type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Refresh token invalido o expirado.' })
+  @ApiResponse({ status: 401, description: 'Refresh token inválido o expirado.' })
   refresh(@Body() dto: RefreshDto): Promise<AuthResponseDto> {
     return this.authService.refresh(dto.refreshToken);
   }
@@ -75,8 +75,8 @@ export class AuthController {
   @Post('logout')
   @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Cerrar sesion (revocar el refresh token)' })
-  @ApiResponse({ status: 204, description: 'Sesion cerrada.' })
+  @ApiOperation({ summary: 'Cerrar sesión (revocar el refresh token)' })
+  @ApiResponse({ status: 204, description: 'Sesión cerrada.' })
   logout(@Body() dto: RefreshDto): Promise<void> {
     return this.authService.logout(dto.refreshToken);
   }
@@ -92,7 +92,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener el usuario autenticado' })
-  @ApiResponse({ status: 200, description: 'Usuario en sesion.', type: UserProfileDto })
+  @ApiResponse({ status: 200, description: 'Usuario en sesión.', type: UserProfileDto })
   @ApiResponse({ status: 401, description: 'No autenticado o usuario inexistente.' })
   me(@CurrentUser() user: JwtPayload): Promise<UserProfileDto> {
     return this.authService.me(user.sub);

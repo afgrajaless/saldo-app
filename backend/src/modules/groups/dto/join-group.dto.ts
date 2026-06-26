@@ -4,7 +4,7 @@ import { IsString, Length, Matches } from 'class-validator';
 /** Datos para unirse a un grupo mediante un codigo de invitacion. */
 export class JoinGroupDto {
   @ApiProperty({
-    description: 'Codigo de invitacion de 8 caracteres (alfanumerico sin ambiguos).',
+    description: 'Código de invitación de 8 caracteres (alfanumérico sin ambiguos).',
     example: 'ABCD2345',
     minLength: 8,
     maxLength: 8,

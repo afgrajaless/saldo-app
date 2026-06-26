@@ -43,7 +43,7 @@ export class JwtAuthGuard implements CanActivate {
       });
       return true;
     } catch {
-      throw new UnauthorizedException('Token de acceso invalido o expirado.');
+      throw new UnauthorizedException('Token de acceso inválido o expirado.');
     }
   }
 

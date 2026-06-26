@@ -28,20 +28,20 @@ export class CreateDebtDto {
   creditor!: string;
 
   @ApiProperty({
-    description: 'Tipo de obligacion.',
+    description: 'Tipo de obligación.',
     enum: debtTypeEnum.enumValues,
     example: 'libre_inversion',
   })
   @IsIn(debtTypeEnum.enumValues)
   debtType!: (typeof debtTypeEnum.enumValues)[number];
 
-  @ApiProperty({ description: 'Capital del credito (monto principal).', example: 10000000, minimum: 0 })
+  @ApiProperty({ description: 'Capital del crédito (monto principal).', example: 10000000, minimum: 0 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive({ message: 'El capital debe ser mayor que cero.' })
   principalAmount!: number;
 
   @ApiProperty({
-    description: 'Tasa tal como la ingresa el usuario, como fraccion decimal (0.24 = 24 %).',
+    description: 'Tasa tal como la ingresa el usuario, como fracción decimal (0.24 = 24 %).',
     example: 0.0179,
     minimum: 0,
   })
@@ -50,7 +50,7 @@ export class CreateDebtDto {
   nominalRate!: number;
 
   @ApiProperty({
-    description: 'Como se expresa la tasa: ea (efectiva anual), mv (mensual vencida), nominal_anual.',
+    description: 'Cómo se expresa la tasa: ea (efectiva anual), mv (mensual vencida), nominal_anual.',
     enum: rateTypeEnum.enumValues,
     example: 'mv',
   })
@@ -58,7 +58,7 @@ export class CreateDebtDto {
   rateType!: (typeof rateTypeEnum.enumValues)[number];
 
   @ApiProperty({
-    description: 'Sistema de amortizacion.',
+    description: 'Sistema de amortización.',
     enum: amortizationSystemEnum.enumValues,
     default: 'frances',
     required: false,
@@ -67,19 +67,19 @@ export class CreateDebtDto {
   @IsIn(amortizationSystemEnum.enumValues)
   amortizationSystem?: (typeof amortizationSystemEnum.enumValues)[number];
 
-  @ApiProperty({ description: 'Plazo en meses (numero de cuotas).', example: 36, minimum: 1 })
+  @ApiProperty({ description: 'Plazo en meses (número de cuotas).', example: 36, minimum: 1 })
   @IsInt()
   @Min(1)
   @Max(600)
   termMonths!: number;
 
-  @ApiProperty({ description: 'Fecha de inicio del credito (YYYY-MM-DD).', example: '2026-01-15' })
+  @ApiProperty({ description: 'Fecha de inicio del crédito (YYYY-MM-DD).', example: '2026-01-15' })
   @IsISO8601({ strict: true })
   startDate!: string;
 
   @ApiPropertyOptional({
     description:
-      'Modo de causacion del interes: monthly (mensual contable) o daily (por dias reales entre cuotas).',
+      'Modo de causación del interés: monthly (mensual contable) o daily (por días reales entre cuotas).',
     enum: interestModeEnum.enumValues,
     default: 'monthly',
   })
@@ -99,7 +99,7 @@ export class CreateDebtDto {
 
   @ApiPropertyOptional({
     description:
-      'Valor del seguro: si mode=rate es la tasa mensual (fraccion); si mode=fixed es el monto fijo. Requerido si mode != none.',
+      'Valor del seguro: si mode=rate es la tasa mensual (fracción); si mode=fixed es el monto fijo. Requerido si mode != none.',
     example: 1811,
   })
   @ValidateIf((dto: CreateDebtDto) => dto.insuranceMode === 'rate' || dto.insuranceMode === 'fixed')

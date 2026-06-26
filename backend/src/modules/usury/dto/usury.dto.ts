@@ -34,13 +34,13 @@ export class ListUsuryQueryDto {
 
 /** Evaluacion de una tasa hipotetica contra el tope de usura (antes de crear la deuda). */
 export class EvaluateRateDto {
-  @ApiProperty({ description: 'Tasa del credito como fraccion decimal (0.24 = 24 %).', example: 0.24 })
+  @ApiProperty({ description: 'Tasa del crédito como fracción decimal (0.24 = 24 %).', example: 0.24 })
   @IsNumber()
   @Min(0)
   rate!: number;
 
   @ApiProperty({
-    description: 'Representacion de la tasa ingresada.',
+    description: 'Representación de la tasa ingresada.',
     enum: rateTypeEnum.enumValues,
     example: 'ea',
   })
@@ -48,7 +48,7 @@ export class EvaluateRateDto {
   rateType!: (typeof rateTypeEnum.enumValues)[number];
 
   @ApiProperty({
-    description: 'Tipo de obligacion (define la modalidad de usura).',
+    description: 'Tipo de obligación (define la modalidad de usura).',
     enum: debtTypeEnum.enumValues,
     example: 'libre_inversion',
   })
@@ -99,7 +99,7 @@ export class UsuryEvaluationDto {
   @ApiProperty({ description: 'Porcentaje del tope consumido por la tasa.', example: 73.15 })
   usagePercentage!: number;
 
-  @ApiProperty({ description: 'Modalidad con la que se comparo.', example: 'consumo_ordinario' })
+  @ApiProperty({ description: 'Modalidad con la que se comparó.', example: 'consumo_ordinario' })
   modality!: string;
 
   @ApiProperty({ description: 'Fecha de referencia usada (inicio de la deuda).', example: '2026-01-15' })

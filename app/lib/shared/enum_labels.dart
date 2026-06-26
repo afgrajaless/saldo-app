@@ -2,11 +2,11 @@
 
 /// Tipos de obligacion (para mostrar; incluye todos los valores de la BD).
 const Map<String, String> debtTypeLabels = {
-  'libre_inversion': 'Libre inversion',
-  'tarjeta_credito': 'Tarjeta de credito',
+  'libre_inversion': 'Libre inversión',
+  'tarjeta_credito': 'Tarjeta de crédito',
   'libranza': 'Libranza',
   'hipotecario': 'Hipotecario',
-  'vehiculo': 'Vehiculo',
+  'vehiculo': 'Vehículo',
   'educativo': 'Educativo',
   'gota_gota': 'Gota a gota',
 };
@@ -15,10 +15,10 @@ const Map<String, String> debtTypeLabels = {
 /// 'tarjeta_credito' a proposito: las tarjetas se gestionan en su propia
 /// seccion (Cuentas > Tarjetas), no como una deuda generica.
 const Map<String, String> debtTypeOptions = {
-  'libre_inversion': 'Libre inversion',
+  'libre_inversion': 'Libre inversión',
   'libranza': 'Libranza',
   'hipotecario': 'Hipotecario',
-  'vehiculo': 'Vehiculo',
+  'vehiculo': 'Vehículo',
   'educativo': 'Educativo',
   'gota_gota': 'Gota a gota',
 };

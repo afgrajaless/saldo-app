@@ -29,7 +29,7 @@ export class ExactShareDto implements MemberShare {
 /** Datos para crear un gasto compartido dentro de un grupo. */
 export class CreateExpenseDto {
   @ApiProperty({
-    description: 'UUID del miembro que pago el gasto.',
+    description: 'UUID del miembro que pagó el gasto.',
     format: 'uuid',
   })
   @IsUUID()
@@ -44,7 +44,7 @@ export class CreateExpenseDto {
   amount!: number;
 
   @ApiPropertyOptional({
-    description: 'Descripcion opcional del gasto.',
+    description: 'Descripción opcional del gasto.',
     example: 'Cena del viernes',
   })
   @IsOptional()
@@ -52,14 +52,14 @@ export class CreateExpenseDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Fecha en que ocurrio el gasto (ISO 8601: YYYY-MM-DD).',
+    description: 'Fecha en que ocurrió el gasto (ISO 8601: YYYY-MM-DD).',
     example: '2026-06-10',
   })
   @IsDateString()
   occurredOn!: string;
 
   @ApiProperty({
-    description: 'Metodo de division del gasto.',
+    description: 'Método de división del gasto.',
     enum: ['equal', 'exact'],
     example: 'equal',
   })

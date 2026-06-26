@@ -198,7 +198,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
                 decoration: const InputDecoration(
-                  labelText: 'Capital (monto del credito)',
+                  labelText: 'Capital (monto del crédito)',
                   prefixText: '\$ ',
                   border: OutlineInputBorder(),
                 ),
@@ -237,7 +237,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
               ),
               const SizedBox(height: 16),
               _dropdown(
-                label: 'Sistema de amortizacion',
+                label: 'Sistema de amortización',
                 value: _amortizationSystem,
                 options: amortizationSystemLabels,
                 onChanged: (v) => setState(() => _amortizationSystem = v!),
@@ -253,7 +253,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                 ),
                 validator: (v) {
                   final n = int.tryParse(v ?? '');
-                  if (n == null || n <= 0) return 'Ingresa un plazo valido.';
+                  if (n == null || n <= 0) return 'Ingresa un plazo válido.';
                   return null;
                 },
               ),
@@ -274,9 +274,9 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                 contentPadding: EdgeInsets.zero,
                 value: _dailyInterest,
                 onChanged: (v) => setState(() => _dailyInterest = v),
-                title: const Text('Interes por dia'),
+                title: const Text('Interés por día'),
                 subtitle: Text(
-                  'Causa el interes por dias reales entre cuotas (efectivo diario base 365).',
+                  'Causa el interés por días reales entre cuotas (efectivo diario base 365).',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
@@ -344,7 +344,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   /// Valida que el texto sea un numero positivo.
   String? _validatePositiveNumber(String? value) {
     final n = double.tryParse((value ?? '').replaceAll(',', '.'));
-    if (n == null || n <= 0) return 'Ingresa un valor valido.';
+    if (n == null || n <= 0) return 'Ingresa un valor válido.';
     return null;
   }
 
@@ -352,7 +352,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   /// Permite tasa 0 (deudas sin interes).
   String? _validateNonNegativeNumber(String? value) {
     final n = double.tryParse((value ?? '').replaceAll(',', '.'));
-    if (n == null || n < 0) return 'Ingresa un valor valido.';
+    if (n == null || n < 0) return 'Ingresa un valor válido.';
     return null;
   }
 

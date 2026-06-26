@@ -168,7 +168,7 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
               Icon(Icons.subdirectory_arrow_right, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Subcategoria de "${fixedParent.name}"',
+                child: Text('Subcategoría de "${fixedParent.name}"',
                     style: theme.textTheme.bodyMedium),
               ),
             ],
@@ -195,14 +195,14 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
       DropdownButtonFormField<String?>(
         value: value,
         decoration: const InputDecoration(
-          labelText: 'Categoria padre (opcional)',
+          labelText: 'Categoría padre (opcional)',
           border: OutlineInputBorder(),
-          helperText: 'Conviertela en subcategoria de otra',
+          helperText: 'Conviértela en subcategoría de otra',
         ),
         items: [
           const DropdownMenuItem<String?>(
             value: null,
-            child: Text('Ninguna (categoria principal)'),
+            child: Text('Ninguna (categoría principal)'),
           ),
           for (final parent in parents)
             DropdownMenuItem<String?>(value: parent.id, child: Text(parent.name)),
@@ -217,10 +217,10 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final title = _isEditing
-        ? 'Editar categoria'
+        ? 'Editar categoría'
         : _hasFixedParent
-            ? 'Nueva subcategoria'
-            : 'Nueva categoria';
+            ? 'Nueva subcategoría'
+            : 'Nueva categoría';
     // El tipo no se cambia al editar ni al colgar de un padre fijo.
     final lockType = _isEditing || _hasFixedParent;
     return Scaffold(
@@ -286,7 +286,7 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
                     labelText: 'Meta mensual (opcional)',
                     prefixText: '\$ ',
                     border: OutlineInputBorder(),
-                    helperText: 'Limite de gasto sugerido para el mes',
+                    helperText: 'Límite de gasto sugerido para el mes',
                   ),
                 ),
               ],
@@ -297,14 +297,14 @@ class _AddCategoryScreenState extends ConsumerState<AddCategoryScreen> {
                 child: _submitting
                     ? const SizedBox(
                         height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                    : Text(_isEditing ? 'Guardar cambios' : 'Crear categoria'),
+                    : Text(_isEditing ? 'Guardar cambios' : 'Crear categoría'),
               ),
               if (_isEditing) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _submitting ? null : _delete,
                   icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                  label: Text('Eliminar categoria',
+                  label: Text('Eliminar categoría',
                       style: TextStyle(color: theme.colorScheme.error)),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),

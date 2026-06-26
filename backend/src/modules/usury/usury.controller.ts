@@ -40,8 +40,8 @@ export class UsuryController {
    * @returns Las tasas del catalogo.
    */
   @Get()
-  @ApiOperation({ summary: 'Listar el catalogo de tasas de usura' })
-  @ApiResponse({ status: 200, description: 'Catalogo de tasas.', type: [UsuryRateDto] })
+  @ApiOperation({ summary: 'Listar el catálogo de tasas de usura' })
+  @ApiResponse({ status: 200, description: 'Catálogo de tasas.', type: [UsuryRateDto] })
   list(@Query() query: ListUsuryQueryDto): Promise<UsuryRateDto[]> {
     return this.usuryService.list(query.modality);
   }
@@ -67,7 +67,7 @@ export class UsuryController {
   @Post('evaluate-rate')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Evaluar una tasa contra el tope de usura (antes de crear la deuda)' })
-  @ApiResponse({ status: 200, description: 'Resultado de la evaluacion.', type: UsuryEvaluationDto })
+  @ApiResponse({ status: 200, description: 'Resultado de la evaluación.', type: UsuryEvaluationDto })
   @ApiResponse({ status: 404, description: 'Sin tope vigente para la modalidad y fecha.' })
   evaluateRate(@Body() dto: EvaluateRateDto): Promise<UsuryEvaluationDto> {
     return this.usuryService.evaluateRate(dto);
@@ -84,7 +84,7 @@ export class UsuryController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Evaluar una deuda contra el tope de usura' })
   @ApiParam({ name: 'debtId', description: 'UUID de la deuda', format: 'uuid' })
-  @ApiResponse({ status: 200, description: 'Resultado de la evaluacion.', type: UsuryEvaluationDto })
+  @ApiResponse({ status: 200, description: 'Resultado de la evaluación.', type: UsuryEvaluationDto })
   @ApiResponse({ status: 404, description: 'Deuda o tope no encontrado.' })
   evaluateDebt(
     @CurrentUser('sub') userId: string,

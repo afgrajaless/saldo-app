@@ -46,7 +46,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Si ya hay sesión activa, cerrar primero.
-    final loginLink = find.text('No tienes cuenta? Registrate');
+    final loginLink = find.text('¿No tienes cuenta? Regístrate');
     await pumpUntilAny(tester, [loginLink, find.byIcon(Icons.logout)]);
     if (find.byIcon(Icons.logout).evaluate().isNotEmpty) {
       await tester.tap(find.byIcon(Icons.logout));
@@ -67,7 +67,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
 
     // Esperar pantalla principal (lista de deudas vacía).
-    await pumpUntil(tester, find.text('Aun no tienes deudas registradas'));
+    await pumpUntil(tester, find.text('Aún no tienes deudas registradas'));
 
     // Conectar banco mock y sincronizar vía el repositorio.
     final repo = getIt<OpenFinanceRepository>();

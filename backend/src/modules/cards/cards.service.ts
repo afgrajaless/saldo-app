@@ -50,11 +50,11 @@ export class CardsService {
   async updateCard(userId: string, accountId: string, dto: UpdateCardDto): Promise<CardResponseDto> {
     const existing = await this.cardsRepository.findCardForUser(accountId, userId);
     if (!existing) {
-      throw new NotFoundException('Tarjeta de credito no encontrada.');
+      throw new NotFoundException('Tarjeta de crédito no encontrada.');
     }
     const updated = await this.cardsRepository.updateCard(accountId, userId, dto);
     if (!updated) {
-      throw new NotFoundException('Tarjeta de credito no encontrada.');
+      throw new NotFoundException('Tarjeta de crédito no encontrada.');
     }
     return this.toEnrichedResponse(updated);
   }
@@ -69,7 +69,7 @@ export class CardsService {
   async findOne(userId: string, accountId: string): Promise<CardResponseDto> {
     const card = await this.cardsRepository.findCardForUser(accountId, userId);
     if (!card) {
-      throw new NotFoundException('Tarjeta de credito no encontrada.');
+      throw new NotFoundException('Tarjeta de crédito no encontrada.');
     }
     return this.toEnrichedResponse(card);
   }
@@ -121,7 +121,7 @@ export class CardsService {
    */
   async getStatement(accountId: string, userId: string): Promise<StatementResponseDto> {
     const card = await this.cardsRepository.findCardForUser(accountId, userId);
-    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+    if (!card) throw new NotFoundException('Tarjeta de crédito no encontrada.');
 
     const today = new Date().toISOString().slice(0, 7); // YYYY-MM
     const { cutoffDate, paymentDueDate } = computeCycleDates(card.statementDay, card.paymentDay, today);
@@ -188,7 +188,7 @@ export class CardsService {
     dto: ReconcileStatementDto,
   ): Promise<StatementResponseDto> {
     const card = await this.cardsRepository.findCardForUser(accountId, userId);
-    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+    if (!card) throw new NotFoundException('Tarjeta de crédito no encontrada.');
 
     if (
       dto.reconciledBalance < 0 ||
@@ -269,7 +269,7 @@ export class CardsService {
    */
   async getInstallments(accountId: string, userId: string): Promise<InstallmentPlanResponseDto[]> {
     const card = await this.cardsRepository.findCardForUser(accountId, userId);
-    if (!card) throw new NotFoundException('Tarjeta de credito no encontrada.');
+    if (!card) throw new NotFoundException('Tarjeta de crédito no encontrada.');
     const plans = await this.cardsRepository.findInstallmentPlansWithItems(accountId);
     return plans.map((plan) => ({
       id: plan.id,

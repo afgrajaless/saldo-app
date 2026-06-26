@@ -77,7 +77,7 @@ export class SettlementsService {
       // Valida que la categoria pertenezca al usuario autenticado.
       const category = await this.categoriesRepository.findByIdForUser(categoryId, userId);
       if (!category) {
-        throw new NotFoundException('La categoria indicada no existe o no te pertenece.');
+        throw new NotFoundException('La categoría indicada no existe o no te pertenece.');
       }
 
       // Determina el rol del usuario autenticado: pagador (from) o receptor (to).

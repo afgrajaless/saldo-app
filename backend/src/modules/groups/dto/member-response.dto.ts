@@ -27,6 +27,6 @@ export class MemberResponseDto {
   })
   isGhost!: boolean;
 
-  @ApiProperty({ description: 'Fecha en que se agrego al miembro.', format: 'date-time' })
+  @ApiProperty({ description: 'Fecha en que se agregó al miembro.', format: 'date-time' })
   joinedAt!: Date;
 }

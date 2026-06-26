@@ -65,7 +65,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
         title: const Text('Salir del grupo'),
         content: Text(
           '¿Quieres salir de "${widget.group.name}"? '
-          'Esta accion no se puede deshacer.',
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -136,7 +136,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           ),
           actions: [
             PopupMenuButton<String>(
-              tooltip: 'Mas opciones',
+              tooltip: 'Más opciones',
               onSelected: (value) {
                 if (value == 'leave') {
                   _confirmLeaveGroup();
@@ -169,7 +169,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                   value: 'invite',
                   child: ListTile(
                     leading: Icon(Icons.link),
-                    title: Text('Invitar por codigo'),
+                    title: Text('Invitar por código'),
                   ),
                 ),
                 PopupMenuDivider(),
@@ -387,7 +387,7 @@ class _EmptyBalances extends StatelessWidget {
             Icon(Icons.balance_outlined, size: 56, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
             Text(
-              'Sin saldos aun',
+              'Sin saldos aún',
               style: theme.textTheme.titleSmall,
               textAlign: TextAlign.center,
             ),
@@ -497,7 +497,7 @@ class _ExpensesTab extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('¿Por que deseas refutar este monto?'),
+            const Text('¿Por qué deseas refutar este monto?'),
             const SizedBox(height: 12),
             TextField(
               controller: noteController,
@@ -587,7 +587,7 @@ class _EmptyExpenses extends StatelessWidget {
                 size: 56, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
             Text(
-              'Sin gastos aun',
+              'Sin gastos aún',
               style: theme.textTheme.titleSmall,
               textAlign: TextAlign.center,
             ),

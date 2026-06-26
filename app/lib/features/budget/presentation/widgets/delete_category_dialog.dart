@@ -15,9 +15,9 @@ Future<bool> confirmDeleteCategory(BuildContext context, Category category) asyn
   final count = category.transactionCount;
   final content = count > 0
       ? 'Tiene $count ${count == 1 ? 'movimiento' : 'movimientos'}. '
-          'Se moveran a la categoria "Otros" conservando "${category.name}" '
-          'en su descripcion.'
-      : 'Esta accion no se puede deshacer.';
+          'Se moverán a la categoría "Otros" conservando "${category.name}" '
+          'en su descripción.'
+      : 'Esta acción no se puede deshacer.';
   final result = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(

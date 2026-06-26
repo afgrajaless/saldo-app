@@ -40,7 +40,7 @@ export class DebtsController {
    * @returns La deuda creada.
    */
   @Post()
-  @ApiOperation({ summary: 'Crear una obligacion y generar su cronograma' })
+  @ApiOperation({ summary: 'Crear una obligación y generar su cronograma' })
   @ApiResponse({ status: 201, description: 'Deuda creada.', type: DebtResponseDto })
   create(
     @CurrentUser('sub') userId: string,
@@ -68,7 +68,7 @@ export class DebtsController {
    * @returns El detalle de la deuda.
    */
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener una obligacion con su cronograma' })
+  @ApiOperation({ summary: 'Obtener una obligación con su cronograma' })
   @ApiParam({ name: 'id', description: 'UUID de la deuda', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Detalle de la deuda.', type: DebtDetailDto })
   @ApiResponse({ status: 404, description: 'Deuda no encontrada.' })
@@ -87,7 +87,7 @@ export class DebtsController {
    * @returns La deuda actualizada.
    */
   @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar acreedor o estado de una obligacion' })
+  @ApiOperation({ summary: 'Actualizar acreedor o estado de una obligación' })
   @ApiParam({ name: 'id', description: 'UUID de la deuda', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Deuda actualizada.', type: DebtResponseDto })
   @ApiResponse({ status: 404, description: 'Deuda no encontrada.' })
@@ -106,7 +106,7 @@ export class DebtsController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar una obligacion (soft delete)' })
+  @ApiOperation({ summary: 'Eliminar una obligación (soft delete)' })
   @ApiParam({ name: 'id', description: 'UUID de la deuda', format: 'uuid' })
   @ApiResponse({ status: 204, description: 'Deuda eliminada.' })
   @ApiResponse({ status: 404, description: 'Deuda no encontrada.' })

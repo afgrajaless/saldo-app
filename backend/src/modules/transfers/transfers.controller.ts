@@ -42,7 +42,7 @@ export class TransfersController {
   @Post()
   @ApiOperation({ summary: 'Registrar una transferencia entre cuentas' })
   @ApiResponse({ status: 201, description: 'Transferencia creada.', type: TransferResponseDto })
-  @ApiResponse({ status: 400, description: 'Cuentas invalidas o iguales.' })
+  @ApiResponse({ status: 400, description: 'Cuentas inválidas o iguales.' })
   create(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateTransferDto,

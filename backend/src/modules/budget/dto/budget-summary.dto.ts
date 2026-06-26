@@ -24,7 +24,7 @@ export class BudgetCategorySummaryDto {
   type!: string;
 
   @ApiPropertyOptional({
-    description: 'UUID de la categoria padre; null si es de primer nivel.',
+    description: 'UUID de la categoría padre; null si es de primer nivel.',
     format: 'uuid',
     nullable: true,
   })
@@ -38,7 +38,7 @@ export class BudgetCategorySummaryDto {
 
   @ApiProperty({
     description:
-      'Total del mes. En una categoria con subcategorias es la suma de estas.',
+      'Total del mes. En una categoría con subcategorías es la suma de estas.',
     example: 1200000,
   })
   spent!: number;
@@ -51,7 +51,7 @@ export class BudgetCategorySummaryDto {
   budgetUsage!: number | null;
 
   @ApiPropertyOptional({
-    description: 'Subcategorias con su propio gasto del mes (solo en categorias padre).',
+    description: 'Subcategorías con su propio gasto del mes (solo en categorías padre).',
     type: () => [BudgetCategorySummaryDto],
   })
   subcategories?: BudgetCategorySummaryDto[];

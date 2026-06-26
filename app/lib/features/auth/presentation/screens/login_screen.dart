@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
                       decoration: const InputDecoration(
-                        labelText: 'Contrasena',
+                        labelText: 'Contraseña',
                         prefixIcon: Icon(Icons.lock_outline),
                         border: OutlineInputBorder(),
                       ),
@@ -119,7 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   builder: (_) => const RegisterScreen(),
                                 ),
                               ),
-                      child: const Text('No tienes cuenta? Registrate'),
+                      child: const Text('¿No tienes cuenta? Regístrate'),
                     ),
                   ],
                 ),

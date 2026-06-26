@@ -13,13 +13,13 @@ import { categoryTypeEnum } from '../../../db/schema';
 
 /** Datos para crear una categoria de presupuesto. */
 export class CreateCategoryDto {
-  @ApiProperty({ description: 'Nombre de la categoria.', example: 'Arriendo' })
+  @ApiProperty({ description: 'Nombre de la categoría.', example: 'Arriendo' })
   @IsString()
   @MaxLength(60)
   name!: string;
 
   @ApiProperty({
-    description: 'Tipo de categoria: income (ingreso) o expense (egreso).',
+    description: 'Tipo de categoría: income (ingreso) o expense (egreso).',
     enum: categoryTypeEnum.enumValues,
     example: 'expense',
   })
@@ -45,8 +45,8 @@ export class CreateCategoryDto {
 
   @ApiPropertyOptional({
     description:
-      'UUID de la categoria padre. Si se envia, la categoria se crea como ' +
-      'subcategoria (debe ser del mismo tipo). Omitir para una categoria de primer nivel.',
+      'UUID de la categoría padre. Si se envía, la categoría se crea como ' +
+      'subcategoría (debe ser del mismo tipo). Omitir para una categoría de primer nivel.',
     format: 'uuid',
   })
   @IsOptional()

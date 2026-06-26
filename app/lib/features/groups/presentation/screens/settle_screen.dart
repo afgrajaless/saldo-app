@@ -98,7 +98,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
     // Si el checkbox esta activo, ambos campos son requeridos.
     if (_recordPersonal && (_recordAccountId == null || _recordCategoryId == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una cuenta y una categoria para registrar el movimiento.')),
+        const SnackBar(content: Text('Selecciona una cuenta y una categoría para registrar el movimiento.')),
       );
       return;
     }
@@ -204,7 +204,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               ),
               validator: (v) {
                 final n = double.tryParse((v ?? '').replaceAll(',', '.'));
-                if (n == null || n <= 0) return 'Ingresa un monto valido mayor a cero.';
+                if (n == null || n <= 0) return 'Ingresa un monto válido mayor a cero.';
                 return null;
               },
             ),
@@ -215,7 +215,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               onTap: _pickDate,
               child: InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'Fecha de liquidacion',
+                  labelText: 'Fecha de liquidación',
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(Icons.calendar_today_outlined),
                 ),
@@ -254,7 +254,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                           _buildCategoryDropdown(),
                           const SizedBox(height: 8),
                           Text(
-                            'Nota: si pagas la deuda, usa una categoria de egreso; si la recibes, usa una de ingreso.',
+                            'Nota: si pagas la deuda, usa una categoría de egreso; si la recibes, usa una de ingreso.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
@@ -280,7 +280,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                       width: 22,
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
-                  : const Text('Registrar liquidacion'),
+                  : const Text('Registrar liquidación'),
             ),
           ],
         ),
@@ -327,7 +327,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
     final categoriesAsync = ref.watch(categoriesListProvider);
     return categoriesAsync.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('Error al cargar categorias: $e'),
+      error: (e, _) => Text('Error al cargar categorías: $e'),
       data: (categories) {
         final byId = {for (final c in categories) c.id: c};
         final leaves = categories.where((c) => !c.hasChildren).toList();
@@ -335,7 +335,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
           value: leaves.any((c) => c.id == _recordCategoryId) ? _recordCategoryId : null,
           isExpanded: true,
           decoration: const InputDecoration(
-            labelText: 'Categoria',
+            labelText: 'Categoría',
             border: OutlineInputBorder(),
             isDense: true,
           ),
@@ -360,7 +360,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
           }).toList(),
           onChanged: (v) => setState(() => _recordCategoryId = v),
           validator: _recordPersonal
-              ? (v) => v == null ? 'Selecciona una categoria.' : null
+              ? (v) => v == null ? 'Selecciona una categoría.' : null
               : null,
         );
       },

@@ -37,7 +37,7 @@ class BudgetScreen extends ConsumerWidget {
             ),
           ),
           PopupMenuButton<String>(
-            tooltip: 'Mas opciones',
+            tooltip: 'Más opciones',
             onSelected: (value) {
               final routes = <String, Widget>{
                 'categories': const CategoriesScreen(),
@@ -54,7 +54,7 @@ class BudgetScreen extends ConsumerWidget {
                 value: 'categories',
                 child: ListTile(
                   leading: Icon(Icons.category_outlined),
-                  title: Text('Categorias'),
+                  title: Text('Categorías'),
                 ),
               ),
               PopupMenuItem(

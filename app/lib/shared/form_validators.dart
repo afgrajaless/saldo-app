@@ -9,7 +9,7 @@ class FormValidators {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Ingresa tu correo.';
     final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!regex.hasMatch(text)) return 'Correo no valido.';
+    if (!regex.hasMatch(text)) return 'Correo no válido.';
     return null;
   }
 
@@ -18,8 +18,8 @@ class FormValidators {
   /// @return Mensaje de error, o `null` si es valida.
   static String? password(String? value) {
     final text = value ?? '';
-    if (text.isEmpty) return 'Ingresa tu contrasena.';
-    if (text.length < 8) return 'Minimo 8 caracteres.';
+    if (text.isEmpty) return 'Ingresa tu contraseña.';
+    if (text.length < 8) return 'Mínimo 8 caracteres.';
     return null;
   }
 

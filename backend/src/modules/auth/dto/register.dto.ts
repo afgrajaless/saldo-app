@@ -4,14 +4,14 @@ import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 /** Datos para registrar un nuevo usuario. */
 export class RegisterDto {
   @ApiProperty({
-    description: 'Correo electronico del usuario (sera el identificador de acceso).',
+    description: 'Correo electrónico del usuario (será el identificador de acceso).',
     example: 'juan.perez@example.com',
   })
   @IsEmail({}, { message: 'El correo no tiene un formato valido.' })
   email!: string;
 
   @ApiProperty({
-    description: 'Contrasena en texto plano (se almacena con hash Argon2).',
+    description: 'Contraseña en texto plano (se almacena con hash Argon2).',
     example: 'ClaveSegura123',
     minLength: 8,
     maxLength: 128,

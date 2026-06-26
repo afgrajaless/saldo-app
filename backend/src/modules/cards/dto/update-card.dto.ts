@@ -30,14 +30,14 @@ export class UpdateCardDto {
   @Min(0.01)
   creditLimit?: number;
 
-  @ApiPropertyOptional({ description: 'Dia de cierre del periodo de facturacion (1-31).', example: 10 })
+  @ApiPropertyOptional({ description: 'Día de cierre del período de facturación (1-31).', example: 10 })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(31)
   statementDay?: number;
 
-  @ApiPropertyOptional({ description: 'Dia de vencimiento del pago (1-31).', example: 20 })
+  @ApiPropertyOptional({ description: 'Día de vencimiento del pago (1-31).', example: 20 })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -45,7 +45,7 @@ export class UpdateCardDto {
   paymentDay?: number;
 
   @ApiPropertyOptional({
-    description: 'Tasa de interes corriente E.A. (fraccion decimal).',
+    description: 'Tasa de interés corriente E.A. (fracción decimal).',
     example: 0.25,
   })
   @IsOptional()
@@ -54,7 +54,7 @@ export class UpdateCardDto {
   rotativoRateEa?: number;
 
   @ApiPropertyOptional({
-    description: 'Pago minimo como fraccion decimal del saldo (0-1).',
+    description: 'Pago mínimo como fracción decimal del saldo (0-1).',
     example: 0.1,
   })
   @IsOptional()

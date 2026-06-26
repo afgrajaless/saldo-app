@@ -12,7 +12,7 @@ import {
 
 /** Campos editables de una categoria (el tipo no se cambia). */
 export class UpdateCategoryDto {
-  @ApiPropertyOptional({ description: 'Nombre de la categoria.', example: 'Vivienda' })
+  @ApiPropertyOptional({ description: 'Nombre de la categoría.', example: 'Vivienda' })
   @IsOptional()
   @IsString()
   @MaxLength(60)
@@ -36,8 +36,8 @@ export class UpdateCategoryDto {
 
   @ApiPropertyOptional({
     description:
-      'UUID de la categoria padre. Enviar null para volverla de primer nivel; ' +
-      'un UUID para moverla bajo otra categoria del mismo tipo.',
+      'UUID de la categoría padre. Enviar null para volverla de primer nivel; ' +
+      'un UUID para moverla bajo otra categoría del mismo tipo.',
     format: 'uuid',
     nullable: true,
   })

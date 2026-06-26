@@ -28,7 +28,7 @@ export class CreateTransferDto {
   @IsISO8601({ strict: true })
   occurredOn!: string;
 
-  @ApiPropertyOptional({ description: 'Descripcion opcional.', example: 'Paso a efectivo' })
+  @ApiPropertyOptional({ description: 'Descripción opcional.', example: 'Paso a efectivo' })
   @IsOptional()
   @IsString()
   @MaxLength(200)

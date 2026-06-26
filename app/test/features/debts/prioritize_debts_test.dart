@@ -97,8 +97,8 @@ void main() {
       final normal = buildDebt(creditor: 'N');
 
       expect(priorityReason(mora, PayoffStrategy.avalanche), 'En mora');
-      expect(priorityReason(normal, PayoffStrategy.avalanche), 'Tasa mas alta');
-      expect(priorityReason(normal, PayoffStrategy.monthlyCost), 'Mas interes al mes');
+      expect(priorityReason(normal, PayoffStrategy.avalanche), 'Tasa más alta');
+      expect(priorityReason(normal, PayoffStrategy.monthlyCost), 'Más interés al mes');
     });
   });
 }

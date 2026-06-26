@@ -5,19 +5,19 @@ export class StatementResponseDto {
   @ApiProperty({ description: 'Fecha de corte del ciclo.', example: '2025-07-15' })
   cutoffDate!: string;
 
-  @ApiProperty({ description: 'Fecha limite de pago.', example: '2025-07-25' })
+  @ApiProperty({ description: 'Fecha límite de pago.', example: '2025-07-25' })
   paymentDueDate!: string;
 
   @ApiProperty({ description: 'Saldo estimado del ciclo en pesos.', example: 450000 })
   estimatedBalance!: number;
 
-  @ApiProperty({ description: 'Pago minimo estimado en pesos.', example: 22500 })
+  @ApiProperty({ description: 'Pago mínimo estimado en pesos.', example: 22500 })
   estimatedMinPayment!: number;
 
-  @ApiPropertyOptional({ description: 'Saldo real segun el extracto del banco.', nullable: true })
+  @ApiPropertyOptional({ description: 'Saldo real según el extracto del banco.', nullable: true })
   reconciledBalance!: number | null;
 
-  @ApiPropertyOptional({ description: 'Pago minimo real segun el extracto.', nullable: true })
+  @ApiPropertyOptional({ description: 'Pago mínimo real según el extracto.', nullable: true })
   reconciledMinPayment!: number | null;
 
   @ApiPropertyOptional({ description: 'Pago total realizado; null hasta que se registra.', nullable: true })

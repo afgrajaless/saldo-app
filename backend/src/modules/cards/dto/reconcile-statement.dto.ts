@@ -12,12 +12,12 @@ export class ReconcileStatementDto {
   @Min(0)
   reconciledBalance!: number;
 
-  @ApiProperty({ description: 'Pago minimo real del extracto en pesos.', example: 23250 })
+  @ApiProperty({ description: 'Pago mínimo real del extracto en pesos.', example: 23250 })
   @IsNumber()
   @Min(0)
   reconciledMinPayment!: number;
 
-  @ApiPropertyOptional({ description: 'Pago total realizado; omitir si no se ha pagado aun.', example: 465000 })
+  @ApiPropertyOptional({ description: 'Pago total realizado; omitir si no se ha pagado aún.', example: 465000 })
   @IsOptional()
   @IsNumber()
   @Min(0)

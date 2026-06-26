@@ -44,7 +44,7 @@ class DebtsListScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesion',
+            tooltip: 'Cerrar sesión',
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
@@ -273,7 +273,7 @@ class _CombinedList extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar deuda'),
-        content: const Text('Esta accion no se puede deshacer.'),
+        content: const Text('Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -459,7 +459,7 @@ class _ListHeader extends ConsumerWidget {
                       color: theme.colorScheme.onPrimary,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text('$count ${count == 1 ? 'obligacion' : 'obligaciones'}',
+              Text('$count ${count == 1 ? 'obligación' : 'obligaciones'}',
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(color: theme.colorScheme.onPrimary)),
             ],
@@ -470,7 +470,7 @@ class _ListHeader extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
-              'Creditos formales',
+              'Créditos formales',
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: theme.colorScheme.primary,
@@ -540,7 +540,7 @@ class _EmptyState extends StatelessWidget {
         Icon(Icons.savings_outlined,
             size: 80, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
-        Text('Aun no tienes deudas registradas',
+        Text('Aún no tienes deudas registradas',
             textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Text('Toca "Nueva deuda" para empezar',

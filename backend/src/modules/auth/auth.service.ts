@@ -39,7 +39,7 @@ export class AuthService {
     const email = this.normalizeEmail(dto.email);
     const existing = await this.usersRepository.findByEmail(email);
     if (existing) {
-      throw new ConflictException('El correo ya esta registrado.');
+      throw new ConflictException('El correo ya está registrado.');
     }
     const passwordHash = await this.passwordService.hash(dto.password);
     const user = await this.usersRepository.create({
@@ -60,11 +60,11 @@ export class AuthService {
     const email = this.normalizeEmail(dto.email);
     const user = await this.usersRepository.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Credenciales invalidas.');
+      throw new UnauthorizedException('Credenciales inválidas.');
     }
     const valid = await this.passwordService.verify(user.passwordHash, dto.password);
     if (!valid) {
-      throw new UnauthorizedException('Credenciales invalidas.');
+      throw new UnauthorizedException('Credenciales inválidas.');
     }
     return this.buildAuthResponse(user);
   }
@@ -82,7 +82,7 @@ export class AuthService {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Refresh token invalido o expirado.');
+      throw new UnauthorizedException('Refresh token inválido o expirado.');
     }
     // El token debe seguir vigente en BD (no revocado ni rotado); si no, se rechaza.
     const stored = await this.refreshTokensRepository.findActiveByHash(this.hashToken(refreshToken));
@@ -166,7 +166,7 @@ export class AuthService {
   private refreshTokenExpiry(token: string): Date {
     const decoded = this.jwtService.decode(token) as { exp?: number } | null;
     if (!decoded?.exp) {
-      throw new UnauthorizedException('Refresh token sin expiracion.');
+      throw new UnauthorizedException('Refresh token sin expiración.');
     }
     return new Date(decoded.exp * 1000);
   }

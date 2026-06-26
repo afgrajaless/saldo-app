@@ -39,7 +39,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Registrar un pago o abono a capital' })
   @ApiParam({ name: 'debtId', description: 'UUID de la deuda', format: 'uuid' })
   @ApiResponse({ status: 201, description: 'Pago registrado.', type: PaymentResultDto })
-  @ApiResponse({ status: 400, description: 'Datos invalidos (p. ej. abono sin modalidad).' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos (p. ej. abono sin modalidad).' })
   @ApiResponse({ status: 404, description: 'Deuda no encontrada.' })
   register(
     @CurrentUser('sub') userId: string,
@@ -56,7 +56,7 @@ export class PaymentsController {
    * @returns Los pagos de la deuda.
    */
   @Get()
-  @ApiOperation({ summary: 'Listar los pagos de una obligacion' })
+  @ApiOperation({ summary: 'Listar los pagos de una obligación' })
   @ApiParam({ name: 'debtId', description: 'UUID de la deuda', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Lista de pagos.', type: [PaymentResponseDto] })
   @ApiResponse({ status: 404, description: 'Deuda no encontrada.' })

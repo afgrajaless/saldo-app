@@ -11,7 +11,7 @@ export class ImportSkippedDto {
   @ApiProperty({ description: 'Transferencias a la misma cuenta omitidas.', example: 1 })
   sameAccountTransfer!: number;
 
-  @ApiProperty({ description: 'Filas invalidas (sin fecha, monto o categoria).', example: 0 })
+  @ApiProperty({ description: 'Filas inválidas (sin fecha, monto o categoría).', example: 0 })
   invalid!: number;
 }
 
@@ -23,10 +23,10 @@ export class ImportResultDto {
   @ApiProperty({ description: 'Transferencias entre cuentas importadas.', example: 9 })
   transfers!: number;
 
-  @ApiProperty({ description: 'Cuentas nuevas creadas durante la importacion.', example: 5 })
+  @ApiProperty({ description: 'Cuentas nuevas creadas durante la importación.', example: 5 })
   accountsCreated!: number;
 
-  @ApiProperty({ description: 'Categorias nuevas creadas durante la importacion.', example: 12 })
+  @ApiProperty({ description: 'Categorías nuevas creadas durante la importación.', example: 12 })
   categoriesCreated!: number;
 
   @ApiProperty({ description: 'Detalle de filas omitidas.', type: ImportSkippedDto })

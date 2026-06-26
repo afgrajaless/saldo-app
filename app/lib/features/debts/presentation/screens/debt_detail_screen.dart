@@ -180,7 +180,7 @@ class _DetailBody extends ConsumerWidget {
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           ),
         const SizedBox(height: 20),
-        Text('Capital vs. interes', style: theme.textTheme.titleMedium),
+        Text('Capital vs. interés', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         _CapitalInterestBar(
           principal: debt.principalAmount,
@@ -252,7 +252,7 @@ class _DetailBody extends ConsumerWidget {
         title: Text('Eliminar "${detail.debt.creditor}"'),
         content: const Text(
           'Se elimina la deuda y su cronograma del registro. Esto NO es lo mismo '
-          'que pagarla: no queda en el historial. Esta accion no se puede deshacer.',
+          'que pagarla: no queda en el historial. Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -291,7 +291,7 @@ class _SummaryGrid extends StatelessWidget {
       ('Tasa E.A.', formatPercent(debt.effectiveAnnualRate)),
       ('Sistema', labelOf(amortizationSystemLabels, debt.amortizationSystem)),
       ('Plazo', '${debt.termMonths} meses'),
-      ('Total interes', formatCop(detail.totalInterest)),
+      ('Total interés', formatCop(detail.totalInterest)),
       if (detail.totalInsurance > 0) ('Total seguro', formatCop(detail.totalInsurance)),
       ('Total a pagar', formatCop(detail.totalPaid)),
     ];
@@ -376,7 +376,7 @@ class _CapitalInterestBar extends StatelessWidget {
           children: [
             _Legend(color: theme.colorScheme.primary, label: 'Capital ${formatCop(principal)}'),
             const SizedBox(width: 16),
-            _Legend(color: theme.colorScheme.tertiary, label: 'Interes ${formatCop(interest)}'),
+            _Legend(color: theme.colorScheme.tertiary, label: 'Interés ${formatCop(interest)}'),
           ],
         ),
       ],
@@ -431,7 +431,7 @@ class _InstallmentTile extends StatelessWidget {
             style: theme.textTheme.titleSmall),
         subtitle: Text(
           'Vence ${installment.dueDate}\n'
-          'Capital ${formatCop(installment.principalPortion)} · Interes ${formatCop(installment.interestPortion)}'
+          'Capital ${formatCop(installment.principalPortion)} · Interés ${formatCop(installment.interestPortion)}'
           '${installment.insurancePortion > 0 ? ' · Seguro ${formatCop(installment.insurancePortion)}' : ''}',
         ),
         isThreeLine: true,
@@ -470,7 +470,7 @@ class _PayInstallmentDialogState extends State<_PayInstallmentDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Registrar el pago de ${formatCop(installment.totalAmount)}?'),
+          Text('¿Registrar el pago de ${formatCop(installment.totalAmount)}?'),
           const SizedBox(height: 8),
           CheckboxListTile(
             value: _createTransaction,

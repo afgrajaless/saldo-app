@@ -38,7 +38,7 @@ export class PrepaymentSummaryDto {
   @ApiProperty({ description: 'Intereses ahorrados frente a no abonar.', example: 850000 })
   interestSaved!: number;
 
-  @ApiProperty({ description: 'Cuotas restantes tras el recalculo.', example: 18 })
+  @ApiProperty({ description: 'Cuotas restantes tras el recálculo.', example: 18 })
   remainingInstallments!: number;
 }
 

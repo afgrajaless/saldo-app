@@ -24,7 +24,7 @@ class _InstallmentPlanCardState extends State<InstallmentPlanCard> {
     final plan = widget.plan;
     final label = plan.description?.isNotEmpty == true
         ? plan.description!
-        : 'Diferido sin descripcion';
+        : 'Diferido sin descripción';
     final pct = (plan.monthlyRate * 100).toStringAsFixed(2).replaceAll('.', ',');
 
     return Card(

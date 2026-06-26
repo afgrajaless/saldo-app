@@ -20,7 +20,7 @@ export class RecordPersonalDto {
   accountId!: string;
 
   @ApiProperty({
-    description: 'UUID de la categoria con la que se registra el movimiento personal.',
+    description: 'UUID de la categoría con la que se registra el movimiento personal.',
     format: 'uuid',
     example: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
   })
@@ -47,7 +47,7 @@ export class CreateSettlementDto {
   toMemberId!: string;
 
   @ApiProperty({
-    description: 'Monto pagado en la liquidacion (mayor que cero, en pesos colombianos).',
+    description: 'Monto pagado en la liquidación (mayor que cero, en pesos colombianos).',
     example: 50000,
   })
   @IsNumber()
@@ -55,7 +55,7 @@ export class CreateSettlementDto {
   amount!: number;
 
   @ApiProperty({
-    description: 'Fecha en que se realizo la liquidacion (ISO 8601: YYYY-MM-DD).',
+    description: 'Fecha en que se realizó la liquidación (ISO 8601: YYYY-MM-DD).',
     example: '2026-06-24',
   })
   @IsDateString()
@@ -63,8 +63,8 @@ export class CreateSettlementDto {
 
   @ApiPropertyOptional({
     description:
-      'Si se indica, registra el pago como movimiento personal en la cuenta y categoria especificadas. ' +
-      'El movimiento sera un egreso si el usuario autenticado es el pagador (from), o un ingreso si es el receptor (to).',
+      'Si se indica, registra el pago como movimiento personal en la cuenta y categoría especificadas. ' +
+      'El movimiento será un egreso si el usuario autenticado es el pagador (from), o un ingreso si es el receptor (to).',
     type: RecordPersonalDto,
   })
   @IsOptional()

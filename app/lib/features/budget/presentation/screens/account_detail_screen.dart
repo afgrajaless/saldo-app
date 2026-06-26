@@ -109,12 +109,12 @@ class _ProjectionSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Proyeccion de crecimiento', style: theme.textTheme.titleMedium),
+            Text('Proyección de crecimiento', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
               projection.cdt != null
                   ? 'Hasta el vencimiento'
-                  : 'Proximos ${projection.points.length} meses',
+                  : 'Próximos ${projection.points.length} meses',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
@@ -122,7 +122,7 @@ class _ProjectionSection extends ConsumerWidget {
             if (projection.points.length >= 2)
               SizedBox(height: 180, child: _GrowthChart(projection: projection))
             else
-              Text('Registra un saldo para ver la proyeccion.',
+              Text('Registra un saldo para ver la proyección.',
                   style: theme.textTheme.bodyMedium),
             if (projection.cdt != null) ...[
               const SizedBox(height: 20),
@@ -213,10 +213,10 @@ class _CdtStatusCard extends StatelessWidget {
         children: [
           Text('Estado del CDT', style: theme.textTheme.titleSmall),
           const SizedBox(height: 12),
-          _row(context, 'Vence', '${cdt.maturesOn}  (${cdt.daysRemaining} dias)'),
-          _row(context, 'Interes bruto', formatCop(cdt.grossInterest)),
-          _row(context, 'Retencion en la fuente', '- ${formatCop(cdt.withholding)}'),
-          _row(context, 'Interes neto', formatCop(cdt.netInterest)),
+          _row(context, 'Vence', '${cdt.maturesOn}  (${cdt.daysRemaining} días)'),
+          _row(context, 'Interés bruto', formatCop(cdt.grossInterest)),
+          _row(context, 'Retención en la fuente', '- ${formatCop(cdt.withholding)}'),
+          _row(context, 'Interés neto', formatCop(cdt.netInterest)),
           const Divider(height: 20),
           _row(context, 'Recibes al vencimiento', formatCop(cdt.maturityValue), bold: true),
         ],
@@ -270,7 +270,7 @@ class _SnapshotsSection extends ConsumerWidget {
           ),
           error: (e, _) => Text('$e'),
           data: (snapshots) => snapshots.isEmpty
-              ? Text('Aun no registras saldos de esta cuenta.',
+              ? Text('Aún no registras saldos de esta cuenta.',
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant))
               : Column(

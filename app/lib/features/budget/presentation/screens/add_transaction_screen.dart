@@ -67,7 +67,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     if (!_formKey.currentState!.validate() || _categoryId == null) {
       if (_categoryId == null) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Elige una categoria.')));
+            .showSnackBar(const SnackBar(content: Text('Elige una categoría.')));
       }
       return;
     }
@@ -226,7 +226,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               value: leaves.any((c) => c.id == _categoryId) ? _categoryId : null,
               isExpanded: true,
               decoration: const InputDecoration(
-                labelText: 'Categoria',
+                labelText: 'Categoría',
                 border: OutlineInputBorder(),
               ),
               items: leaves.map((c) {
@@ -250,7 +250,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 );
               }).toList(),
               onChanged: (v) => setState(() => _categoryId = v),
-              validator: (v) => v == null ? 'Elige una categoria.' : null,
+              validator: (v) => v == null ? 'Elige una categoría.' : null,
             ),
             const SizedBox(height: 16),
             _accountField(),
@@ -265,7 +265,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               ),
               validator: (v) {
                 final n = double.tryParse((v ?? '').replaceAll(',', '.'));
-                if (n == null || n <= 0) return 'Ingresa un monto valido.';
+                if (n == null || n <= 0) return 'Ingresa un monto válido.';
                 return null;
               },
             ),
@@ -285,7 +285,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Descripcion (opcional)',
+                labelText: 'Descripción (opcional)',
                 border: OutlineInputBorder(),
               ),
               maxLength: 200,
@@ -320,14 +320,14 @@ class _NoCategories extends StatelessWidget {
           children: [
             const Icon(Icons.category_outlined, size: 56),
             const SizedBox(height: 12),
-            const Text('Primero crea una categoria',
+            const Text('Primero crea una categoría',
                 textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute<void>(builder: (_) => const CategoriesScreen()),
               ),
-              child: const Text('Ir a categorias'),
+              child: const Text('Ir a categorías'),
             ),
           ],
         ),

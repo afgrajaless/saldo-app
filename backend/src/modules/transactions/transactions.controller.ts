@@ -42,7 +42,7 @@ export class TransactionsController {
   @Post()
   @ApiOperation({ summary: 'Registrar un ingreso o egreso' })
   @ApiResponse({ status: 201, description: 'Movimiento creado.', type: TransactionResponseDto })
-  @ApiResponse({ status: 400, description: 'Categoria invalida.' })
+  @ApiResponse({ status: 400, description: 'Categoría inválida.' })
   create(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateTransactionDto,

@@ -26,25 +26,25 @@ export class ExpenseResponseDto {
   @ApiProperty({ description: 'UUID del grupo al que pertenece el gasto.', format: 'uuid' })
   groupId!: string;
 
-  @ApiProperty({ description: 'UUID del miembro que pago el gasto.', format: 'uuid' })
+  @ApiProperty({ description: 'UUID del miembro que pagó el gasto.', format: 'uuid' })
   paidByMemberId!: string;
 
-  @ApiPropertyOptional({ description: 'Descripcion del gasto.', example: 'Cena del viernes' })
+  @ApiPropertyOptional({ description: 'Descripción del gasto.', example: 'Cena del viernes' })
   description!: string | null;
 
   @ApiProperty({ description: 'Monto total del gasto.', example: 90000 })
   amount!: number;
 
-  @ApiProperty({ description: 'Fecha en que ocurrio el gasto (YYYY-MM-DD).', example: '2026-06-10' })
+  @ApiProperty({ description: 'Fecha en que ocurrió el gasto (YYYY-MM-DD).', example: '2026-06-10' })
   occurredOn!: string;
 
-  @ApiProperty({ description: 'Metodo con el que se dividio el gasto.', enum: ['equal', 'exact'] })
+  @ApiProperty({ description: 'Método con el que se dividió el gasto.', enum: ['equal', 'exact'] })
   splitMethod!: 'equal' | 'exact';
 
-  @ApiProperty({ description: 'UUID del usuario que registro el gasto.', format: 'uuid' })
+  @ApiProperty({ description: 'UUID del usuario que registró el gasto.', format: 'uuid' })
   createdByUserId!: string;
 
-  @ApiProperty({ description: 'Fecha y hora de creacion del gasto.' })
+  @ApiProperty({ description: 'Fecha y hora de creación del gasto.' })
   createdAt!: Date;
 
   @ApiProperty({ description: 'Partes del gasto asignadas a cada miembro.', type: [ShareResponseDto] })

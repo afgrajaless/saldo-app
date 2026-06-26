@@ -175,7 +175,7 @@ export class AccountsService {
   ): Promise<SnapshotResponseDto> {
     const account = await this.getOwnedAccount(userId, accountId);
     if (account.kind === 'credit_card') {
-      throw new BadRequestException('No puedes registrar saldo en una tarjeta de credito.');
+      throw new BadRequestException('No puedes registrar saldo en una tarjeta de crédito.');
     }
     const row = await this.accountsRepository.upsertSnapshot(
       userId,

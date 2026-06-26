@@ -13,7 +13,7 @@ import {
 
 /** Datos para registrar un movimiento (ingreso o egreso). */
 export class CreateTransactionDto {
-  @ApiProperty({ description: 'Categoria del movimiento.', format: 'uuid' })
+  @ApiProperty({ description: 'Categoría del movimiento.', format: 'uuid' })
   @IsUUID()
   categoryId!: string;
 
@@ -31,7 +31,7 @@ export class CreateTransactionDto {
   @IsISO8601({ strict: true })
   occurredOn!: string;
 
-  @ApiPropertyOptional({ description: 'Descripcion opcional.', example: 'Pago arriendo junio' })
+  @ApiPropertyOptional({ description: 'Descripción opcional.', example: 'Pago arriendo junio' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -39,8 +39,8 @@ export class CreateTransactionDto {
 
   @ApiPropertyOptional({
     description:
-      'Numero de cuotas en que se difiere la compra (solo para tarjetas de credito). ' +
-      'Minimo 2. Si se omite, se registra como cargo de contado.',
+      'Número de cuotas en que se difiere la compra (solo para tarjetas de crédito). ' +
+      'Mínimo 2. Si se omite, se registra como cargo de contado.',
     example: 12,
     minimum: 2,
   })

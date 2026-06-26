@@ -11,10 +11,10 @@ export class DebtResponseDto {
   @ApiProperty({ example: 'libre_inversion' })
   debtType!: string;
 
-  @ApiProperty({ description: 'Capital del credito.', example: 10000000 })
+  @ApiProperty({ description: 'Capital del crédito.', example: 10000000 })
   principalAmount!: number;
 
-  @ApiProperty({ description: 'Tasa ingresada por el usuario (fraccion decimal).', example: 0.0179 })
+  @ApiProperty({ description: 'Tasa ingresada por el usuario (fracción decimal).', example: 0.0179 })
   nominalRate!: number;
 
   @ApiProperty({ example: 'mv' })
@@ -42,7 +42,7 @@ export class DebtResponseDto {
   })
   insuranceValue!: number | null;
 
-  @ApiProperty({ description: 'Modo de causacion del interes: monthly o daily.', example: 'monthly' })
+  @ApiProperty({ description: 'Modo de causación del interés: monthly o daily.', example: 'monthly' })
   interestMode!: string;
 
   @ApiProperty({ example: 'activa' })
@@ -65,13 +65,13 @@ export class DebtResponseDto {
   currentBalance!: number;
 
   @ApiProperty({
-    description: 'Valor de la proxima cuota pendiente (capital + interes + seguro). 0 si esta pagada.',
+    description: 'Valor de la próxima cuota pendiente (capital + interés + seguro). 0 si está pagada.',
     example: 199609.83,
   })
   monthlyPayment!: number;
 
   @ApiProperty({
-    description: 'Interes que genera la proxima cuota pendiente (lo que cuesta la deuda este mes).',
+    description: 'Interés que genera la próxima cuota pendiente (lo que cuesta la deuda este mes).',
     example: 65669.02,
   })
   monthlyInterestCost!: number;
@@ -97,13 +97,13 @@ export class InstallmentResponseDto {
   @ApiProperty({ description: 'Abono a capital de la cuota.', example: 250000 })
   principalPortion!: number;
 
-  @ApiProperty({ description: 'Interes de la cuota.', example: 150000 })
+  @ApiProperty({ description: 'Interés de la cuota.', example: 150000 })
   interestPortion!: number;
 
   @ApiProperty({ description: 'Seguro de la cuota (0 si no aplica).', example: 1811 })
   insurancePortion!: number;
 
-  @ApiProperty({ description: 'Valor total de la cuota (capital + interes + seguro).', example: 401811 })
+  @ApiProperty({ description: 'Valor total de la cuota (capital + interés + seguro).', example: 401811 })
   totalAmount!: number;
 
   @ApiProperty({ description: 'Saldo de capital tras la cuota.', example: 9750000 })
@@ -118,10 +118,10 @@ export class DebtDetailDto extends DebtResponseDto {
   @ApiProperty({ type: [InstallmentResponseDto] })
   installments!: InstallmentResponseDto[];
 
-  @ApiProperty({ description: 'Total de intereses del credito.', example: 4400000 })
+  @ApiProperty({ description: 'Total de intereses del crédito.', example: 4400000 })
   totalInterest!: number;
 
-  @ApiProperty({ description: 'Total de seguro del credito.', example: 65196 })
+  @ApiProperty({ description: 'Total de seguro del crédito.', example: 65196 })
   totalInsurance!: number;
 
   @ApiProperty({ description: 'Total a pagar (capital + intereses + seguro).', example: 14465196 })

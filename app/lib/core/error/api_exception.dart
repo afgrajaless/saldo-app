@@ -31,7 +31,7 @@ class ApiException implements Exception {
       case DioExceptionType.connectionError:
         return ApiException('No se pudo conectar con el servidor.');
       default:
-        return ApiException('Ocurrio un error inesperado. Intenta de nuevo.');
+        return ApiException('Ocurrió un error inesperado. Intenta de nuevo.');
     }
   }
 

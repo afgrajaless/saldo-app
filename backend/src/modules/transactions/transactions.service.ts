@@ -36,13 +36,13 @@ export class TransactionsService {
   async create(userId: string, dto: CreateTransactionDto): Promise<TransactionResponseDto> {
     const category = await this.categoriesRepository.findByIdForUser(dto.categoryId, userId);
     if (!category) {
-      throw new BadRequestException('La categoria no existe o no es del usuario.');
+      throw new BadRequestException('La categoría no existe o no es del usuario.');
     }
     // Regla hoja-only: una categoria con subcategorias agrupa; el gasto se
     // registra en una de sus subcategorias, no directamente en ella.
     if (await this.categoriesRepository.hasLiveChildren(category.id)) {
       throw new BadRequestException(
-        'Esta categoria tiene subcategorias; elige una subcategoria para el movimiento.',
+        'Esta categoría tiene subcategorías; elige una subcategoría para el movimiento.',
       );
     }
     // Si se indica cuenta, debe existir y ser del usuario.
@@ -65,13 +65,13 @@ export class TransactionsService {
     // --- Flujo de compra diferida a cuotas ---
     if (dto.installments !== undefined) {
       if (account?.kind !== 'credit_card') {
-        throw new BadRequestException('Solo puedes diferir compras de tarjeta de credito.');
+        throw new BadRequestException('Solo puedes diferir compras de tarjeta de crédito.');
       }
 
       // Lee los detalles de la tarjeta (tasa rotativa E.A.) para construir el cronograma.
       const card = await this.cardsRepository.findCardForUser(dto.accountId!, userId);
       if (!card) {
-        throw new BadRequestException('No se encontraron los detalles de la tarjeta de credito.');
+        throw new BadRequestException('No se encontraron los detalles de la tarjeta de crédito.');
       }
 
       const monthlyRate = effectiveAnnualToMonthly(Number(card.rotativoRateEa));

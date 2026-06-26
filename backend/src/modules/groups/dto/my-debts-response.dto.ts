@@ -38,13 +38,13 @@ export class MyGroupDebtDto {
   amountOwed: number;
 
   @ApiProperty({
-    description: 'Porcion del monto adeudado que proviene de partes pendientes de confirmar.',
+    description: 'Porción del monto adeudado que proviene de partes pendientes de confirmar.',
     example: 30000,
   })
   pendingAmount: number;
 
   @ApiProperty({
-    description: 'Indica si alguna parte de la deuda esta pendiente de confirmacion.',
+    description: 'Indica si alguna parte de la deuda está pendiente de confirmación.',
     example: true,
   })
   hasPending: boolean;

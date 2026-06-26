@@ -116,7 +116,7 @@ class _AbonoCapitalScreenState extends ConsumerState<AbonoCapitalScreen> {
             children: [
               Text(
                 'Un abono extraordinario a capital recalcula tus cuotas pendientes '
-                '(Ley 1555 de 2012, prepago sin sancion).',
+                '(Ley 1555 de 2012, prepago sin sanción).',
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
@@ -134,7 +134,7 @@ class _AbonoCapitalScreenState extends ConsumerState<AbonoCapitalScreen> {
                 ),
                 validator: (v) {
                   final n = double.tryParse((v ?? '').replaceAll(',', '.'));
-                  if (n == null || n <= 0) return 'Ingresa un monto valido.';
+                  if (n == null || n <= 0) return 'Ingresa un monto válido.';
                   return null;
                 },
               ),

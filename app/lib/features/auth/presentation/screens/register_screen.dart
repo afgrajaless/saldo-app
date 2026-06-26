@@ -97,10 +97,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       controller: _passwordController,
                       obscureText: true,
                       decoration: const InputDecoration(
-                        labelText: 'Contrasena',
+                        labelText: 'Contraseña',
                         prefixIcon: Icon(Icons.lock_outline),
                         border: OutlineInputBorder(),
-                        helperText: 'Minimo 8 caracteres',
+                        helperText: 'Mínimo 8 caracteres',
                       ),
                       validator: FormValidators.password,
                       onFieldSubmitted: (_) => _submit(),

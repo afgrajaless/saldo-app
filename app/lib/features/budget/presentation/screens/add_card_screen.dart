@@ -96,7 +96,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
   String? _validateDay(String? value) {
     if (value == null || value.trim().isEmpty) return 'Campo requerido.';
     final day = int.tryParse(value.trim());
-    if (day == null || day < 1 || day > 31) return 'Ingresa un dia entre 1 y 31.';
+    if (day == null || day < 1 || day > 31) return 'Ingresa un día entre 1 y 31.';
     return null;
   }
 
@@ -179,7 +179,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                     child: TextFormField(
                       controller: _statementDayController,
                       decoration: const InputDecoration(
-                        labelText: 'Dia de corte',
+                        labelText: 'Día de corte',
                         hintText: '1-31',
                         border: OutlineInputBorder(),
                       ),
@@ -195,7 +195,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                     child: TextFormField(
                       controller: _paymentDayController,
                       decoration: const InputDecoration(
-                        labelText: 'Dia de pago',
+                        labelText: 'Día de pago',
                         hintText: '1-31',
                         border: OutlineInputBorder(),
                       ),
@@ -232,7 +232,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
               TextFormField(
                 controller: _minPaymentPctController,
                 decoration: const InputDecoration(
-                  labelText: '% pago minimo',
+                  labelText: '% pago mínimo',
                   hintText: '5',
                   suffixText: '%',
                   border: OutlineInputBorder(),
@@ -253,7 +253,7 @@ class _AddCardScreenState extends ConsumerState<AddCardScreen> {
                   labelText: 'Cuota de manejo (\$)',
                   hintText: '15000',
                   border: OutlineInputBorder(),
-                  helperText: 'Opcional. Dejar vacio si no aplica.',
+                  helperText: 'Opcional. Dejar vacío si no aplica.',
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),

@@ -74,7 +74,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
             _InstallmentsSection(cardId: card.id),
             const SizedBox(height: 24),
             // Seccion: datos de configuracion.
-            Text('Configuracion', style: theme.textTheme.titleMedium),
+            Text('Configuración', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             _CardConfigSection(card: card),
             const SizedBox(height: 32),
@@ -254,7 +254,7 @@ class _StatementCard extends StatelessWidget {
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           _row(context, 'Saldo estimado', formatCop(statement.estimatedBalance)),
-          _row(context, 'Pago minimo estimado',
+          _row(context, 'Pago mínimo estimado',
               formatCop(statement.estimatedMinPayment)),
           // Valores reconciliados (solo si ya se reconcilio).
           if (statement.isReconciled) ...[
@@ -269,7 +269,7 @@ class _StatementCard extends StatelessWidget {
                   formatCop(statement.reconciledBalance!),
                   bold: true),
             if (statement.reconciledMinPayment != null)
-              _row(context, 'Pago minimo real',
+              _row(context, 'Pago mínimo real',
                   formatCop(statement.reconciledMinPayment!)),
             if (statement.reconciledTotalPayment != null)
               _row(context, 'Pago total realizado',
@@ -290,7 +290,7 @@ class _StatementCard extends StatelessWidget {
               ),
               icon: const Icon(Icons.sync_alt, size: 18),
               label: Text(statement.isReconciled
-                  ? 'Actualizar reconciliacion'
+                  ? 'Actualizar reconciliación'
                   : 'Reconciliar con extracto'),
             ),
           ),
@@ -455,14 +455,14 @@ class _CardConfigSection extends StatelessWidget {
         children: [
           _configRow(context, Icons.credit_score_outlined, 'Cupo total',
               formatCop(card.creditLimit)),
-          _configRow(context, Icons.today_outlined, 'Dia de corte',
-              'Dia ${card.statementDay}'),
-          _configRow(context, Icons.payment_outlined, 'Dia de pago',
-              'Dia ${card.paymentDay}'),
+          _configRow(context, Icons.today_outlined, 'Día de corte',
+              'Día ${card.statementDay}'),
+          _configRow(context, Icons.payment_outlined, 'Día de pago',
+              'Día ${card.paymentDay}'),
           _configRow(context, Icons.percent_outlined,
               'Tasa rotativa E.A.', '$pct %'),
           _configRow(context, Icons.account_balance_wallet_outlined,
-              'Pago minimo', '$minPct % del saldo'),
+              'Pago mínimo', '$minPct % del saldo'),
           if (card.managementFee != null &&
               card.managementFeePeriod != 'none') ...[
             _configRow(

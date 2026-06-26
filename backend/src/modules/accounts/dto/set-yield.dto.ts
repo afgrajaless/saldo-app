@@ -23,7 +23,7 @@ export class SetYieldDto {
   yieldType!: (typeof yieldTypeEnum.enumValues)[number];
 
   @ApiPropertyOptional({
-    description: 'Tasa E.A. como fraccion decimal (0.1125 = 11.25%). Requerida si savings o cdt.',
+    description: 'Tasa E.A. como fracción decimal (0.1125 = 11.25%). Requerida si savings o cdt.',
     example: 0.1125,
   })
   @ValidateIf((dto: SetYieldDto) => dto.yieldType !== 'none')
@@ -53,7 +53,7 @@ export class SetYieldDto {
   @IsISO8601({ strict: true })
   openedOn?: string;
 
-  @ApiPropertyOptional({ description: 'Plazo del CDT en dias.', example: 180 })
+  @ApiPropertyOptional({ description: 'Plazo del CDT en días.', example: 180 })
   @ValidateIf((dto: SetYieldDto) => dto.yieldType === 'cdt')
   @IsInt()
   @Min(1)
@@ -61,7 +61,7 @@ export class SetYieldDto {
   termDays?: number;
 
   @ApiPropertyOptional({
-    description: 'Retencion en la fuente sobre intereses (fraccion). Por defecto 0.04.',
+    description: 'Retención en la fuente sobre intereses (fracción). Por defecto 0.04.',
     example: 0.04,
   })
   @IsOptional()
@@ -71,7 +71,7 @@ export class SetYieldDto {
   withholdingRate?: number;
 
   @ApiPropertyOptional({
-    description: 'Forma de pago del interes del CDT.',
+    description: 'Forma de pago del interés del CDT.',
     enum: cdtInterestPaymentEnum.enumValues,
     default: 'at_maturity',
   })

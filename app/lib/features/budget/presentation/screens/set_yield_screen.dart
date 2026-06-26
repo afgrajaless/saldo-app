@@ -128,7 +128,7 @@ class _SetYieldScreenState extends ConsumerState<SetYieldScreen> {
                   validator: (v) {
                     if (!hasYield) return null;
                     final n = double.tryParse((v ?? '').replaceAll(',', '.'));
-                    if (n == null || n < 0) return 'Ingresa una tasa valida.';
+                    if (n == null || n < 0) return 'Ingresa una tasa válida.';
                     return null;
                   },
                 ),
@@ -156,14 +156,14 @@ class _SetYieldScreenState extends ConsumerState<SetYieldScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
-                    labelText: 'Plazo (dias)',
+                    labelText: 'Plazo (días)',
                     border: OutlineInputBorder(),
                     helperText: 'Ej. 90, 180, 360',
                   ),
                   validator: (v) {
                     if (!isCdt) return null;
                     final n = int.tryParse(v ?? '');
-                    if (n == null || n <= 0) return 'Ingresa el plazo en dias.';
+                    if (n == null || n <= 0) return 'Ingresa el plazo en días.';
                     return null;
                   },
                 ),
@@ -180,7 +180,7 @@ class _SetYieldScreenState extends ConsumerState<SetYieldScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text('La retencion en la fuente del 4% se aplica automaticamente.',
+                Text('La retención en la fuente del 4% se aplica automáticamente.',
                     style: Theme.of(context).textTheme.bodySmall),
               ],
               const SizedBox(height: 24),

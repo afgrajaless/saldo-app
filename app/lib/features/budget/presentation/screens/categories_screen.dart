@@ -33,13 +33,13 @@ class CategoriesScreen extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Categorias')),
+      appBar: AppBar(title: const Text('Categorías')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const AddCategoryScreen()),
         ),
         icon: const Icon(Icons.add),
-        label: const Text('Categoria'),
+        label: const Text('Categoría'),
       ),
       body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -144,7 +144,7 @@ class _CategoryTile extends ConsumerWidget {
             if (canAddChild)
               IconButton(
                 icon: const Icon(Icons.add),
-                tooltip: 'Agregar subcategoria',
+                tooltip: 'Agregar subcategoría',
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => AddCategoryScreen(parent: category),
@@ -217,10 +217,10 @@ class _EmptyState extends ConsumerState<_Empty> {
           children: [
             Icon(Icons.category_outlined, size: 72, color: theme.colorScheme.primary),
             const SizedBox(height: 16),
-            Text('Crea tus categorias',
+            Text('Crea tus categorías',
                 style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text('Organiza tus ingresos y egresos por categoria.',
+            Text('Organiza tus ingresos y egresos por categoría.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
@@ -231,7 +231,7 @@ class _EmptyState extends ConsumerState<_Empty> {
                   ? const SizedBox(
                       height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2.5))
                   : const Icon(Icons.auto_awesome),
-              label: const Text('Usar categorias sugeridas'),
+              label: const Text('Usar categorías sugeridas'),
             ),
           ],
         ),

@@ -40,8 +40,8 @@ export class CategoriesController {
    * @returns La categoria creada.
    */
   @Post()
-  @ApiOperation({ summary: 'Crear una categoria de ingreso o egreso' })
-  @ApiResponse({ status: 201, description: 'Categoria creada.', type: CategoryResponseDto })
+  @ApiOperation({ summary: 'Crear una categoría de ingreso o egreso' })
+  @ApiResponse({ status: 201, description: 'Categoría creada.', type: CategoryResponseDto })
   create(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateCategoryDto,
@@ -55,8 +55,8 @@ export class CategoriesController {
    * @returns Las categorias.
    */
   @Get()
-  @ApiOperation({ summary: 'Listar las categorias del usuario' })
-  @ApiResponse({ status: 200, description: 'Lista de categorias.', type: [CategoryResponseDto] })
+  @ApiOperation({ summary: 'Listar las categorías del usuario' })
+  @ApiResponse({ status: 200, description: 'Lista de categorías.', type: [CategoryResponseDto] })
   findAll(@CurrentUser('sub') userId: string): Promise<CategoryResponseDto[]> {
     return this.categoriesService.findAll(userId);
   }
@@ -69,10 +69,10 @@ export class CategoriesController {
    * @returns La categoria actualizada.
    */
   @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar una categoria' })
-  @ApiParam({ name: 'id', description: 'UUID de la categoria', format: 'uuid' })
-  @ApiResponse({ status: 200, description: 'Categoria actualizada.', type: CategoryResponseDto })
-  @ApiResponse({ status: 404, description: 'Categoria no encontrada.' })
+  @ApiOperation({ summary: 'Actualizar una categoría' })
+  @ApiParam({ name: 'id', description: 'UUID de la categoría', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Categoría actualizada.', type: CategoryResponseDto })
+  @ApiResponse({ status: 404, description: 'Categoría no encontrada.' })
   update(
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -88,10 +88,10 @@ export class CategoriesController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar una categoria (soft delete)' })
-  @ApiParam({ name: 'id', description: 'UUID de la categoria', format: 'uuid' })
-  @ApiResponse({ status: 204, description: 'Categoria eliminada.' })
-  @ApiResponse({ status: 404, description: 'Categoria no encontrada.' })
+  @ApiOperation({ summary: 'Eliminar una categoría (soft delete)' })
+  @ApiParam({ name: 'id', description: 'UUID de la categoría', format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Categoría eliminada.' })
+  @ApiResponse({ status: 404, description: 'Categoría no encontrada.' })
   remove(
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,

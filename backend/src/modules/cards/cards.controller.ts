@@ -32,7 +32,7 @@ export class CardsController {
    * @returns La tarjeta creada.
    */
   @Post()
-  @ApiOperation({ summary: 'Crear una tarjeta de credito' })
+  @ApiOperation({ summary: 'Crear una tarjeta de crédito' })
   @ApiResponse({ status: 201, description: 'Tarjeta creada.', type: CardResponseDto })
   create(
     @CurrentUser('sub') userId: string,
@@ -47,7 +47,7 @@ export class CardsController {
    * @returns Lista de tarjetas.
    */
   @Get()
-  @ApiOperation({ summary: 'Listar las tarjetas de credito del usuario' })
+  @ApiOperation({ summary: 'Listar las tarjetas de crédito del usuario' })
   @ApiResponse({ status: 200, description: 'Lista de tarjetas.', type: [CardResponseDto] })
   findAll(@CurrentUser('sub') userId: string): Promise<CardResponseDto[]> {
     return this.cardsService.listCards(userId);
@@ -59,8 +59,8 @@ export class CardsController {
    * @returns Lista de proximos pagos por tarjeta.
    */
   @Get('upcoming-payments')
-  @ApiOperation({ summary: 'Proximos pagos estimados de todas las tarjetas del usuario' })
-  @ApiResponse({ status: 200, description: 'Lista de proximos pagos.', type: [UpcomingPaymentDto] })
+  @ApiOperation({ summary: 'Próximos pagos estimados de todas las tarjetas del usuario' })
+  @ApiResponse({ status: 200, description: 'Lista de próximos pagos.', type: [UpcomingPaymentDto] })
   getUpcomingPayments(@CurrentUser('sub') userId: string): Promise<UpcomingPaymentDto[]> {
     return this.cardsService.getUpcomingPayments(userId);
   }
@@ -72,7 +72,7 @@ export class CardsController {
    * @returns La tarjeta.
    */
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener una tarjeta de credito por id' })
+  @ApiOperation({ summary: 'Obtener una tarjeta de crédito por id' })
   @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Tarjeta encontrada.', type: CardResponseDto })
   @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
@@ -91,7 +91,7 @@ export class CardsController {
    * @returns La tarjeta actualizada.
    */
   @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar una tarjeta de credito' })
+  @ApiOperation({ summary: 'Actualizar una tarjeta de crédito' })
   @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Tarjeta actualizada.', type: CardResponseDto })
   @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
@@ -154,7 +154,7 @@ export class CardsController {
   @ApiOperation({ summary: 'Reconciliar el extracto oficial con los valores reales del banco' })
   @ApiParam({ name: 'id', description: 'UUID de la tarjeta', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Extracto reconciliado.', type: StatementResponseDto })
-  @ApiResponse({ status: 400, description: 'Montos negativos o fecha invalida.' })
+  @ApiResponse({ status: 400, description: 'Montos negativos o fecha inválida.' })
   @ApiResponse({ status: 404, description: 'Tarjeta no encontrada.' })
   reconcileStatement(
     @CurrentUser('sub') userId: string,

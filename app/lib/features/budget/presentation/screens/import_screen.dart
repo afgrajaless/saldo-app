@@ -76,7 +76,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             const SizedBox(height: 8),
             Text(
               'Sube un archivo XLSX o CSV con tus movimientos. Se crean las '
-              'cuentas y categorias que falten, y las transferencias entre cuentas.',
+              'cuentas y categorías que falten, y las transferencias entre cuentas.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -125,14 +125,14 @@ class _ResultCard extends StatelessWidget {
               children: [
                 Icon(Icons.check_circle, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('Importacion completa', style: theme.textTheme.titleMedium),
+                Text('Importación completa', style: theme.textTheme.titleMedium),
               ],
             ),
             const Divider(height: 24),
             _row('Movimientos', '${result.transactions}'),
             _row('Transferencias', '${result.transfers}'),
             _row('Cuentas creadas', '${result.accountsCreated}'),
-            _row('Categorias creadas', '${result.categoriesCreated}'),
+            _row('Categorías creadas', '${result.categoriesCreated}'),
             if (result.totalSkipped > 0) ...[
               const Divider(height: 24),
               Text('Omitidos', style: theme.textTheme.titleSmall),
@@ -144,7 +144,7 @@ class _ResultCard extends StatelessWidget {
               if (result.skippedSameAccountTransfer > 0)
                 _row('Transferencias a la misma cuenta', '${result.skippedSameAccountTransfer}'),
               if (result.skippedInvalid > 0)
-                _row('Filas invalidas', '${result.skippedInvalid}'),
+                _row('Filas inválidas', '${result.skippedInvalid}'),
             ],
           ],
         ),

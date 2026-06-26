@@ -104,7 +104,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Codigo copiado al portapapeles.')),
+      const SnackBar(content: Text('Código copiado al portapapeles.')),
     );
   }
 
@@ -123,7 +123,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              'Agrega a alguien que no usa la app. Sus deudas quedan registradas pero no puede iniciar sesion.',
+              'Agrega a alguien que no usa la app. Sus deudas quedan registradas pero no puede iniciar sesión.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
@@ -132,7 +132,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Nombre del miembro',
-                hintText: 'Ej: Carlos, Mama, Compañero...',
+                hintText: 'Ej: Carlos, Mamá, Compañero...',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person_outline),
               ),
@@ -170,12 +170,12 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Invitar por codigo',
+            'Invitar por código',
             style: theme.textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
-            'Genera un codigo unico y compártelo. Quien lo use se unira a este grupo con su propia cuenta.',
+            'Genera un código único y compártelo. Quien lo use se unirá a este grupo con su propia cuenta.',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
@@ -190,7 +190,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
                   : const Icon(Icons.link),
-              label: const Text('Generar codigo'),
+              label: const Text('Generar código'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
@@ -201,7 +201,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
             OutlinedButton.icon(
               onPressed: _generatingCode ? null : _generateCode,
               icon: const Icon(Icons.refresh),
-              label: const Text('Generar nuevo codigo'),
+              label: const Text('Generar nuevo código'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
               ),
@@ -222,7 +222,7 @@ class _AddMemberScreenState extends ConsumerState<AddMemberScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Miembro fantasma'),
-            Tab(text: 'Invitar por codigo'),
+            Tab(text: 'Invitar por código'),
           ],
         ),
       ),
@@ -258,7 +258,7 @@ class _InviteCodeCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Codigo de invitacion',
+            'Código de invitación',
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onPrimaryContainer,
             ),
@@ -275,7 +275,7 @@ class _InviteCodeCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Comparte este codigo para que se unan al grupo',
+            'Comparte este código para que se unan al grupo',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onPrimaryContainer.withAlpha(180),
             ),
@@ -285,7 +285,7 @@ class _InviteCodeCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: onCopy,
             icon: const Icon(Icons.copy_outlined, size: 18),
-            label: const Text('Copiar codigo'),
+            label: const Text('Copiar código'),
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.onPrimaryContainer,
               foregroundColor: theme.colorScheme.primaryContainer,

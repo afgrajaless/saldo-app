@@ -45,7 +45,7 @@ void main() {
     app.main();
     await tester.pumpAndSettle();
 
-    final loginLink = find.text('No tienes cuenta? Registrate');
+    final loginLink = find.text('¿No tienes cuenta? Regístrate');
     await pumpUntilAny(tester, [loginLink, find.byIcon(Icons.logout)]);
     if (find.byIcon(Icons.logout).evaluate().isNotEmpty) {
       await tester.tap(find.byIcon(Icons.logout));
@@ -61,7 +61,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(2), 'ClaveSegura123');
     await tester.pumpAndSettle();
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Crear cuenta'));
-    await pumpUntil(tester, find.text('Aun no tienes deudas registradas'));
+    await pumpUntil(tester, find.text('Aún no tienes deudas registradas'));
 
     // Crear la tarjeta y cargarle una compra diferida via el repositorio.
     final repo = getIt<BudgetRepository>();

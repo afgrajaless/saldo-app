@@ -74,7 +74,7 @@ export class AccountsController {
    * @returns Los puntos de patrimonio ordenados por fecha.
    */
   @Get('net-worth')
-  @ApiOperation({ summary: 'Serie de patrimonio total por fecha (para grafico)' })
+  @ApiOperation({ summary: 'Serie de patrimonio total por fecha (para gráfico)' })
   @ApiResponse({ status: 200, description: 'Puntos de patrimonio.', type: [NetWorthPointDto] })
   netWorth(@CurrentUser('sub') userId: string): Promise<NetWorthPointDto[]> {
     return this.accountsService.netWorthSeries(userId);
@@ -160,10 +160,10 @@ export class AccountsController {
    * @returns La proyeccion.
    */
   @Get(':id/projection')
-  @ApiOperation({ summary: 'Proyeccion de crecimiento de una cuenta (curva para grafico)' })
+  @ApiOperation({ summary: 'Proyección de crecimiento de una cuenta (curva para gráfico)' })
   @ApiParam({ name: 'id', description: 'UUID de la cuenta', format: 'uuid' })
   @ApiQuery({ name: 'months', required: false, description: 'Horizonte en meses (def. 12).' })
-  @ApiResponse({ status: 200, description: 'Proyeccion.', type: AccountProjectionDto })
+  @ApiResponse({ status: 200, description: 'Proyección.', type: AccountProjectionDto })
   projection(
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,

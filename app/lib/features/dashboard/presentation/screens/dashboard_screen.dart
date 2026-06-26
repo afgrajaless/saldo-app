@@ -67,13 +67,13 @@ class DashboardScreen extends ConsumerWidget {
               data: (summary) => Column(
                 children: [
                   _CategoryDonut(
-                    title: 'Ingresos por categoria',
+                    title: 'Ingresos por categoría',
                     emptyHint: 'Sin ingresos este mes.',
                     slices: _categorySlices(summary, income: true),
                   ),
                   const SizedBox(height: 24),
                   _CategoryDonut(
-                    title: 'Gastos por categoria',
+                    title: 'Gastos por categoría',
                     emptyHint: 'Sin gastos este mes.',
                     slices: _categorySlices(summary, income: false),
                   ),

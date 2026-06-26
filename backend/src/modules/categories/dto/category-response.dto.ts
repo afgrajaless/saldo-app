@@ -12,7 +12,7 @@ export class CategoryResponseDto {
   type!: string;
 
   @ApiPropertyOptional({
-    description: 'UUID de la categoria padre; null si es de primer nivel.',
+    description: 'UUID de la categoría padre; null si es de primer nivel.',
     format: 'uuid',
     nullable: true,
   })
@@ -28,13 +28,13 @@ export class CategoryResponseDto {
   createdAt!: Date;
 
   @ApiProperty({
-    description: 'Cantidad de movimientos asociados a la categoria.',
+    description: 'Cantidad de movimientos asociados a la categoría.',
     example: 3,
   })
   transactionCount!: number;
 
   @ApiProperty({
-    description: 'Indica si la categoria tiene subcategorias vivas (es un padre).',
+    description: 'Indica si la categoría tiene subcategorías vivas (es un padre).',
     example: false,
   })
   hasChildren!: boolean;

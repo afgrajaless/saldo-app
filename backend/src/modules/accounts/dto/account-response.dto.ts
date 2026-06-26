@@ -12,7 +12,7 @@ export class AccountResponseDto {
   color!: string;
 
   @ApiProperty({
-    description: 'Tipo de cuenta: asset para cuentas de activo (ahorros, corriente, CDT) o credit_card para tarjetas de credito.',
+    description: 'Tipo de cuenta: asset para cuentas de activo (ahorros, corriente, CDT) o credit_card para tarjetas de crédito.',
     enum: ['asset', 'credit_card'],
     example: 'asset',
   })
@@ -29,7 +29,7 @@ export class AccountResponseDto {
   yieldType!: string;
 
   @ApiPropertyOptional({
-    description: 'Tasa E.A. vigente (fraccion decimal); null si no genera rendimiento.',
+    description: 'Tasa E.A. vigente (fracción decimal); null si no genera rendimiento.',
     example: 0.1125,
     nullable: true,
   })

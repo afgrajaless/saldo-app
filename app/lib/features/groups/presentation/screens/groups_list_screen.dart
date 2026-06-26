@@ -22,7 +22,7 @@ class GroupsListScreen extends ConsumerWidget {
         title: const Text('Compartido'),
         actions: [
           IconButton(
-            tooltip: 'Unirme con codigo',
+            tooltip: 'Unirme con código',
             icon: const Icon(Icons.input_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const JoinGroupScreen()),
@@ -64,7 +64,7 @@ class _EmptyGroups extends StatelessWidget {
             Icon(Icons.groups_outlined,
                 size: 72, color: theme.colorScheme.primary),
             const SizedBox(height: 16),
-            Text('Sin grupos aun',
+            Text('Sin grupos aún',
                 style: theme.textTheme.titleMedium,
                 textAlign: TextAlign.center),
             const SizedBox(height: 8),
@@ -90,7 +90,7 @@ class _EmptyGroups extends StatelessWidget {
                     builder: (_) => const JoinGroupScreen()),
               ),
               icon: const Icon(Icons.input_outlined),
-              label: const Text('Unirme con codigo'),
+              label: const Text('Unirme con código'),
             ),
           ],
         ),

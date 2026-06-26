@@ -47,7 +47,7 @@ async function bootstrap(): Promise<void> {
   // Documentacion OpenAPI en /api/docs.
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Saldo API')
-    .setDescription('API del gestor de deuda y credito (Colombia).')
+    .setDescription('API del gestor de deuda y crédito (Colombia).')
     .setVersion('0.1.0')
     .addBearerAuth()
     .build();

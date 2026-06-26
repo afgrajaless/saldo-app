@@ -133,7 +133,7 @@ class _ReconcileStatementScreenState
                 ],
                 decoration: const InputDecoration(
                   labelText: 'Saldo del extracto *',
-                  helperText: 'Monto total adeudado segun el banco',
+                  helperText: 'Monto total adeudado según el banco',
                   prefixText: '\$ ',
                   border: OutlineInputBorder(),
                 ),
@@ -142,7 +142,7 @@ class _ReconcileStatementScreenState
                     return 'Ingresa el saldo del extracto';
                   }
                   if (double.tryParse(v.replaceAll(',', '.')) == null) {
-                    return 'Valor invalido';
+                    return 'Valor inválido';
                   }
                   return null;
                 },
@@ -157,17 +157,17 @@ class _ReconcileStatementScreenState
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
                 decoration: const InputDecoration(
-                  labelText: 'Pago minimo oficial *',
-                  helperText: 'Pago minimo que indica el extracto del banco',
+                  labelText: 'Pago mínimo oficial *',
+                  helperText: 'Pago mínimo que indica el extracto del banco',
                   prefixText: '\$ ',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
-                    return 'Ingresa el pago minimo';
+                    return 'Ingresa el pago mínimo';
                   }
                   if (double.tryParse(v.replaceAll(',', '.')) == null) {
-                    return 'Valor invalido';
+                    return 'Valor inválido';
                   }
                   return null;
                 },
@@ -184,14 +184,14 @@ class _ReconcileStatementScreenState
                 decoration: const InputDecoration(
                   labelText: 'Pago total realizado (opcional)',
                   helperText:
-                      'Deja vacio si aun no has realizado el pago de este ciclo',
+                      'Deja vacío si aún no has realizado el pago de este ciclo',
                   prefixText: '\$ ',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) {
                   if (v != null && v.trim().isNotEmpty) {
                     if (double.tryParse(v.replaceAll(',', '.')) == null) {
-                      return 'Valor invalido';
+                      return 'Valor inválido';
                     }
                   }
                   return null;

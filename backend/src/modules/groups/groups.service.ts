@@ -231,7 +231,7 @@ export class GroupsService {
     }
 
     if (!invite) {
-      throw new ConflictException('No se pudo generar un codigo unico. Intenta de nuevo.');
+      throw new ConflictException('No se pudo generar un código único. Intenta de nuevo.');
     }
 
     return this.toInviteResponse(invite);
@@ -254,13 +254,13 @@ export class GroupsService {
   async joinByCode(userId: string, code: string, emailFallback?: string): Promise<GroupResponseDto> {
     const invite = await this.groupsRepository.findInviteByCode(code);
     if (!invite) {
-      throw new NotFoundException('Codigo de invitacion no encontrado.');
+      throw new NotFoundException('Código de invitación no encontrado.');
     }
     if (invite.consumedAt !== null) {
-      throw new ConflictException('Este codigo de invitacion ya fue utilizado.');
+      throw new ConflictException('Este código de invitación ya fue utilizado.');
     }
     if (invite.expiresAt < new Date()) {
-      throw new ConflictException('El codigo de invitacion ha vencido.');
+      throw new ConflictException('El código de invitación ha vencido.');
     }
 
     // Valida que el usuario no sea ya miembro real activo del grupo.
@@ -279,7 +279,7 @@ export class GroupsService {
 
     const group = await this.groupsRepository.findGroupById(invite.groupId);
     if (!group) {
-      throw new NotFoundException('El grupo de la invitacion no existe.');
+      throw new NotFoundException('El grupo de la invitación no existe.');
     }
     return this.toResponse(group);
   }

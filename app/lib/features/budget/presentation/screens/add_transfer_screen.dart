@@ -172,7 +172,7 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
               ),
               validator: (v) {
                 final n = double.tryParse((v ?? '').replaceAll(',', '.'));
-                if (n == null || n <= 0) return 'Ingresa un monto valido.';
+                if (n == null || n <= 0) return 'Ingresa un monto válido.';
                 return null;
               },
             ),
@@ -192,7 +192,7 @@ class _AddTransferScreenState extends ConsumerState<AddTransferScreen> {
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Descripcion (opcional)',
+                labelText: 'Descripción (opcional)',
                 border: OutlineInputBorder(),
               ),
               maxLength: 200,

@@ -20,7 +20,7 @@ export class ImportService {
     const parsed = mapRows(rows);
     if (parsed.transactions.length === 0 && parsed.transfers.length === 0) {
       throw new BadRequestException(
-        'No se encontraron movimientos validos en el archivo. Verifica el formato.',
+        'No se encontraron movimientos válidos en el archivo. Verifica el formato.',
       );
     }
     return this.importRepository.persist(userId, parsed);
@@ -37,7 +37,7 @@ export class ImportService {
     try {
       workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
     } catch {
-      throw new BadRequestException('No se pudo leer el archivo. Debe ser XLSX o CSV valido.');
+      throw new BadRequestException('No se pudo leer el archivo. Debe ser XLSX o CSV válido.');
     }
     const sheetName = workbook.SheetNames[0];
     if (!sheetName) {

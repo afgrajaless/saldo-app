@@ -46,7 +46,7 @@ class _ResultBadge extends StatelessWidget {
     final bg = usurious ? scheme.errorContainer : scheme.tertiaryContainer;
     final fg = usurious ? scheme.onErrorContainer : scheme.onTertiaryContainer;
     final icon = usurious ? Icons.gpp_bad_outlined : Icons.verified_user_outlined;
-    final title = usurious ? 'Tasa usuraria' : 'Dentro del limite legal';
+    final title = usurious ? 'Tasa usuraria' : 'Dentro del límite legal';
     final usage = evaluation.usagePercentage.toStringAsFixed(1).replaceAll('.', ',');
 
     return Container(

@@ -61,7 +61,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Unirme con codigo')),
+      appBar: AppBar(title: const Text('Unirme con código')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -76,7 +76,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Ingresa el codigo',
+                'Ingresa el código',
                 style: theme.textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
@@ -92,17 +92,17 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
               TextFormField(
                 controller: _codeController,
                 decoration: const InputDecoration(
-                  labelText: 'Codigo de invitacion',
+                  labelText: 'Código de invitación',
                   hintText: 'Ej: ABC123',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.link),
-                  helperText: 'El codigo no distingue mayusculas/minusculas',
+                  helperText: 'El código no distingue mayúsculas/minúsculas',
                 ),
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
                 enableSuggestions: false,
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Ingresa el codigo.' : null,
+                    (v == null || v.trim().isEmpty) ? 'Ingresa el código.' : null,
               ),
               const SizedBox(height: 28),
               FilledButton.icon(

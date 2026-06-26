@@ -60,14 +60,14 @@ export class CategoriesService {
   ): Promise<CategoryRow> {
     const parent = await this.categoriesRepository.findByIdForUser(parentId, userId);
     if (!parent) {
-      throw new BadRequestException('La categoria padre no existe o no es del usuario.');
+      throw new BadRequestException('La categoría padre no existe o no es del usuario.');
     }
     if (parent.parentId !== null) {
-      throw new BadRequestException('Solo se permite un nivel de subcategorias.');
+      throw new BadRequestException('Solo se permite un nivel de subcategorías.');
     }
     if (parent.type !== type) {
       throw new BadRequestException(
-        'La subcategoria debe ser del mismo tipo que su categoria padre.',
+        'La subcategoría debe ser del mismo tipo que su categoría padre.',
       );
     }
     return parent;
@@ -140,7 +140,7 @@ export class CategoriesService {
     );
     if (existing && existing.id !== ignoreId) {
       const label = type === 'income' ? 'ingreso' : 'egreso';
-      const scope = parentId ? 'subcategoria' : 'categoria';
+      const scope = parentId ? 'subcategoría' : 'categoría';
       throw new ConflictException(`Ya tienes una ${scope} "${name}" de ${label}.`);
     }
   }
@@ -179,7 +179,7 @@ export class CategoriesService {
   ): Promise<CategoryResponseDto> {
     const current = await this.categoriesRepository.findByIdForUser(id, userId);
     if (!current) {
-      throw new NotFoundException('Categoria no encontrada.');
+      throw new NotFoundException('Categoría no encontrada.');
     }
     const targetParentId = await this.resolveTargetParent(userId, current, dto.parentId);
     const name = dto.name?.trim() ?? current.name;
@@ -198,7 +198,7 @@ export class CategoriesService {
       parentId: dto.parentId === undefined ? undefined : targetParentId,
     });
     if (!updated) {
-      throw new NotFoundException('Categoria no encontrada.');
+      throw new NotFoundException('Categoría no encontrada.');
     }
     const hasChildren = await this.categoriesRepository.hasLiveChildren(id);
     return this.toResponse(updated, 0, hasChildren);
@@ -220,11 +220,11 @@ export class CategoriesService {
     if (requestedParentId === undefined) return current.parentId;
     if (requestedParentId === null) return null;
     if (requestedParentId === current.id) {
-      throw new BadRequestException('Una categoria no puede ser su propia categoria padre.');
+      throw new BadRequestException('Una categoría no puede ser su propia categoría padre.');
     }
     if (await this.categoriesRepository.hasLiveChildren(current.id)) {
       throw new BadRequestException(
-        'Esta categoria tiene subcategorias; no puede convertirse en subcategoria.',
+        'Esta categoría tiene subcategorías; no puede convertirse en subcategoría.',
       );
     }
     const parent = await this.resolveParent(userId, requestedParentId, current.type);
@@ -255,7 +255,7 @@ export class CategoriesService {
   async remove(userId: string, id: string): Promise<void> {
     const category = await this.categoriesRepository.findByIdForUser(id, userId);
     if (!category) {
-      throw new NotFoundException('Categoria no encontrada.');
+      throw new NotFoundException('Categoría no encontrada.');
     }
     // Primero las subcategorias (cada una reasigna sus movimientos a "Otros").
     const children = await this.categoriesRepository.findChildren(userId, id);
@@ -264,7 +264,7 @@ export class CategoriesService {
     }
     const deleted = await this.reassignAndSoftDelete(userId, category);
     if (!deleted) {
-      throw new NotFoundException('Categoria no encontrada.');
+      throw new NotFoundException('Categoría no encontrada.');
     }
   }
 

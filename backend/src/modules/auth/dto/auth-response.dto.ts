@@ -5,7 +5,7 @@ export class UserProfileDto {
   @ApiProperty({ description: 'UUID del usuario.', format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ description: 'Correo electronico.', example: 'juan.perez@example.com' })
+  @ApiProperty({ description: 'Correo electrónico.', example: 'juan.perez@example.com' })
   email!: string;
 
   @ApiProperty({ description: 'Nombre completo.', example: 'Juan Perez' })

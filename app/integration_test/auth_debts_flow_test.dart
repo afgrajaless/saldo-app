@@ -50,7 +50,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Si una corrida anterior dejo sesion guardada, cerrarla primero.
-    final loginLink = find.text('No tienes cuenta? Registrate');
+    final loginLink = find.text('¿No tienes cuenta? Regístrate');
     await pumpUntilAny(tester, [loginLink, find.byIcon(Icons.logout)]);
     if (find.byIcon(Icons.logout).evaluate().isNotEmpty) {
       await tester.tap(find.byIcon(Icons.logout));
@@ -71,7 +71,7 @@ void main() {
 
     // Tras registrarse, debe llegar a la lista de deudas (vacia al inicio).
     await pumpUntil(tester, find.text('Mis deudas'));
-    await pumpUntil(tester, find.text('Aun no tienes deudas registradas'));
+    await pumpUntil(tester, find.text('Aún no tienes deudas registradas'));
 
     // Crear una deuda.
     await tester.tap(find.text('Nueva deuda'));

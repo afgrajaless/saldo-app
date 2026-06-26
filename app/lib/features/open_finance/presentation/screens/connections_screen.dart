@@ -64,13 +64,13 @@ class ConnectionsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Aun no has conectado bancos.',
+                        'Aún no has conectado bancos.',
                         style: Theme.of(context).textTheme.titleMedium,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Conecta tu banco para sincronizar cuentas y deudas automaticamente.',
+                        'Conecta tu banco para sincronizar cuentas y deudas automáticamente.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -175,7 +175,7 @@ class ConnectionsScreen extends ConsumerWidget {
         ref.invalidate(cardsListProvider);
         if (context.mounted) {
           messenger.showSnackBar(
-            const SnackBar(content: Text('Conexion revocada.')),
+            const SnackBar(content: Text('Conexión revocada.')),
           );
         }
       }
@@ -195,9 +195,9 @@ class ConnectionsScreen extends ConsumerWidget {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revocar conexion'),
+        title: const Text('¿Revocar conexión?'),
         content: const Text(
-          'Los productos ya sincronizados se conservan, pero no se actualizaran automaticamente.',
+          'Los productos ya sincronizados se conservan, pero no se actualizarán automáticamente.',
         ),
         actions: [
           TextButton(

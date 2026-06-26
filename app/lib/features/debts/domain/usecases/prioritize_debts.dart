@@ -23,8 +23,8 @@ String payoffStrategyLabel(PayoffStrategy strategy) => switch (strategy) {
 /// @param strategy - Estrategia a describir.
 /// @return Descripcion legible de la estrategia.
 String payoffStrategyHint(PayoffStrategy strategy) => switch (strategy) {
-      PayoffStrategy.avalanche => 'Paga menos intereses: ataca la tasa mas alta.',
-      PayoffStrategy.monthlyCost => 'Ataca la deuda que mas te cuesta cada mes.',
+      PayoffStrategy.avalanche => 'Paga menos intereses: ataca la tasa más alta.',
+      PayoffStrategy.monthlyCost => 'Ataca la deuda que más te cuesta cada mes.',
     };
 
 /// Ordena las deudas por conveniencia de pago segun la estrategia elegida.
@@ -85,7 +85,7 @@ double _score(Debt debt, PayoffStrategy strategy) => switch (strategy) {
 String priorityReason(Debt debt, PayoffStrategy strategy) {
   if (debt.isInArrears) return 'En mora';
   return switch (strategy) {
-    PayoffStrategy.avalanche => 'Tasa mas alta',
-    PayoffStrategy.monthlyCost => 'Mas interes al mes',
+    PayoffStrategy.avalanche => 'Tasa más alta',
+    PayoffStrategy.monthlyCost => 'Más interés al mes',
   };
 }

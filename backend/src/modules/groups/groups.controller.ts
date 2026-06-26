@@ -238,9 +238,9 @@ export class GroupsController {
    * @returns La invitacion generada con su codigo.
    */
   @Post(':id/invites')
-  @ApiOperation({ summary: 'Generar un codigo de invitacion para el grupo' })
+  @ApiOperation({ summary: 'Generar un código de invitación para el grupo' })
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
-  @ApiResponse({ status: 201, description: 'Invitacion creada.', type: InviteResponseDto })
+  @ApiResponse({ status: 201, description: 'Invitación creada.', type: InviteResponseDto })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   @ApiResponse({ status: 404, description: 'Miembro fantasma no encontrado en el grupo.' })
   @ApiResponse({ status: 409, description: 'No se pudo generar un código único, reintenta.' })
@@ -261,10 +261,10 @@ export class GroupsController {
    * @returns El grupo al que se unio el usuario.
    */
   @Post('join')
-  @ApiOperation({ summary: 'Unirse a un grupo usando un codigo de invitacion' })
+  @ApiOperation({ summary: 'Unirse a un grupo usando un código de invitación' })
   @ApiResponse({ status: 201, description: 'Unido al grupo exitosamente.', type: GroupResponseDto })
-  @ApiResponse({ status: 404, description: 'Codigo de invitacion no encontrado.' })
-  @ApiResponse({ status: 409, description: 'Codigo vencido, ya consumido, o ya eres miembro del grupo.' })
+  @ApiResponse({ status: 404, description: 'Código de invitación no encontrado.' })
+  @ApiResponse({ status: 409, description: 'Código vencido, ya consumido, o ya eres miembro del grupo.' })
   joinGroup(
     @CurrentUser('sub') userId: string,
     @CurrentUser('email') email: string,
@@ -309,7 +309,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Registrar un gasto compartido en el grupo' })
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
   @ApiResponse({ status: 201, description: 'Gasto registrado.', type: ExpenseResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos invalidos o reparto incorrecto.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o reparto incorrecto.' })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   createExpense(
     @CurrentUser('sub') userId: string,
@@ -351,7 +351,7 @@ export class GroupsController {
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
   @ApiParam({ name: 'expenseId', description: 'UUID del gasto', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Gasto actualizado.', type: ExpenseResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos invalidos o reparto incorrecto.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o reparto incorrecto.' })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
   @ApiResponse({ status: 404, description: 'Gasto no encontrado.' })
   updateExpense(
@@ -448,12 +448,12 @@ export class GroupsController {
    * @returns La liquidacion creada.
    */
   @Post(':id/settlements')
-  @ApiOperation({ summary: 'Registrar la liquidacion de una deuda entre miembros del grupo' })
+  @ApiOperation({ summary: 'Registrar la liquidación de una deuda entre miembros del grupo' })
   @ApiParam({ name: 'id', description: 'UUID del grupo', format: 'uuid' })
-  @ApiResponse({ status: 201, description: 'Liquidacion registrada.', type: SettlementResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos invalidos o miembros iguales.' })
+  @ApiResponse({ status: 201, description: 'Liquidación registrada.', type: SettlementResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o miembros iguales.' })
   @ApiResponse({ status: 403, description: 'No eres miembro del grupo.' })
-  @ApiResponse({ status: 404, description: 'Miembro, cuenta o categoria no encontrados.' })
+  @ApiResponse({ status: 404, description: 'Miembro, cuenta o categoría no encontrados.' })
   createSettlement(
     @CurrentUser('sub') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
