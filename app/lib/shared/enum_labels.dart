@@ -1,9 +1,21 @@
 // Etiquetas en espanol para los enumerados del dominio (valores de la BD).
 
-/// Tipos de obligacion.
+/// Tipos de obligacion (para mostrar; incluye todos los valores de la BD).
 const Map<String, String> debtTypeLabels = {
   'libre_inversion': 'Libre inversion',
   'tarjeta_credito': 'Tarjeta de credito',
+  'libranza': 'Libranza',
+  'hipotecario': 'Hipotecario',
+  'vehiculo': 'Vehiculo',
+  'educativo': 'Educativo',
+  'gota_gota': 'Gota a gota',
+};
+
+/// Tipos de obligacion seleccionables al crear una deuda. Excluye
+/// 'tarjeta_credito' a proposito: las tarjetas se gestionan en su propia
+/// seccion (Cuentas > Tarjetas), no como una deuda generica.
+const Map<String, String> debtTypeOptions = {
+  'libre_inversion': 'Libre inversion',
   'libranza': 'Libranza',
   'hipotecario': 'Hipotecario',
   'vehiculo': 'Vehiculo',

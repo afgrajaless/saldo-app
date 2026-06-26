@@ -136,7 +136,7 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
               _dropdown(
                 label: 'Tipo de deuda',
                 value: _debtType,
-                options: debtTypeLabels,
+                options: debtTypeOptions,
                 onChanged: (v) => setState(() => _debtType = v!),
               ),
               const SizedBox(height: 16),
