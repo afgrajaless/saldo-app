@@ -23,4 +23,23 @@ class UsuryRepositoryImpl implements UsuryRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<UsuryEvaluation?> evaluateRate({
+    required double rate,
+    required String rateType,
+    required String debtType,
+  }) async {
+    try {
+      return await _remote.evaluateRate(
+        rate: rate,
+        rateType: rateType,
+        debtType: debtType,
+      );
+    } on ApiException catch (error) {
+      // 404 = no hay tope vigente: estado neutro (no se puede evaluar).
+      if (error.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 }

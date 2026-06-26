@@ -103,4 +103,54 @@ describe('UsuryService', () => {
       await expect(service.evaluateDebt('user-uuid', 'debt-uuid')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('evaluateRate', () => {
+    it('marca como no usuraria una tasa E.A. por debajo del tope', async () => {
+      usuryRepo.findCurrent.mockResolvedValue(makeRate()); // tope 0.2674
+
+      const result = await service.evaluateRate({
+        rate: 0.24,
+        rateType: 'ea',
+        debtType: 'libre_inversion',
+        date: '2026-02-01',
+      });
+
+      expect(result.isUsurious).toBe(false);
+      expect(result.usuryCap).toBe(0.2674);
+      expect(result.modality).toBe('consumo_ordinario');
+    });
+
+    it('marca como usuraria una tasa E.A. que supera el tope', async () => {
+      usuryRepo.findCurrent.mockResolvedValue(makeRate());
+
+      const result = await service.evaluateRate({
+        rate: 0.35,
+        rateType: 'ea',
+        debtType: 'gota_gota',
+      });
+
+      expect(result.isUsurious).toBe(true);
+      expect(result.marginPoints).toBeLessThan(0);
+    });
+
+    it('normaliza una tasa M.V. a E.A. antes de comparar', async () => {
+      usuryRepo.findCurrent.mockResolvedValue(makeRate());
+
+      // 3% M.V. ~ 42.6% E.A. -> supera el tope.
+      const result = await service.evaluateRate({
+        rate: 0.03,
+        rateType: 'mv',
+        debtType: 'libre_inversion',
+      });
+
+      expect(result.isUsurious).toBe(true);
+    });
+
+    it('lanza 404 si no hay tope vigente', async () => {
+      usuryRepo.findCurrent.mockResolvedValue(undefined);
+      await expect(
+        service.evaluateRate({ rate: 0.2, rateType: 'ea', debtType: 'libre_inversion' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

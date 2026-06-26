@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsISO8601, IsOptional } from 'class-validator';
-import { usuryModalityEnum } from '../../../db/schema';
+import { IsIn, IsISO8601, IsNumber, IsOptional, Min } from 'class-validator';
+import { debtTypeEnum, rateTypeEnum, usuryModalityEnum } from '../../../db/schema';
 
 /** Consulta de la tasa de usura vigente. */
 export class CurrentUsuryQueryDto {
@@ -30,6 +30,38 @@ export class ListUsuryQueryDto {
   @IsOptional()
   @IsIn(usuryModalityEnum.enumValues)
   modality?: (typeof usuryModalityEnum.enumValues)[number];
+}
+
+/** Evaluacion de una tasa hipotetica contra el tope de usura (antes de crear la deuda). */
+export class EvaluateRateDto {
+  @ApiProperty({ description: 'Tasa del credito como fraccion decimal (0.24 = 24 %).', example: 0.24 })
+  @IsNumber()
+  @Min(0)
+  rate!: number;
+
+  @ApiProperty({
+    description: 'Representacion de la tasa ingresada.',
+    enum: rateTypeEnum.enumValues,
+    example: 'ea',
+  })
+  @IsIn(rateTypeEnum.enumValues)
+  rateType!: (typeof rateTypeEnum.enumValues)[number];
+
+  @ApiProperty({
+    description: 'Tipo de obligacion (define la modalidad de usura).',
+    enum: debtTypeEnum.enumValues,
+    example: 'libre_inversion',
+  })
+  @IsIn(debtTypeEnum.enumValues)
+  debtType!: (typeof debtTypeEnum.enumValues)[number];
+
+  @ApiPropertyOptional({
+    description: 'Fecha de referencia (YYYY-MM-DD). Por defecto, hoy.',
+    example: '2026-06-26',
+  })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  date?: string;
 }
 
 /** Una tasa del catalogo de usura. */

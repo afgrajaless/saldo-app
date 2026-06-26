@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/error/api_exception.dart';
 import '../../../../shared/enum_labels.dart';
+import '../../../usury/domain/entities/usury_evaluation.dart';
+import '../../../usury/domain/repositories/usury_repository.dart';
 import '../../domain/entities/create_debt_params.dart';
 import '../providers/debts_controller.dart';
 
@@ -93,6 +96,8 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
     );
 
     try {
+      // Si la tasa supera el tope de usura, advertir y pedir confirmacion.
+      if (!await _confirmIfUsurious(params)) return;
       await ref.read(debtsControllerProvider.notifier).createDebt(params);
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -107,6 +112,52 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Si la tasa supera el tope de usura vigente, muestra una advertencia y pide
+  /// confirmacion. Es best-effort: si no se puede evaluar (sin tope o falla de
+  /// red), no bloquea la creacion.
+  /// @param params - Datos de la deuda a crear.
+  /// @return true si se debe continuar creando la deuda.
+  Future<bool> _confirmIfUsurious(CreateDebtParams params) async {
+    UsuryEvaluation? evaluation;
+    try {
+      evaluation = await getIt<UsuryRepository>().evaluateRate(
+        rate: params.nominalRate,
+        rateType: params.rateType,
+        debtType: params.debtType,
+      );
+    } on Object {
+      return true; // no se pudo evaluar: continuar sin bloquear
+    }
+    if (evaluation == null || !evaluation.isUsurious || !mounted) return true;
+
+    final cap = (evaluation.usuryCap * 100).toStringAsFixed(2);
+    final rate = (evaluation.effectiveAnnualRate * 100).toStringAsFixed(2);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded,
+            color: Theme.of(ctx).colorScheme.error),
+        title: const Text('Tasa por encima del tope de usura'),
+        content: Text(
+          'La tasa equivale a $rate % E.A., que supera el tope de usura vigente '
+          '($cap % E.A.). Cobrar por encima del tope es ilegal en Colombia. '
+          'Puedes registrarla de todos modos para llevar el control.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Registrar de todos modos'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   @override

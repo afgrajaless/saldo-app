@@ -1,4 +1,15 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -10,6 +21,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   CurrentUsuryQueryDto,
+  EvaluateRateDto,
   ListUsuryQueryDto,
   UsuryEvaluationDto,
   UsuryRateDto,
@@ -45,6 +57,20 @@ export class UsuryController {
   @ApiResponse({ status: 404, description: 'Sin tasa vigente para el periodo.' })
   getCurrent(@Query() query: CurrentUsuryQueryDto): Promise<UsuryRateDto> {
     return this.usuryService.getCurrent(query.modality, query.date);
+  }
+
+  /**
+   * Evalua una tasa hipotetica contra el tope de usura antes de crear la deuda.
+   * @param dto - Tasa, representacion, tipo de deuda y fecha (opcional).
+   * @returns El resultado de la evaluacion.
+   */
+  @Post('evaluate-rate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Evaluar una tasa contra el tope de usura (antes de crear la deuda)' })
+  @ApiResponse({ status: 200, description: 'Resultado de la evaluacion.', type: UsuryEvaluationDto })
+  @ApiResponse({ status: 404, description: 'Sin tope vigente para la modalidad y fecha.' })
+  evaluateRate(@Body() dto: EvaluateRateDto): Promise<UsuryEvaluationDto> {
+    return this.usuryService.evaluateRate(dto);
   }
 
   /**

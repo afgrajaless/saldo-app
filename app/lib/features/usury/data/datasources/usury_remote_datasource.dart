@@ -27,4 +27,26 @@ class UsuryRemoteDataSource {
       throw ApiException.fromDio(error);
     }
   }
+
+  /// Evalua una tasa hipotetica contra el tope de usura, antes de crear la deuda.
+  /// @param rate - Tasa como fraccion decimal (0.24 = 24 %).
+  /// @param rateType - Representacion de la tasa: 'ea' | 'mv' | 'nominal_anual'.
+  /// @param debtType - Tipo de obligacion (define la modalidad de usura).
+  /// @return La evaluacion de usura.
+  /// @throws ApiException si no hay tope vigente o falla la red.
+  Future<UsuryEvaluation> evaluateRate({
+    required double rate,
+    required String rateType,
+    required String debtType,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/usury/evaluate-rate',
+        data: {'rate': rate, 'rateType': rateType, 'debtType': debtType},
+      );
+      return usuryEvaluationFromJson(response.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 }

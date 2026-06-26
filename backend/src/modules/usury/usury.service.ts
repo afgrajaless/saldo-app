@@ -1,9 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { evaluateUsury } from '../../domain/usury/usury-evaluation';
+import { evaluateUsury, evaluateUsuryFromRate } from '../../domain/usury/usury-evaluation';
+import { RateType } from '../../domain/rates/rate-type';
 import { DebtsRepository } from '../debts/debts.repository';
 import { DEBT_TYPE_TO_MODALITY } from './debt-modality.map';
-import { UsuryEvaluationDto, UsuryRateDto } from './dto/usury.dto';
+import { EvaluateRateDto, UsuryEvaluationDto, UsuryRateDto } from './dto/usury.dto';
 import { UsuryModality, UsuryRateRow, UsuryRepository } from './usury.repository';
+
+/** Traduce el tipo de tasa del API (enum BD) al tipo de tasa del dominio. */
+const RATE_TYPE_MAP: Record<string, RateType> = {
+  ea: RateType.EFFECTIVE_ANNUAL,
+  mv: RateType.MONTHLY_EFFECTIVE,
+  nominal_anual: RateType.NOMINAL_ANNUAL,
+};
 
 /**
  * Servicio de usura. Consulta el catalogo de topes vigentes y evalua la tasa de
@@ -70,6 +78,29 @@ export class UsuryService {
       modality,
       referenceDate: debt.startDate,
     };
+  }
+
+  /**
+   * Evalua una tasa hipotetica contra el tope de usura vigente, ANTES de crear
+   * la deuda. Normaliza la tasa a E.A. segun su representacion y la modalidad
+   * del tipo de obligacion. No persiste nada.
+   * @param dto - Tasa, su representacion, el tipo de deuda y la fecha (opcional).
+   * @returns El resultado de la evaluacion (isUsurious, tope, margen, % de uso).
+   * @throws NotFoundException si no hay tope vigente para la modalidad y fecha.
+   */
+  async evaluateRate(dto: EvaluateRateDto): Promise<UsuryEvaluationDto> {
+    const modality = DEBT_TYPE_TO_MODALITY[dto.debtType];
+    const referenceDate = dto.date ?? this.today();
+    const cap = await this.usuryRepository.findCurrent(modality, referenceDate);
+    if (!cap) {
+      throw new NotFoundException('No hay tope de usura registrado para la modalidad y fecha.');
+    }
+    const evaluation = evaluateUsuryFromRate(
+      dto.rate,
+      RATE_TYPE_MAP[dto.rateType],
+      Number(cap.effectiveAnnualRate),
+    );
+    return { ...evaluation, modality, referenceDate };
   }
 
   /**
