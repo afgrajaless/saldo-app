@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   ConflictException,
   Injectable,
@@ -10,11 +11,13 @@ import { UserRow, UsersRepository } from '../users/users.repository';
 import { AuthResponseDto, UserProfileDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RefreshTokensRepository } from './refresh-tokens.repository';
 import { JwtPayload } from './types/jwt-payload';
 
 /**
  * Servicio de autenticacion: registro, inicio de sesion y renovacion de tokens.
- * Emite un JWT de acceso de vida corta y un refresh token rotatorio.
+ * Emite un JWT de acceso de vida corta y un refresh token rotatorio cuyo hash se
+ * persiste para permitir revocacion (logout / robo) y rotacion en cada refresco.
  */
 @Injectable()
 export class AuthService {
@@ -23,6 +26,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly refreshTokensRepository: RefreshTokensRepository,
   ) {}
 
   /**
@@ -80,11 +84,29 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Refresh token invalido o expirado.');
     }
+    // El token debe seguir vigente en BD (no revocado ni rotado); si no, se rechaza.
+    const stored = await this.refreshTokensRepository.findActiveByHash(this.hashToken(refreshToken));
+    if (!stored) {
+      throw new UnauthorizedException('Refresh token revocado o ya utilizado.');
+    }
     const user = await this.usersRepository.findById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('El usuario ya no existe.');
     }
+    // Rotacion: se revoca el token presentado y se emite uno nuevo.
+    await this.refreshTokensRepository.revoke(stored.id);
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * Cierra una sesion revocando el refresh token presentado (idempotente).
+   * @param refreshToken - Refresh token a revocar.
+   */
+  async logout(refreshToken: string): Promise<void> {
+    const stored = await this.refreshTokensRepository.findActiveByHash(this.hashToken(refreshToken));
+    if (stored) {
+      await this.refreshTokensRepository.revoke(stored.id);
+    }
   }
 
   /**
@@ -118,7 +140,35 @@ export class AuthService {
         expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
       }),
     ]);
+    // Persiste el hash del refresh token para poder revocarlo/rotarlo despues.
+    await this.refreshTokensRepository.create(
+      user.id,
+      this.hashToken(refreshToken),
+      this.refreshTokenExpiry(refreshToken),
+    );
     return { accessToken, refreshToken, user: this.toProfile(user) };
+  }
+
+  /**
+   * Calcula el hash SHA-256 (hex) de un refresh token para almacenarlo/compararlo.
+   * @param token - Refresh token en claro.
+   * @returns Hash hexadecimal del token.
+   */
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Extrae la fecha de expiracion de un refresh token a partir de su claim `exp`.
+   * @param token - Refresh token firmado.
+   * @returns La fecha de expiracion del token.
+   */
+  private refreshTokenExpiry(token: string): Date {
+    const decoded = this.jwtService.decode(token) as { exp?: number } | null;
+    if (!decoded?.exp) {
+      throw new UnauthorizedException('Refresh token sin expiracion.');
+    }
+    return new Date(decoded.exp * 1000);
   }
 
   /**

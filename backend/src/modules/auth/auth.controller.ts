@@ -69,6 +69,19 @@ export class AuthController {
   }
 
   /**
+   * Cierra la sesion revocando el refresh token (no podra volver a usarse).
+   * @param dto - Refresh token a revocar.
+   */
+  @Post('logout')
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cerrar sesion (revocar el refresh token)' })
+  @ApiResponse({ status: 204, description: 'Sesion cerrada.' })
+  logout(@Body() dto: RefreshDto): Promise<void> {
+    return this.authService.logout(dto.refreshToken);
+  }
+
+  /**
    * Devuelve el perfil del usuario autenticado, validado contra la base de datos
    * (no solo el payload del JWT): si el usuario ya no existe, responde 401. Esto
    * evita la "ghost session" en la que un token vigente sobrevive al borrado del usuario.

@@ -5,6 +5,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RefreshTokensRepository } from './refresh-tokens.repository';
 
 /**
  * Modulo de autenticacion. Los secretos y expiraciones se pasan por llamada al
@@ -14,7 +15,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Module({
   imports: [JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, JwtAuthGuard],
+  providers: [AuthService, PasswordService, JwtAuthGuard, RefreshTokensRepository],
   // Se exporta JwtModule para que JwtAuthGuard pueda inyectar JwtService en los
   // modulos que reusan el guard (p. ej. DebtsModule).
   exports: [JwtAuthGuard, JwtModule],

@@ -108,6 +108,27 @@ export const users = pgTable('users', {
     .$onUpdate(() => new Date()),
 });
 
+// ---------- refresh_tokens (sesiones: rotacion y revocacion de refresh tokens) ----------
+// Guarda el HASH (SHA-256) del refresh token, nunca el token en claro. Permite
+// revocar sesiones (logout / robo) y rotar el token en cada refresco.
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(), // SHA-256 hex del refresh token
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex('idx_refresh_tokens_hash').on(table.tokenHash),
+    userIdx: index('idx_refresh_tokens_user').on(table.userId),
+  }),
+);
+
 // ---------- open_finance_connections (conexión a un banco vía Open Finance) ----------
 export const openFinanceConnections = pgTable(
   'open_finance_connections',
