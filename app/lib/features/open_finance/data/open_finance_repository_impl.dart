@@ -5,6 +5,7 @@ import '../../../core/error/api_exception.dart';
 import '../domain/entities/institution.dart';
 import '../domain/entities/open_finance_connection.dart';
 import '../domain/entities/sync_summary.dart';
+import '../domain/entities/widget_token.dart';
 import '../domain/repositories/open_finance_repository.dart';
 import 'open_finance_models.dart';
 
@@ -42,6 +43,33 @@ class OpenFinanceRepositoryImpl implements OpenFinanceRepository {
       final res = await _dio.post<Map<String, dynamic>>(
         '/open-finance/connections',
         data: {'institutionId': institutionId},
+      );
+      return connectionFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<WidgetToken> createWidgetToken() {
+    return _send(() async {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/open-finance/widget-token',
+      );
+      return widgetTokenFromJson(res.data!);
+    });
+  }
+
+  @override
+  Future<OpenFinanceConnection> finalizeConnection(
+    String institutionId,
+    String externalConnectionId,
+  ) {
+    return _send(() async {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/open-finance/connections/finalize',
+        data: {
+          'institutionId': institutionId,
+          'externalConnectionId': externalConnectionId,
+        },
       );
       return connectionFromJson(res.data!);
     });

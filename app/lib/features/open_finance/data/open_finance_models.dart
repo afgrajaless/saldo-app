@@ -1,10 +1,19 @@
 import '../domain/entities/institution.dart';
 import '../domain/entities/open_finance_connection.dart';
 import '../domain/entities/sync_summary.dart';
+import '../domain/entities/widget_token.dart';
 
 /// Mapea el JSON de una institución a la entidad.
 Institution institutionFromJson(Map<String, dynamic> json) =>
     Institution(id: json['id'] as String, name: json['name'] as String);
+
+/// Mapea el JSON del token de widget a la entidad.
+WidgetToken widgetTokenFromJson(Map<String, dynamic> json) => WidgetToken(
+      accessToken: json['accessToken'] as String,
+      expiresAt: json['expiresAt'] != null
+          ? DateTime.parse(json['expiresAt'] as String)
+          : null,
+    );
 
 /// Mapea el JSON de una conexión a la entidad.
 OpenFinanceConnection connectionFromJson(Map<String, dynamic> json) =>
