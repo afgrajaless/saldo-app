@@ -49,6 +49,15 @@ class AuthRemoteDataSource {
     });
   }
 
+  /// Revoca el refresh token en el backend (cierra la sesion del lado servidor).
+  /// @param refreshToken - Token de refresco a revocar.
+  /// @throws ApiException si falla la red.
+  Future<void> logout(String refreshToken) async {
+    return _send(() async {
+      await _dio.post<void>('/auth/logout', data: {'refreshToken': refreshToken});
+    });
+  }
+
   /// Obtiene el usuario autenticado a partir del token vigente.
   /// @return El usuario en sesion.
   /// @throws ApiException si el token es invalido.

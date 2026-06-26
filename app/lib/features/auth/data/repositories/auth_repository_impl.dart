@@ -58,7 +58,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> logout() => _storage.clear();
+  Future<void> logout() async {
+    // Revoca el refresh token en el backend (best-effort) y luego limpia local:
+    // si la revocacion remota falla, la sesion local igual se cierra.
+    final refreshToken = await _storage.readRefreshToken();
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await _remote.logout(refreshToken);
+      } on Object {
+        // Ignorado a proposito: el cierre local no debe depender de la red.
+      }
+    }
+    await _storage.clear();
+  }
 
   /// Guarda los tokens de una sesion recien obtenida.
   /// @param session - Sesion a persistir.
