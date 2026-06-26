@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, sql } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { refreshTokens } from '../../db/schema';
 
@@ -69,5 +69,18 @@ export class RefreshTokensRepository {
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+  }
+
+  /**
+   * Borra los refresh tokens ya expirados (filas muertas que no sirven para nada).
+   * Se ejecuta periodicamente para que la tabla no crezca sin limite.
+   * @returns Cantidad de filas eliminadas.
+   */
+  async deleteExpired(): Promise<number> {
+    const deleted = await this.db
+      .delete(refreshTokens)
+      .where(lt(refreshTokens.expiresAt, sql`now()`))
+      .returning({ id: refreshTokens.id });
+    return deleted.length;
   }
 }

@@ -5,6 +5,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RefreshTokenCleanupService } from './refresh-token-cleanup.service';
 import { RefreshTokensRepository } from './refresh-tokens.repository';
 
 /**
@@ -15,7 +16,13 @@ import { RefreshTokensRepository } from './refresh-tokens.repository';
 @Module({
   imports: [JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, JwtAuthGuard, RefreshTokensRepository],
+  providers: [
+    AuthService,
+    PasswordService,
+    JwtAuthGuard,
+    RefreshTokensRepository,
+    RefreshTokenCleanupService,
+  ],
   // Se exporta JwtModule para que JwtAuthGuard pueda inyectar JwtService en los
   // modulos que reusan el guard (p. ej. DebtsModule).
   exports: [JwtAuthGuard, JwtModule],

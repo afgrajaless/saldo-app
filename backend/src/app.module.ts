@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
@@ -33,6 +34,8 @@ import { UsuryModule } from './modules/usury/usury.module';
     // Rate limiting global: 120 peticiones por minuto por IP (los endpoints
     // sensibles de auth lo restringen mas con @Throttle).
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
+    // Habilita tareas programadas (@Cron), p. ej. la limpieza de refresh tokens.
+    ScheduleModule.forRoot(),
     DatabaseModule,
     HealthModule,
     UsersModule,
