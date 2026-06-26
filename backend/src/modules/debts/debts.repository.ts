@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { Database, DRIZZLE } from '../../db/database.module';
 import { debts, installments } from '../../db/schema';
+import { EncryptionService } from '../../shared/security/encryption.service';
 import { InstallmentSeed } from './installment-schedule.factory';
 
 /** Fila de deuda tal como se almacena. */
@@ -21,36 +22,42 @@ export interface DebtUpdateFields {
 
 /**
  * Repositorio de deudas. Todas las consultas estan aisladas por user_id y
- * excluyen las deudas con soft delete (deleted_at IS NULL).
+ * excluyen las deudas con soft delete (deleted_at IS NULL). El acreedor
+ * (`creditor`, puede ser el nombre de una persona) se cifra en reposo.
  */
 @Injectable()
 export class DebtsRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly encryption: EncryptionService,
+  ) {}
 
   /**
-   * Crea una deuda y su cronograma de cuotas en una sola transaccion.
+   * Crea una deuda y su cronograma de cuotas en una sola transaccion. El
+   * acreedor se cifra antes de persistirlo.
    * @param userId - Dueno de la deuda.
    * @param values - Datos de la deuda.
    * @param schedule - Cuotas a insertar.
-   * @returns La deuda creada.
+   * @returns La deuda creada (con el acreedor descifrado).
    */
   async createWithSchedule(
     userId: string,
     values: NewDebtValues,
     schedule: InstallmentSeed[],
   ): Promise<DebtRow> {
-    return this.db.transaction(async (tx) => {
-      const [debt] = await tx
+    const debt = await this.db.transaction(async (tx) => {
+      const [created] = await tx
         .insert(debts)
-        .values({ ...values, userId })
+        .values({ ...values, userId, creditor: this.encryption.encrypt(values.creditor) })
         .returning();
       if (schedule.length > 0) {
         await tx
           .insert(installments)
-          .values(schedule.map((row) => ({ ...row, debtId: debt.id })));
+          .values(schedule.map((row) => ({ ...row, debtId: created.id })));
       }
-      return debt;
+      return created;
     });
+    return this.decryptRow(debt);
   }
 
   /**
@@ -59,11 +66,12 @@ export class DebtsRepository {
    * @returns Las deudas no eliminadas del usuario.
    */
   async findAllByUser(userId: string): Promise<DebtRow[]> {
-    return this.db
+    const rows = await this.db
       .select()
       .from(debts)
       .where(and(eq(debts.userId, userId), isNull(debts.deletedAt)))
       .orderBy(desc(debts.createdAt));
+    return rows.map((row) => this.decryptRow(row));
   }
 
   /**
@@ -104,7 +112,7 @@ export class DebtsRepository {
       .from(debts)
       .where(and(eq(debts.id, id), eq(debts.userId, userId), isNull(debts.deletedAt)))
       .limit(1);
-    return debt;
+    return debt ? this.decryptRow(debt) : undefined;
   }
 
   /**
@@ -132,12 +140,25 @@ export class DebtsRepository {
     userId: string,
     fields: DebtUpdateFields,
   ): Promise<DebtRow | undefined> {
+    const toSet =
+      fields.creditor !== undefined
+        ? { ...fields, creditor: this.encryption.encrypt(fields.creditor) }
+        : fields;
     const [debt] = await this.db
       .update(debts)
-      .set(fields)
+      .set(toSet)
       .where(and(eq(debts.id, id), eq(debts.userId, userId), isNull(debts.deletedAt)))
       .returning();
-    return debt;
+    return debt ? this.decryptRow(debt) : undefined;
+  }
+
+  /**
+   * Descifra el acreedor de una fila de deuda.
+   * @param debt - Fila cruda de la BD.
+   * @returns La fila con el acreedor en texto plano.
+   */
+  private decryptRow(debt: DebtRow): DebtRow {
+    return { ...debt, creditor: this.encryption.decrypt(debt.creditor) };
   }
 
   /**

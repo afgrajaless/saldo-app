@@ -256,7 +256,7 @@ export class OpenFinanceRepository {
 
     await this.db.insert(debts).values({
       userId,
-      creditor: n.creditor,
+      creditor: this.encryption.encrypt(n.creditor),
       // El valor ya viene saneado por mapLoanKindToDebtType en el dominio.
       debtType: n.debtType as typeof debts.$inferInsert.debtType,
       principalAmount,
