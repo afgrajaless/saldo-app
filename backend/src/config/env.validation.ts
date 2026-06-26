@@ -62,6 +62,11 @@ export class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGIN = '*';
 
+  /** DSN de Sentry para observabilidad en produccion (opcional). */
+  @IsString()
+  @IsOptional()
+  SENTRY_DSN?: string;
+
   /** Proveedor de Open Finance activo: 'mock' (default) o 'belvo'. */
   @IsString()
   @IsOptional()

@@ -1,0 +1,33 @@
+# Blueprint de Render para el backend de Saldo (NestJS).
+# Importa este repo en Render como "Blueprint" y rellena los secretos (sync: false)
+# en el panel. Ver docs/DEPLOY.md para el paso a paso.
+services:
+  - type: web
+    name: saldo-backend
+    runtime: node
+    rootDir: backend
+    # Ohio = us-east-2, misma region que la base Neon (minimiza latencia).
+    region: ohio
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Secretos: se rellenan en el panel de Render (nunca en el repo).
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
