@@ -20,6 +20,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { UsersModule } from './modules/users/users.module';
 import { UsuryModule } from './modules/usury/usury.module';
+import { SecurityModule } from './shared/security/security.module';
 
 /**
  * Modulo raiz de la aplicacion. Carga la configuracion validada, la conexion a
@@ -36,6 +37,7 @@ import { UsuryModule } from './modules/usury/usury.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
     // Habilita tareas programadas (@Cron), p. ej. la limpieza de refresh tokens.
     ScheduleModule.forRoot(),
+    SecurityModule,
     DatabaseModule,
     HealthModule,
     UsersModule,

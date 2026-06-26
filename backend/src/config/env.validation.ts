@@ -49,6 +49,11 @@ export class EnvironmentVariables {
   @MinLength(16)
   JWT_REFRESH_SECRET!: string;
 
+  /** Clave de cifrado en reposo: 32 bytes codificados en base64 (~44 chars). */
+  @IsString()
+  @MinLength(44)
+  ENCRYPTION_KEY!: string;
+
   @IsString()
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN = '7d';

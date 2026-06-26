@@ -13,6 +13,7 @@ import {
   NormalizedCard,
   NormalizedDebt,
 } from '../../domain/openfinance/types';
+import { EncryptionService } from '../../shared/security/encryption.service';
 
 /** Fila de una conexión de Open Finance tal como se almacena en BD. */
 export type ConnectionRow = typeof openFinanceConnections.$inferSelect;
@@ -42,20 +43,28 @@ export interface ConnectionUpdateFields {
  */
 @Injectable()
 export class OpenFinanceRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly encryption: EncryptionService,
+  ) {}
 
   /**
-   * Crea una nueva conexión Open Finance para el usuario.
+   * Crea una nueva conexión Open Finance para el usuario. El identificador
+   * externo (token del banco) se cifra en reposo.
    * @param userId - UUID del usuario dueño de la conexión.
    * @param values - Datos de la conexión (sin id, timestamps ni userId).
-   * @returns La fila de conexión recién creada.
+   * @returns La fila de conexión recién creada (con el token descifrado).
    */
   async createConnection(userId: string, values: NewConnectionValues): Promise<ConnectionRow> {
     const [row] = await this.db
       .insert(openFinanceConnections)
-      .values({ ...values, userId })
+      .values({
+        ...values,
+        userId,
+        externalConnectionId: this.encryption.encryptNullable(values.externalConnectionId ?? null),
+      })
       .returning();
-    return row;
+    return this.decryptRow(row);
   }
 
   /**
@@ -64,7 +73,7 @@ export class OpenFinanceRepository {
    * @returns Lista de conexiones activas del usuario.
    */
   async findConnectionsByUser(userId: string): Promise<ConnectionRow[]> {
-    return this.db
+    const rows = await this.db
       .select()
       .from(openFinanceConnections)
       .where(
@@ -73,6 +82,7 @@ export class OpenFinanceRepository {
           isNull(openFinanceConnections.deletedAt),
         ),
       );
+    return rows.map((row) => this.decryptRow(row));
   }
 
   /**
@@ -93,22 +103,39 @@ export class OpenFinanceRepository {
         ),
       )
       .limit(1);
-    return row;
+    return row ? this.decryptRow(row) : undefined;
   }
 
   /**
-   * Actualiza campos permitidos de una conexión existente (whitelist).
+   * Actualiza campos permitidos de una conexión existente (whitelist). Cifra el
+   * identificador externo si viene en los campos a actualizar.
    * @param id - UUID de la conexión a actualizar.
    * @param fields - Campos a modificar.
-   * @returns La fila de conexión actualizada.
+   * @returns La fila de conexión actualizada (con el token descifrado).
    */
   async updateConnection(id: string, fields: ConnectionUpdateFields): Promise<ConnectionRow> {
+    const toSet =
+      fields.externalConnectionId !== undefined
+        ? { ...fields, externalConnectionId: this.encryption.encryptNullable(fields.externalConnectionId) }
+        : fields;
     const [row] = await this.db
       .update(openFinanceConnections)
-      .set(fields)
+      .set(toSet)
       .where(eq(openFinanceConnections.id, id))
       .returning();
-    return row;
+    return this.decryptRow(row);
+  }
+
+  /**
+   * Descifra el identificador externo (token del banco) de una fila de conexión.
+   * @param row - Fila cruda de la BD.
+   * @returns La fila con el token en texto plano.
+   */
+  private decryptRow(row: ConnectionRow): ConnectionRow {
+    return {
+      ...row,
+      externalConnectionId: this.encryption.decryptNullable(row.externalConnectionId),
+    };
   }
 
   /**
