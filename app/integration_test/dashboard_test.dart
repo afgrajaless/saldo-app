@@ -87,8 +87,8 @@ void main() {
     await tester.tap(find.text('Resumen'));
     await tester.pumpAndSettle();
 
-    await pumpUntil(tester, find.text('Distribucion por tipo'));
-    expect(find.text('Distribucion por tipo'), findsOneWidget);
+    await pumpUntil(tester, find.text('Deuda por tipo'));
+    expect(find.text('Deuda por tipo'), findsOneWidget);
     expect(find.text('Hipotecario'), findsOneWidget);
 
     // Ventana para el screenshot del dashboard.
