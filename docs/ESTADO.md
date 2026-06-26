@@ -158,10 +158,10 @@ emitido tras el consentimiento del usuario. Por eso no hay campo "cédula".
 
 ---
 
-## 1.e Endurecimiento de seguridad, usura al crear y CI
+## 1.e Endurecimiento de seguridad, usura al crear, CI y despliegue
 
 Trabajo transversal (rama `feat/open-finance`). Todo probado e2e contra Neon y con
-el CI en verde.
+el CI en verde. Backend con **280 tests**.
 
 - **CI** (`.github/workflows/ci.yml`): en cada push/PR corre **backend** (`npm ci` →
   `nest build` → `npm test`) y **app** (`flutter analyze` con Flutter 3.27.4). En
@@ -179,14 +179,28 @@ el CI en verde.
   - `POST /auth/logout` revoca el token; el **logout de la app** lo llama
     (best-effort) antes de limpiar el Keychain. `RefreshTokensRepository` incluye
     `revokeAllForUser` (listo para "cerrar sesión en todos los dispositivos").
+- **Limpieza de tokens expirados** (`@nestjs/schedule`): `RefreshTokenCleanupService`
+  con `@Cron` diario (3 a. m.) que borra los `refresh_tokens` con `expires_at < now()`
+  (la tabla no crece sin límite).
 - **Usura al crear deuda**: `POST /usury/evaluate-rate` evalúa una tasa hipotética
   (normaliza a E.A. según su representación y la modalidad del tipo) sin persistir.
   En la app, al crear con tasa **usuraria** se muestra una advertencia y se pide
   confirmación — **no bloquea** (registrar un "gota a gota" por encima del tope es
   válido para llevar el control).
+- **Cifrado en reposo** (AES-256-GCM, `EncryptionService` + `SecurityModule` global,
+  clave `ENCRYPTION_KEY` de 32 bytes): cifra `users.full_name`,
+  `open_finance_connections.external_connection_id` (token bancario) y
+  `debts.creditor` (acreedor, puede ser una persona). Cifra al escribir, descifra al
+  leer; sobre `enc:v1:...` con **compatibilidad** con texto plano heredado.
+  **Sin migración de esquema** (las columnas siguen siendo `text`).
+- **Despliegue** (preparado, no ejecutado): `render.yaml` (Blueprint de Render: web
+  service NestJS, región Ohio = la de Neon, healthcheck `/api/health`, secretos
+  `sync: false`), **Sentry opcional** (`@sentry/node`, activo solo con `SENTRY_DSN`,
+  reporta 5xx) y `docs/DEPLOY.md` con el paso a paso (Neon `prod` + Render + Sentry).
 
 > Decisión de producto: en seguridad y en usura se **advierte/valida**, pero no se
 > impide registrar deudas reales por encima del tope (caso gota a gota colombiano).
+> `ENCRYPTION_KEY` debe ser estable: rotarla deja ilegibles los datos ya cifrados.
 
 ---
 
@@ -268,6 +282,7 @@ Equipo: **iMac Intel, macOS Ventura 13.7.8, Xcode 15.2** (tope para este hardwar
 cd backend
 npm install
 # .env con DATABASE_URL (Neon) + JWT_ACCESS_SECRET + JWT_REFRESH_SECRET (>=16)
+#   + ENCRYPTION_KEY (32 bytes base64: openssl rand -base64 32). Ver .env.example.
 npm run build && node dist/main.js   # o: npm run start:dev
 # Migraciones / seed:
 npm run db:generate   # genera SQL desde el schema (offline)
@@ -508,11 +523,12 @@ Estado: Riverpod (codegen `@riverpod`). DI: get_it + injectable. HTTP: Dio.
 - **Seguro de vida** como tasa sobre saldo decreciente ya soportado (`rate`); falta
   UI más rica si se quiere.
 - **Fase 5 — endurecimiento**: ✅ rate limiting, ✅ revocación/rotación de refresh
-  tokens, ✅ `/auth/me` contra BD, ✅ CI (`npm test` + `flutter analyze`) — ver §1.e.
-  Falta: **cifrado en reposo** de campos sensibles, **limpieza de tokens expirados**
-  (job o `DELETE WHERE expires_at < now()`), tests e2e Supertest en CI, `npm audit`
-  (vulns transitivas dev), modo oscuro.
-- **Fase 6 — despliegue**: Render (backend) + Neon prod (CI ya está en GitHub Actions).
+  tokens, ✅ `/auth/me` contra BD, ✅ limpieza de tokens expirados, ✅ cifrado en
+  reposo, ✅ CI (`npm test` + `flutter analyze`) — ver §1.e. Falta: tests e2e
+  Supertest en CI, `npm audit` (vulns transitivas dev), modo oscuro.
+- **Fase 6 — despliegue**: ✅ preparado (`render.yaml` + Sentry opcional + `docs/DEPLOY.md`).
+  Falta **ejecutarlo**: crear branch `prod` en Neon, importar el Blueprint en Render
+  y rellenar secretos (requiere las cuentas del dueño).
 - **README** de portafolio con screenshots.
 - Detalle UI: el FAB tapa el último ítem en listas cortas (ajustar padding).
 
