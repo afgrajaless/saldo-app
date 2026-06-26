@@ -4,8 +4,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ConnectionResponseDto } from './dto/connection-response.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
+import { FinalizeConnectionDto } from './dto/finalize-connection.dto';
 import { InstitutionDto } from './dto/institution.dto';
 import { SyncSummaryDto } from './dto/sync-summary.dto';
+import { WidgetTokenDto } from './dto/widget-token.dto';
 import { OpenFinanceService } from './open-finance.service';
 
 /** Conexiones y sincronización con Open Finance. Requiere autenticación. */
@@ -41,6 +43,43 @@ export class OpenFinanceController {
     @Body() dto: CreateConnectionDto,
   ): Promise<ConnectionResponseDto> {
     const row = await this.service.createConnection(userId, dto.institutionId);
+    return ConnectionResponseDto.from(row);
+  }
+
+  /**
+   * Genera un token efímero para abrir el widget de consentimiento del proveedor.
+   * Lo usa el cliente cuando el proveedor requiere autenticación en el banco
+   * (p. ej. Belvo). El backend nunca recibe las credenciales bancarias.
+   * @param userId - Usuario autenticado (extraído del JWT).
+   * @returns Token de widget para inicializar el cliente.
+   */
+  @Post('widget-token')
+  @ApiOperation({ summary: 'Generar un token para abrir el widget de consentimiento' })
+  @ApiResponse({ status: 201, type: WidgetTokenDto })
+  async widgetToken(@CurrentUser('sub') userId: string): Promise<WidgetTokenDto> {
+    const token = await this.service.createWidgetToken(userId);
+    return WidgetTokenDto.from(token);
+  }
+
+  /**
+   * Finaliza una conexión iniciada por widget: persiste el identificador
+   * externo (link_id) que el cliente obtuvo tras autenticar al usuario en su banco.
+   * @param userId - Usuario autenticado (extraído del JWT).
+   * @param dto - Institución y identificador externo de la conexión.
+   * @returns La conexión persistida con su estado.
+   */
+  @Post('connections/finalize')
+  @ApiOperation({ summary: 'Finalizar una conexión iniciada por widget (link_id)' })
+  @ApiResponse({ status: 201, type: ConnectionResponseDto })
+  async finalizeConnection(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: FinalizeConnectionDto,
+  ): Promise<ConnectionResponseDto> {
+    const row = await this.service.finalizeConnection(
+      userId,
+      dto.institutionId,
+      dto.externalConnectionId,
+    );
     return ConnectionResponseDto.from(row);
   }
 

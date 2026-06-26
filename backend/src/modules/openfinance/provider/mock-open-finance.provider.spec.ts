@@ -17,6 +17,13 @@ describe('MockOpenFinanceProvider', () => {
     expect(r.externalConnectionId).toMatch(/.+/);
   });
 
+  it('no requiere widget y emite un token simbólico', async () => {
+    expect(provider.requiresWidget).toBe(false);
+    const token = await provider.createWidgetToken('user-1');
+    expect(token.accessToken).toContain('user-1');
+    expect(token.expiresAt).toBeNull();
+  });
+
   it('trae cuentas y productos de crédito deterministas', async () => {
     const consent = await provider.startConsent('user-1', insts0Id(await provider.listInstitutions()));
     const accounts = await provider.fetchAccounts(consent.externalConnectionId);

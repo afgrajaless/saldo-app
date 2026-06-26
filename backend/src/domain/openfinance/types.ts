@@ -55,6 +55,16 @@ export interface OFConsentResult {
   redirectUrl?: string;
 }
 
+/**
+ * Token efímero para abrir el widget de consentimiento del proveedor.
+ * El cliente lo usa para inicializar el widget donde el usuario se autentica
+ * en su banco; el backend nunca ve las credenciales bancarias.
+ */
+export interface OFWidgetToken {
+  accessToken: string;
+  expiresAt: string | null;
+}
+
 /** Cuenta de activo ya normalizada al modelo de Saldo. */
 export interface NormalizedAccount {
   externalId: string;

@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { OFInstitution } from '../../domain/openfinance/types';
+import { OFInstitution, OFWidgetToken } from '../../domain/openfinance/types';
 import { normalizeAccount, normalizeCreditProduct } from '../../domain/openfinance/normalize';
 import { SyncSummaryDto } from './dto/sync-summary.dto';
 import { ConnectionRow, OpenFinanceRepository } from './open-finance.repository';
@@ -91,6 +91,45 @@ export class OpenFinanceService {
 
     await this.repo.updateConnection(connectionId, { lastSyncedAt: new Date() });
     return summary;
+  }
+
+  /**
+   * Crea un token efímero para abrir el widget de consentimiento del proveedor.
+   * @param userId - Usuario autenticado.
+   * @returns Token de widget para inicializar el cliente.
+   */
+  async createWidgetToken(userId: string): Promise<OFWidgetToken> {
+    return this.provider.createWidgetToken(userId);
+  }
+
+  /**
+   * Finaliza una conexión iniciada por widget: el cliente ya obtuvo el
+   * identificador externo (p. ej. el link_id de Belvo) tras autenticar al
+   * usuario en su banco, y aquí se persiste como conexión activa.
+   * @param userId - Usuario autenticado.
+   * @param institutionId - Institución conectada.
+   * @param externalConnectionId - Identificador de la conexión emitido por el proveedor.
+   * @returns La conexión recién persistida.
+   */
+  async finalizeConnection(
+    userId: string,
+    institutionId: string,
+    externalConnectionId: string,
+  ): Promise<ConnectionRow> {
+    const insts = await this.provider.listInstitutions();
+    const inst = insts.find((i) => i.id === institutionId);
+    if (!inst) {
+      throw new NotFoundException('Institución no encontrada.');
+    }
+    return this.repo.createConnection(userId, {
+      institutionId,
+      institutionName: inst.name,
+      provider: this.provider.id,
+      externalConnectionId,
+      status: 'active',
+      consentGrantedAt: new Date(),
+      consentExpiresAt: null,
+    });
   }
 
   /** Lista las conexiones del usuario. */

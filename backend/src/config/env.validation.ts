@@ -56,6 +56,26 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGIN = '*';
+
+  /** Proveedor de Open Finance activo: 'mock' (default) o 'belvo'. */
+  @IsString()
+  @IsOptional()
+  OPEN_FINANCE_PROVIDER = 'mock';
+
+  /** URL base de la API de Belvo (sandbox o producción). Sólo si se usa Belvo. */
+  @IsString()
+  @IsOptional()
+  BELVO_BASE_URL = 'https://sandbox.belvo.com';
+
+  /** Secret ID de Belvo (HTTP Basic). Sólo si OPEN_FINANCE_PROVIDER=belvo. */
+  @IsString()
+  @IsOptional()
+  BELVO_SECRET_ID?: string;
+
+  /** Secret password de Belvo (HTTP Basic). Sólo si OPEN_FINANCE_PROVIDER=belvo. */
+  @IsString()
+  @IsOptional()
+  BELVO_SECRET_PASSWORD?: string;
 }
 
 /**

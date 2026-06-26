@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { OFAccount, OFConsentResult, OFCreditProduct, OFInstitution } from '../../../domain/openfinance/types';
+import {
+  OFAccount,
+  OFConsentResult,
+  OFCreditProduct,
+  OFInstitution,
+  OFWidgetToken,
+} from '../../../domain/openfinance/types';
 import { OpenFinanceProvider } from './open-finance.provider';
 
 /** Datos de ejemplo por institución (deterministas). */
@@ -59,6 +65,19 @@ const FIXTURES: Record<string, { accounts: OFAccount[]; products: OFCreditProduc
 export class MockOpenFinanceProvider implements OpenFinanceProvider {
   /** Identificador de este proveedor. */
   readonly id = 'mock';
+
+  /** El mock aprueba el consentimiento directo, sin widget de cliente. */
+  readonly requiresWidget = false;
+
+  /**
+   * Devuelve un token simbólico (el mock no usa widget). Existe para que el
+   * endpoint de widget-token funcione de forma uniforme en cualquier proveedor.
+   * @param userId - ID del usuario solicitante.
+   * @returns Token de widget de ejemplo.
+   */
+  async createWidgetToken(userId: string): Promise<OFWidgetToken> {
+    return { accessToken: `mock-widget-token:${userId}`, expiresAt: null };
+  }
 
   /**
    * Lista las instituciones de ejemplo.
