@@ -88,6 +88,20 @@ export class AuthService {
   }
 
   /**
+   * Devuelve el perfil del usuario en sesion, leyendolo de la base de datos.
+   * @param userId - UUID del usuario (extraido del JWT).
+   * @returns El perfil publico del usuario.
+   * @throws UnauthorizedException si el usuario ya no existe.
+   */
+  async me(userId: string): Promise<UserProfileDto> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('El usuario ya no existe.');
+    }
+    return this.toProfile(user);
+  }
+
+  /**
    * Construye la respuesta de autenticacion con tokens y perfil.
    * @param user - Usuario autenticado.
    * @returns La respuesta con ambos tokens y el perfil publico.

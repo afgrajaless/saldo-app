@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './db/database.module';
 import { HealthModule } from './health/health.module';
@@ -28,6 +30,9 @@ import { UsuryModule } from './modules/usury/usury.module';
       isGlobal: true,
       validate: validateEnv,
     }),
+    // Rate limiting global: 120 peticiones por minuto por IP (los endpoints
+    // sensibles de auth lo restringen mas con @Throttle).
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
     DatabaseModule,
     HealthModule,
     UsersModule,
@@ -45,5 +50,7 @@ import { UsuryModule } from './modules/usury/usury.module';
     GroupsModule,
     OpenFinanceModule,
   ],
+  // Aplica el rate limiting a toda la app (las rutas lo afinan con @Throttle).
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

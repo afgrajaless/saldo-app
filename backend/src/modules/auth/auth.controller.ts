@@ -5,14 +5,18 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { AuthResponseDto } from './dto/auth-response.dto';
+import { AuthResponseDto, UserProfileDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtPayload } from './types/jwt-payload';
+
+/** Limite estricto para endpoints sensibles: 10 peticiones por minuto por IP. */
+const AUTH_THROTTLE = { default: { ttl: 60000, limit: 10 } };
 
 /** Endpoints de autenticacion: registro, login, refresco y perfil. */
 @ApiTags('auth')
@@ -26,6 +30,7 @@ export class AuthController {
    * @returns Tokens de sesion y perfil del usuario.
    */
   @Post('register')
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @ApiResponse({ status: 201, description: 'Usuario creado.', type: AuthResponseDto })
   @ApiResponse({ status: 409, description: 'El correo ya esta registrado.' })
@@ -39,6 +44,7 @@ export class AuthController {
    * @returns Tokens de sesion y perfil del usuario.
    */
   @Post('login')
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Iniciar sesion' })
   @ApiResponse({ status: 200, description: 'Sesion iniciada.', type: AuthResponseDto })
@@ -53,6 +59,7 @@ export class AuthController {
    * @returns Un nuevo par de tokens y el perfil del usuario.
    */
   @Post('refresh')
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Renovar tokens de sesion' })
   @ApiResponse({ status: 200, description: 'Tokens renovados.', type: AuthResponseDto })
@@ -62,17 +69,19 @@ export class AuthController {
   }
 
   /**
-   * Devuelve el usuario autenticado a partir del token de acceso.
+   * Devuelve el perfil del usuario autenticado, validado contra la base de datos
+   * (no solo el payload del JWT): si el usuario ya no existe, responde 401. Esto
+   * evita la "ghost session" en la que un token vigente sobrevive al borrado del usuario.
    * @param user - Payload del JWT inyectado por el guard.
-   * @returns El identificador y correo del usuario en sesion.
+   * @returns El perfil del usuario en sesion.
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener el usuario autenticado' })
-  @ApiResponse({ status: 200, description: 'Usuario en sesion.' })
-  @ApiResponse({ status: 401, description: 'No autenticado.' })
-  me(@CurrentUser() user: JwtPayload): { id: string; email: string } {
-    return { id: user.sub, email: user.email };
+  @ApiResponse({ status: 200, description: 'Usuario en sesion.', type: UserProfileDto })
+  @ApiResponse({ status: 401, description: 'No autenticado o usuario inexistente.' })
+  me(@CurrentUser() user: JwtPayload): Promise<UserProfileDto> {
+    return this.authService.me(user.sub);
   }
 }

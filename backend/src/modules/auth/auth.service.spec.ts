@@ -128,4 +128,24 @@ describe('AuthService', () => {
       await expect(service.refresh('valid.token')).rejects.toThrow(UnauthorizedException);
     });
   });
+
+  describe('me', () => {
+    it('devuelve el perfil leido de la base de datos', async () => {
+      usersRepository.findById.mockResolvedValue(makeUser());
+
+      const profile = await service.me('user-uuid');
+
+      expect(usersRepository.findById).toHaveBeenCalledWith('user-uuid');
+      expect(profile).toEqual({
+        id: 'user-uuid',
+        email: 'juan@example.com',
+        fullName: 'Juan Perez',
+      });
+    });
+
+    it('rechaza si el usuario fue borrado (evita ghost session)', async () => {
+      usersRepository.findById.mockResolvedValue(undefined);
+      await expect(service.me('ghost')).rejects.toThrow(UnauthorizedException);
+    });
+  });
 });
