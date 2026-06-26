@@ -103,6 +103,61 @@ verificado end-to-end contra Neon.
 
 ---
 
+## 1.d Open Finance — vinculación bancaria (rama `feat/open-finance`)
+
+Permite **conectar un banco** y traer cuentas, tarjetas y deudas automáticamente,
+en vez de cargarlas a mano. Hoy funciona con un **proveedor mock** (datos de
+ejemplo); el adaptador real (Belvo) está como **esqueleto** listo para enchufar.
+
+**Concepto clave:** NO se busca por cédula. La identidad la valida el banco; el
+backend solo guarda un **token de conexión** (`externalConnectionId` / `link_id`)
+emitido tras el consentimiento del usuario. Por eso no hay campo "cédula".
+
+- **BD:** tabla `open_finance_connections` (provider, institución, estado, token
+  externo, consentimiento, `lastSyncedAt`, soft delete). `accounts` y `debts`
+  llevan `source` ('manual' | 'open_finance') + `external_id`; las tarjetas viven
+  en `accounts`/`credit_card_details`.
+- **Dominio puro** (`backend/src/domain/openfinance/`): `normalize.ts` mapea la
+  forma canónica OF → modelo Saldo y clasifica créditos en tarjeta / deuda /
+  **omitido** (sin datos mínimos o tipo no soportado, p. ej. leasing).
+- **Puerto + proveedores** (`modules/openfinance/provider/`):
+  `OpenFinanceProvider` (interfaz), `MockOpenFinanceProvider` (default, fixtures
+  deterministas) y `BelvoOpenFinanceProvider` (**esqueleto** real: auth Basic,
+  `listInstitutions`/`fetchAccounts`/`fetchCreditProducts` sobre la API Belvo,
+  `createWidgetToken` vía `POST /api/token/`; mapeos marcados con `TODO(belvo)`).
+  Selección por env `OPEN_FINANCE_PROVIDER` (default 'mock').
+- **Servicio:** `sync` trae cuentas y créditos y hace **upsert idempotente** por
+  `(connectionId, externalId)` (re-sincronizar actualiza, no duplica) + snapshot
+  de saldo; si el proveedor falla, marca la conexión en `error`.
+- **Read-only:** cuentas/tarjetas/deudas con `source='open_finance'` son
+  **read-only** → editarlas devuelve **409** (se actualizan re-sincronizando).
+- **Flujo de widget** (para proveedores tipo Belvo): `POST /widget-token` (token
+  del Connect Widget) + `POST /connections/finalize` (persiste el link_id que el
+  cliente obtiene tras el login del usuario en su banco). El mock no usa widget.
+- **Endpoints** (`/api/open-finance`): `GET institutions`, `GET/POST connections`,
+  `POST widget-token`, `POST connections/finalize`, `POST connections/:id/sync`,
+  `DELETE connections/:id` (revoca; conserva lo importado).
+- **Flutter** (`app/lib/features/open_finance/`): dominio (entidades + contrato),
+  data (mappers + `OpenFinanceRepositoryImpl` sobre Dio, incluye `createWidgetToken`
+  y `finalizeConnection`), providers Riverpod, pantallas `connect_bank_screen`
+  (lista bancos → conecta+sincroniza) y `connections_screen` (estado, re-sync,
+  revocar). Badge **"Vinculado"** read-only en deudas/cuentas/tarjetas.
+- **Verificación:** backend **263 tests** (incluye OF: normalize, mock, servicio,
+  widget-token/finalize); `flutter analyze` limpio; integration test
+  `open_finance_test.dart` verde en simulador iOS; flujo probado e2e por API real
+  (conectar → sync → 409 al editar → idempotencia → widget-token/finalize → 404).
+- **Pendiente:** UI del **widget Belvo** (WebView + capturar link_id) y
+  **credenciales sandbox** reales; el **sync no maneja bajas** (un producto cerrado
+  en el banco queda en Saldo); snapshots crecen sin poda. Mientras tanto, el camino
+  real para datos propios es el **import XLSX/CSV** ya existente.
+
+> **Cambio relacionado:** en "Nueva deuda" el tipo **Tarjeta de crédito** se quitó
+> de las opciones seleccionables (`debtTypeOptions` en `enum_labels.dart`) para
+> empujar el uso de la sección de Tarjetas; `debtTypeLabels` se conserva completo
+> para mostrar deudas previas de ese tipo.
+
+---
+
 ## 1.c Novedades de sesiones previas (resumen para retomar)
 
 Todo lo de abajo ya está implementado, probado (`flutter analyze` limpio, backend
@@ -293,9 +348,12 @@ GET /api/health
 
 Tablas: `users`, `income_sources`, `debts`, `installments`, `payments`,
 `usury_rates`, `categories`, `transactions`, **`accounts`**, **`transfers`**,
-**`account_rates`**, **`account_snapshots`**, **`cdt_terms`**, **`groups`**,
-**`group_members`**, **`group_invites`**, **`shared_expenses`**,
-**`shared_expense_shares`**, **`settlements`**.
+**`account_rates`**, **`account_snapshots`**, **`cdt_terms`**, **`credit_card_details`**,
+**`groups`**, **`group_members`**, **`group_invites`**, **`shared_expenses`**,
+**`shared_expense_shares`**, **`settlements`**, **`open_finance_connections`**.
+
+`accounts` y `debts` incluyen `source` ('manual' | 'open_finance') + `external_id`
+para los productos vinculados por Open Finance (ver §1.d).
 
 Enums: `debt_type`, `rate_type`, `amortization_system`, `debt_status`,
 `installment_status`, `payment_type`, `usury_modality`, `category_type`,
@@ -387,6 +445,10 @@ Estado: Riverpod (codegen `@riverpod`). DI: get_it + injectable. HTTP: Dio.
 - **Verificado en simulador iOS** esta sesión: import real (116 mov + 8 transf),
   cuentas como tab, donas de Resumen con colores, selector de rendimiento.
 - **Pulido visual** unificado (tema esmeralda, tarjetas planas).
+- **Tarjetas de crédito** (módulo `cards`): producto propio con corte/pago,
+  cuota rotativa y compras a cuotas; sección Cuentas › Tarjetas.
+- **Open Finance** (rama `feat/open-finance`, ver §1.d): vinculación bancaria con
+  proveedor mock + esqueleto Belvo; cuentas/deudas/tarjetas read-only vinculadas.
 
 ---
 
