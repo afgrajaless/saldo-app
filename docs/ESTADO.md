@@ -158,6 +158,38 @@ emitido tras el consentimiento del usuario. Por eso no hay campo "cédula".
 
 ---
 
+## 1.e Endurecimiento de seguridad, usura al crear y CI
+
+Trabajo transversal (rama `feat/open-finance`). Todo probado e2e contra Neon y con
+el CI en verde.
+
+- **CI** (`.github/workflows/ci.yml`): en cada push/PR corre **backend** (`npm ci` →
+  `nest build` → `npm test`) y **app** (`flutter analyze` con Flutter 3.27.4). En
+  `ubuntu-latest` (el analyze no necesita Xcode).
+- **Rate limiting** (`@nestjs/throttler`): guard global **120 req/min por IP** y
+  límite estricto **10/min** en `register`/`login`/`refresh`/`logout` (mitiga fuerza
+  bruta). Respuesta **429** al exceder.
+- **`/auth/me` contra BD**: ya no responde solo del JWT; lee el usuario y devuelve
+  **401** si fue borrado (cierra la "ghost session"). Devuelve perfil completo
+  (id, email, fullName).
+- **Refresh tokens con rotación y revocación** (migración **0012**, tabla
+  `refresh_tokens` con el **hash SHA-256** del token, expira y `revoked_at`):
+  - al emitir se guarda el hash; en `refresh` se valida que siga activo, se revoca
+    el anterior y se rota → un token reutilizado o rotado da **401**.
+  - `POST /auth/logout` revoca el token; el **logout de la app** lo llama
+    (best-effort) antes de limpiar el Keychain. `RefreshTokensRepository` incluye
+    `revokeAllForUser` (listo para "cerrar sesión en todos los dispositivos").
+- **Usura al crear deuda**: `POST /usury/evaluate-rate` evalúa una tasa hipotética
+  (normaliza a E.A. según su representación y la modalidad del tipo) sin persistir.
+  En la app, al crear con tasa **usuraria** se muestra una advertencia y se pide
+  confirmación — **no bloquea** (registrar un "gota a gota" por encima del tope es
+  válido para llevar el control).
+
+> Decisión de producto: en seguridad y en usura se **advierte/valida**, pero no se
+> impide registrar deudas reales por encima del tope (caso gota a gota colombiano).
+
+---
+
 ## 1.c Novedades de sesiones previas (resumen para retomar)
 
 Todo lo de abajo ya está implementado, probado (`flutter analyze` limpio, backend
@@ -350,7 +382,8 @@ Tablas: `users`, `income_sources`, `debts`, `installments`, `payments`,
 `usury_rates`, `categories`, `transactions`, **`accounts`**, **`transfers`**,
 **`account_rates`**, **`account_snapshots`**, **`cdt_terms`**, **`credit_card_details`**,
 **`groups`**, **`group_members`**, **`group_invites`**, **`shared_expenses`**,
-**`shared_expense_shares`**, **`settlements`**, **`open_finance_connections`**.
+**`shared_expense_shares`**, **`settlements`**, **`open_finance_connections`**,
+**`refresh_tokens`**.
 
 `accounts` y `debts` incluyen `source` ('manual' | 'open_finance') + `external_id`
 para los productos vinculados por Open Finance (ver §1.d).
@@ -374,7 +407,12 @@ Migraciones: 0000 (6 tablas), 0001 (categories+transactions), 0002 (seguro),
 0003 (interest_mode), **0004 (accounts, transfers, transactions.account_id)**,
 **0005 (yield_type/EA en accounts, account_rates, account_snapshots, cdt_terms)**,
 **0006 (categories.parent_id + idx_categories_parent — subcategorías)**,
-**0007 (6 tablas de grupos de gasto compartido + enum split_method)**.
+**0007 (6 tablas de grupos de gasto compartido + enum split_method)**,
+**0008–0011 (tarjetas de crédito y Open Finance: `credit_card_details`,
+`open_finance_connections`, `source`/`external_id` en accounts/debts)**,
+**0012 (`refresh_tokens` — revocación/rotación de sesiones)**. Nota: el snapshot
+manual 0010 tenía el `prevId` roto; ya corregido, `db:generate` vuelve a funcionar.
+Rollback de 0012: `DROP TABLE IF EXISTS "refresh_tokens" CASCADE;`.
 Rollback de 0004/0005/0006/0007 documentado en su momento (DROP de las tablas/columnas/enum nuevos).
 
 `categories` incluye `parent_id` (autoreferencia, null = primer nivel). Unicidad de
@@ -469,10 +507,12 @@ Estado: Riverpod (codegen `@riverpod`). DI: get_it + injectable. HTTP: Dio.
   refleje la causación diaria (cierra parte del gap en meses de 31 días).
 - **Seguro de vida** como tasa sobre saldo decreciente ya soportado (`rate`); falta
   UI más rica si se quiere.
-- **Fase 5 — endurecimiento**: revocación de refresh tokens (hoy stateless), rate
-  limiting, tests e2e automatizados (Jest+Supertest) en CI, `npm audit` (48 vulns
-  transitivas dev), modo oscuro.
-- **Fase 6 — despliegue**: Render (backend) + Neon prod + GitHub Actions.
+- **Fase 5 — endurecimiento**: ✅ rate limiting, ✅ revocación/rotación de refresh
+  tokens, ✅ `/auth/me` contra BD, ✅ CI (`npm test` + `flutter analyze`) — ver §1.e.
+  Falta: **cifrado en reposo** de campos sensibles, **limpieza de tokens expirados**
+  (job o `DELETE WHERE expires_at < now()`), tests e2e Supertest en CI, `npm audit`
+  (vulns transitivas dev), modo oscuro.
+- **Fase 6 — despliegue**: Render (backend) + Neon prod (CI ya está en GitHub Actions).
 - **README** de portafolio con screenshots.
 - Detalle UI: el FAB tapa el último ítem en listas cortas (ajustar padding).
 
@@ -484,9 +524,14 @@ Estado: Riverpod (codegen `@riverpod`). DI: get_it + injectable. HTTP: Dio.
   usar `find.byIcon(Icons.add)` o `find.byType(ListTile)` en tests.
 - Varios FAB en un `IndexedStack` chocan por el `heroTag` por defecto → asignar
   `heroTag` único a cada uno.
-- `GET /auth/me` responde desde el payload del JWT sin consultar la BD → una sesión
-  puede "revivir" 15 min tras borrar el usuario ("ghost session"). Los e2e cierran
-  sesión (ícono logout) si arrancan logueados.
+- `GET /auth/me` respondía desde el payload del JWT sin consultar la BD → "ghost
+  session" (la sesión revivía 15 min tras borrar el usuario). **Corregido** (§1.e):
+  ahora valida contra BD y da 401. Los e2e cierran sesión (ícono logout) si arrancan
+  logueados.
+- **Migraciones manuales de drizzle**: si escribes una migración a mano, su
+  `meta/NNNN_snapshot.json` debe tener `id` único y `prevId` = `id` del snapshot
+  anterior. El 0010 se apuntaba a sí mismo y rompía `db:generate` (colisión de
+  snapshots); arreglar el `prevId` lo destraba.
 - En el simulador iOS, sesión persiste en Keychain entre corridas de tests.
 - `DropdownButtonFormField` en Flutter 3.27 usa `value:` (no `initialValue:`, que es 3.29+).
 - **Interés por día NO cierra el gap de la cuota** cuando el banco aplica una tasa
